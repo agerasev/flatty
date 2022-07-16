@@ -10,7 +10,10 @@ pub use vec::*;
 
 /// # Safety
 pub unsafe trait Flat {
-    const ALIGN: usize;
+    /// Sized type that has the same alignment as [`Self`].
+    type AlignAs: Sized;
+    const ALIGN: usize = align_of::<Self::AlignAs>();
+
     fn size(&self) -> usize;
 }
 
@@ -25,7 +28,8 @@ pub trait FlatExt {
 }
 
 unsafe impl<T: FlatSized> Flat for T {
-    const ALIGN: usize = align_of::<Self>();
+    type AlignAs = Self;
+
     fn size(&self) -> usize {
         Self::SIZE
     }
@@ -33,12 +37,16 @@ unsafe impl<T: FlatSized> Flat for T {
 
 impl<T: FlatSized> FlatExt for T {
     fn from_slice(mem: &[u8]) -> &Self {
-        assert_eq!(mem.as_ptr().align_offset(Self::ALIGN), 0);
+        assert!(mem.len() >= Self::SIZE);
+        assert!(mem.as_ptr().align_offset(Self::ALIGN) == 0);
+
         let ptr = mem.as_ptr() as *const Self;
         unsafe { &*ptr }
     }
     fn from_slice_mut(mem: &mut [u8]) -> &mut Self {
-        assert_eq!(mem.as_ptr().align_offset(Self::ALIGN), 0);
+        assert!(mem.len() >= Self::SIZE);
+        assert!(mem.as_ptr().align_offset(Self::ALIGN) == 0);
+
         let ptr = mem.as_mut_ptr() as *mut Self;
         unsafe { &mut *ptr }
     }

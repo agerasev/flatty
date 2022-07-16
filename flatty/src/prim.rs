@@ -1,5 +1,7 @@
 use crate::FlatSized;
 
+unsafe impl FlatSized for () {}
+
 unsafe impl FlatSized for bool {}
 
 unsafe impl FlatSized for u8 {}
