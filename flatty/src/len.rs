@@ -1,13 +1,13 @@
-use crate::Flat;
+use crate::FlatSized;
 
 /// # Safety
-pub unsafe trait FlatSize: Flat + Sized + Copy {
+pub unsafe trait FlatLen: FlatSized + Copy {
     const MAX_USIZE: usize;
     fn from_usize(n: usize) -> Option<Self>;
     fn into_usize(self) -> usize;
 }
 
-unsafe impl FlatSize for u8 {
+unsafe impl FlatLen for u8 {
     const MAX_USIZE: usize = u8::MAX as usize;
     fn from_usize(n: usize) -> Option<Self> {
         if n <= Self::MAX as usize {
@@ -20,7 +20,7 @@ unsafe impl FlatSize for u8 {
         self as usize
     }
 }
-unsafe impl FlatSize for u16 {
+unsafe impl FlatLen for u16 {
     const MAX_USIZE: usize = u16::MAX as usize;
     fn from_usize(n: usize) -> Option<Self> {
         if n <= Self::MAX as usize {
@@ -33,7 +33,7 @@ unsafe impl FlatSize for u16 {
         self as usize
     }
 }
-unsafe impl FlatSize for u32 {
+unsafe impl FlatLen for u32 {
     const MAX_USIZE: usize = u32::MAX as usize;
     fn from_usize(n: usize) -> Option<Self> {
         if n <= Self::MAX as usize {
