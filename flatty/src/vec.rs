@@ -1,7 +1,6 @@
-use crate::{Flat, FlatExt, FlatLen, FlatSized};
+use crate::{util::const_max, Flat, FlatExt, FlatLen, FlatSized};
 use core::{
-    cmp,
-    mem::{size_of, MaybeUninit},
+    mem::MaybeUninit,
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
@@ -9,14 +8,6 @@ use core::{
 pub struct FlatVec<T: Flat + Sized, L: FlatLen = u32> {
     len: L,
     data: [MaybeUninit<T>],
-}
-
-const fn const_max(a: usize, b: usize) -> usize {
-    if a > b {
-        a
-    } else {
-        b
-    }
 }
 
 impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
@@ -69,27 +60,24 @@ unsafe impl<T: FlatSized, L: FlatLen> Flat for FlatVec<T, L> {
 }
 
 impl<T: FlatSized, L: FlatLen> FlatExt for FlatVec<T, L> {
-    fn from_slice(slice: &[u8]) -> &Self {
+    unsafe fn from_slice(slice: &[u8]) -> &Self {
         assert!(slice.len() >= Self::DATA_OFFSET);
         assert!(slice.as_ptr().align_offset(Self::ALIGN) == 0);
 
-        let mem =
-            unsafe { from_raw_parts(slice.as_ptr(), (slice.len() - Self::DATA_OFFSET) / T::SIZE) };
+        let mem = from_raw_parts(slice.as_ptr(), (slice.len() - Self::DATA_OFFSET) / T::SIZE);
         let ptr = mem as *const [_] as *const Self;
-        unsafe { &*ptr }
+        &*ptr
     }
-    fn from_slice_mut(slice: &mut [u8]) -> &mut Self {
+    unsafe fn from_slice_mut(slice: &mut [u8]) -> &mut Self {
         assert!(slice.len() >= Self::DATA_OFFSET);
         assert!(slice.as_ptr().align_offset(Self::ALIGN) == 0);
 
-        let mem = unsafe {
-            from_raw_parts_mut(
-                slice.as_mut_ptr(),
-                (slice.len() - Self::DATA_OFFSET) / T::SIZE,
-            )
-        };
+        let mem = from_raw_parts_mut(
+            slice.as_mut_ptr(),
+            (slice.len() - Self::DATA_OFFSET) / T::SIZE,
+        );
         let ptr = mem as *mut [_] as *mut Self;
-        unsafe { &mut *ptr }
+        &mut *ptr
     }
 }
 
@@ -101,7 +89,7 @@ mod tests {
     #[test]
     fn data_offset() {
         let mem = vec![0u8; 2 + 3 * 4];
-        let flat_vec = FlatVec::<i32, u16>::from_slice(mem.as_slice());
+        let flat_vec = unsafe { FlatVec::<i32, u16>::from_slice(mem.as_slice()) };
 
         assert_eq!(align_of_val(flat_vec), FlatVec::<i32>::ALIGN);
     }
@@ -109,7 +97,7 @@ mod tests {
     #[test]
     fn align() {
         let mem = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32>::from_slice(mem.as_slice());
+        let flat_vec = unsafe { FlatVec::<i32>::from_slice(mem.as_slice()) };
 
         assert_eq!(align_of_val(flat_vec), FlatVec::<i32>::ALIGN);
     }
@@ -117,7 +105,7 @@ mod tests {
     #[test]
     fn len_cap() {
         let mem = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32>::from_slice(mem.as_slice());
+        let flat_vec = unsafe { FlatVec::<i32>::from_slice(mem.as_slice()) };
         assert_eq!(flat_vec.capacity(), 3);
 
         assert_eq!(flat_vec.len(), 0);
@@ -126,7 +114,7 @@ mod tests {
     #[test]
     fn size() {
         let mut mem = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32>::from_slice_mut(mem.as_mut_slice());
+        let flat_vec = unsafe { FlatVec::<i32>::from_slice_mut(mem.as_mut_slice()) };
         assert_eq!(FlatVec::<i32>::DATA_OFFSET, flat_vec.size());
 
         for i in 0.. {

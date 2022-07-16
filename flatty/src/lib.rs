@@ -1,12 +1,22 @@
+//! # Flatty
+//!
+//! ## TODO
+//!
+//! + Should we allow [`FlatVec`] items to be non-[`Copy`]?
+//! + What if constructed from non-zeroed slice? Should we validate on constructing?
+
 use std::mem::{align_of, size_of};
 
-mod len;
 mod prim;
-mod vec;
+mod util;
 
-pub use len::*;
-pub use prim::*;
-pub use vec::*;
+pub mod len;
+pub mod unsized_enum;
+pub mod vec;
+
+pub use len::FlatLen;
+pub use unsized_enum::UnsizedEnum;
+pub use vec::FlatVec;
 
 /// # Safety
 pub unsafe trait Flat {
@@ -23,8 +33,10 @@ pub unsafe trait FlatSized: Flat + Sized {
 }
 
 pub trait FlatExt {
-    fn from_slice(mem: &[u8]) -> &Self;
-    fn from_slice_mut(mem: &mut [u8]) -> &mut Self;
+    /// # Safety
+    unsafe fn from_slice(mem: &[u8]) -> &Self;
+    /// # Safety
+    unsafe fn from_slice_mut(mem: &mut [u8]) -> &mut Self;
 }
 
 unsafe impl<T: FlatSized> Flat for T {
@@ -36,18 +48,18 @@ unsafe impl<T: FlatSized> Flat for T {
 }
 
 impl<T: FlatSized> FlatExt for T {
-    fn from_slice(mem: &[u8]) -> &Self {
+    unsafe fn from_slice(mem: &[u8]) -> &Self {
         assert!(mem.len() >= Self::SIZE);
         assert!(mem.as_ptr().align_offset(Self::ALIGN) == 0);
 
         let ptr = mem.as_ptr() as *const Self;
-        unsafe { &*ptr }
+        &*ptr
     }
-    fn from_slice_mut(mem: &mut [u8]) -> &mut Self {
+    unsafe fn from_slice_mut(mem: &mut [u8]) -> &mut Self {
         assert!(mem.len() >= Self::SIZE);
         assert!(mem.as_ptr().align_offset(Self::ALIGN) == 0);
 
         let ptr = mem.as_mut_ptr() as *mut Self;
-        unsafe { &mut *ptr }
+        &mut *ptr
     }
 }
