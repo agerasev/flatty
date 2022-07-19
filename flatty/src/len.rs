@@ -1,8 +1,8 @@
-use crate::FlatSized;
+use crate::prim::FlatPrim;
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 
 /// # Safety
-pub unsafe trait FlatLen: FlatSized + Add + AddAssign + Sub + SubAssign + Copy {
+pub unsafe trait FlatLen: FlatPrim + Add + AddAssign + Sub + SubAssign {
     const MAX_USIZE: usize;
     fn from_usize(n: usize) -> Option<Self>;
     fn into_usize(self) -> usize;
