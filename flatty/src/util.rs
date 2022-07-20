@@ -1,7 +1,7 @@
 use core::mem::MaybeUninit;
 
 // TODO: Remove when [`usize::max`] becomes `const`.
-pub const fn usize_max(a: usize, b: usize) -> usize {
+pub const fn max(a: usize, b: usize) -> usize {
     if a >= b {
         a
     } else {
@@ -11,12 +11,27 @@ pub const fn usize_max(a: usize, b: usize) -> usize {
 
 // TODO: Remove when [`usize::min`] becomes `const`.
 #[allow(dead_code)]
-pub const fn usize_min(a: usize, b: usize) -> usize {
+pub const fn min(a: usize, b: usize) -> usize {
     if a <= b {
         a
     } else {
         b
     }
+}
+
+#[allow(dead_code)]
+pub const fn upper_multiple(x: usize, m: usize) -> usize {
+    ((x + m - 1) / m) * m
+}
+
+#[allow(dead_code)]
+pub const fn aligned_add(a: usize, b: usize, m: usize) -> usize {
+    upper_multiple(a, m) + b
+}
+
+#[allow(dead_code)]
+pub const fn aligned_max(a: usize, b: usize, m: usize) -> usize {
+    upper_multiple(max(a, b), m)
 }
 
 // TODO: Remove on `maybe_uninit_slice` stabilization.

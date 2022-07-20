@@ -2,7 +2,7 @@ use crate::{
     base::{Flat, FlatBase, FlatInit, InterpretError},
     len::FlatLen,
     sized::FlatSized,
-    util::{slice_assume_init_mut, slice_assume_init_ref, usize_max, Never},
+    util::{max, slice_assume_init_mut, slice_assume_init_ref, Never},
 };
 use core::{
     marker::PhantomData,
@@ -17,7 +17,7 @@ pub struct FlatVec<T: Flat + Sized, L: FlatLen = u32> {
 }
 
 impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
-    const DATA_OFFSET: usize = usize_max(L::SIZE, T::ALIGN);
+    const DATA_OFFSET: usize = max(L::SIZE, T::ALIGN);
 
     pub fn capacity(&self) -> usize {
         self.data.len()

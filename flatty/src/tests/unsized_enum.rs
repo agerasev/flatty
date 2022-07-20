@@ -1,7 +1,7 @@
 use crate::{
     base::{Flat, FlatBase, FlatInit, InterpretError},
     sized::FlatSized,
-    util::{usize_max, usize_min},
+    util::{max, min},
     FlatVec,
 };
 use core::slice::{from_raw_parts, from_raw_parts_mut};
@@ -33,7 +33,7 @@ pub enum UnsizedEnumMut<'a> {
 }
 
 impl UnsizedEnum {
-    const DATA_OFFSET: usize = usize_max(u8::SIZE, Self::ALIGN);
+    const DATA_OFFSET: usize = max(u8::SIZE, Self::ALIGN);
 
     pub fn as_ref(&self) -> UnsizedEnumRef<'_> {
         match self.state {
@@ -71,8 +71,7 @@ pub enum UnsizedEnumAlignAs {
 impl FlatBase for UnsizedEnum {
     type AlignAs = UnsizedEnumAlignAs;
 
-    const MIN_SIZE: usize =
-        Self::DATA_OFFSET + usize_min(0, usize_min(i32::MIN_SIZE, FlatVec::<u8>::MIN_SIZE));
+    const MIN_SIZE: usize = Self::DATA_OFFSET + min(0, min(i32::MIN_SIZE, FlatVec::<u8>::MIN_SIZE));
     fn size(&self) -> usize {
         Self::DATA_OFFSET
             + match self.as_ref() {
@@ -162,8 +161,8 @@ unsafe impl Flat for UnsizedEnum {}
 
 #[test]
 fn init_a() {
-    let mut vec = vec![0u8; 4];
-    let unsized_enum = UnsizedEnum::init(vec.as_mut_slice(), UnsizedEnumInit::A).unwrap();
+    let mut mem = vec![0u8; 4];
+    let unsized_enum = UnsizedEnum::init(mem.as_mut_slice(), UnsizedEnumInit::A).unwrap();
 
     match unsized_enum.as_ref() {
         UnsizedEnumRef::A => (),
@@ -173,8 +172,8 @@ fn init_a() {
 
 #[test]
 fn init_b() {
-    let mut vec = vec![0u8; 8];
-    let unsized_enum = UnsizedEnum::init(vec.as_mut_slice(), UnsizedEnumInit::B(42)).unwrap();
+    let mut mem = vec![0u8; 8];
+    let unsized_enum = UnsizedEnum::init(mem.as_mut_slice(), UnsizedEnumInit::B(42)).unwrap();
 
     match unsized_enum.as_ref() {
         UnsizedEnumRef::B(x) => assert_eq!(*x, 42),
@@ -184,9 +183,9 @@ fn init_b() {
 
 #[test]
 fn init_c() {
-    let mut vec = vec![0u8; 12];
+    let mut mem = vec![0u8; 12];
     let unsized_enum = UnsizedEnum::init(
-        vec.as_mut_slice(),
+        mem.as_mut_slice(),
         UnsizedEnumInit::C(<FlatVec<u8> as FlatInit>::Init::default()),
     )
     .unwrap();
@@ -215,7 +214,7 @@ fn init_c() {
 
 #[test]
 fn init_err() {
-    let mut vec = vec![0u8; 1];
-    let res = UnsizedEnum::init(vec.as_mut_slice(), UnsizedEnumInit::A);
+    let mut mem = vec![0u8; 1];
+    let res = UnsizedEnum::init(mem.as_mut_slice(), UnsizedEnumInit::A);
     assert_eq!(res.err().unwrap(), InterpretError::InsufficientSize);
 }
