@@ -1,4 +1,4 @@
-use crate::base::{Flat, FlatInit};
+use crate::base::{Flat, FlatInit, InterpretError};
 use core::ptr;
 
 /// Primitive flat type.
@@ -10,23 +10,26 @@ pub unsafe trait FlatPrim: Flat + Sized + Copy {}
 
 impl<T: FlatPrim> FlatInit for T {
     type Init = Self;
-    fn init(mem: &mut [u8], init: Self::Init) -> &mut Self {
-        let self_ = unsafe { Self::interpret_mut_unchecked(mem) };
+    unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+        let self_ = Self::interpret_mut_unchecked(mem);
         // Dirty hack because the compiler cannot prove that `Self::Init` is the same as `Self`.
-        *self_ = unsafe { ptr::read(&init as *const _ as *const Self) };
+        *self_ = ptr::read(&init as *const _ as *const Self);
         self_
     }
 
-    fn validate(&self) -> bool {
-        true
+    fn pre_validate(_: &[u8]) -> Result<(), InterpretError> {
+        Ok(())
     }
-    fn interpret(mem: &[u8]) -> &Self {
-        assert!(Self::check_size_and_align(mem));
-        unsafe { Self::interpret_unchecked(mem) }
+    fn post_validate(&self) -> Result<(), InterpretError> {
+        Ok(())
     }
-    fn interpret_mut(mem: &mut [u8]) -> &mut Self {
-        assert!(Self::check_size_and_align(mem));
-        unsafe { Self::interpret_mut_unchecked(mem) }
+    fn interpret(mem: &[u8]) -> Result<&Self, InterpretError> {
+        Self::check_size_and_align(mem)?;
+        Ok(unsafe { Self::interpret_unchecked(mem) })
+    }
+    fn interpret_mut(mem: &mut [u8]) -> Result<&mut Self, InterpretError> {
+        Self::check_size_and_align(mem)?;
+        Ok(unsafe { Self::interpret_mut_unchecked(mem) })
     }
 
     unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {

@@ -14,6 +14,10 @@ impl<T: Flat + Sized> FlatBase for T {
     fn size(&self) -> usize {
         Self::SIZE
     }
+
+    fn _ptr_metadata(_: &[u8]) -> usize {
+        0
+    }
 }
 
 impl<T: Flat + Sized> FlatSized for T {
