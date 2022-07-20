@@ -1,11 +1,5 @@
-use std::mem::align_of;
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum InterpretError {
-    InsufficientSize,
-    BadAlign,
-    InvalidState,
-}
+use crate::error::InterpretError;
+use core::mem::align_of;
 
 pub trait FlatBase {
     /// Align of the type.

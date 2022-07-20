@@ -1,6 +1,7 @@
 use crate::{
-    base::{Flat, FlatBase, FlatInit, InterpretError},
+    error::InterpretError,
     sized::FlatSized,
+    traits::{Flat, FlatBase, FlatInit},
     util::upper_multiple,
     FlatVec,
 };

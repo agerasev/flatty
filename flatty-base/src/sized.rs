@@ -1,4 +1,4 @@
-use crate::base::{Flat, FlatBase};
+use crate::traits::{Flat, FlatBase};
 use core::mem::size_of;
 
 /// Statically-sized flat type.

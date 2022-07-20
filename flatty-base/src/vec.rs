@@ -1,7 +1,8 @@
 use crate::{
-    base::{Flat, FlatBase, FlatInit, InterpretError},
+    error::InterpretError,
     len::FlatLen,
     sized::FlatSized,
+    traits::{Flat, FlatBase, FlatInit},
     util::{max, slice_assume_init_mut, slice_assume_init_ref, Never},
 };
 use core::{

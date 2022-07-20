@@ -1,4 +1,7 @@
-use crate::base::{Flat, FlatInit, InterpretError};
+use crate::{
+    error::InterpretError,
+    traits::{Flat, FlatInit},
+};
 use core::ptr;
 
 /// Primitive flat type.
@@ -22,14 +25,6 @@ impl<T: FlatPrim> FlatInit for T {
     }
     fn post_validate(&self) -> Result<(), InterpretError> {
         Ok(())
-    }
-    fn interpret(mem: &[u8]) -> Result<&Self, InterpretError> {
-        Self::check_size_and_align(mem)?;
-        Ok(unsafe { Self::interpret_unchecked(mem) })
-    }
-    fn interpret_mut(mem: &mut [u8]) -> Result<&mut Self, InterpretError> {
-        Self::check_size_and_align(mem)?;
-        Ok(unsafe { Self::interpret_mut_unchecked(mem) })
     }
 
     unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {

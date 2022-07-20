@@ -1,10 +1,8 @@
 [package]
-name = "flatty"
+name = "flatty-base"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-base = { package = "flatty-base", path = "../flatty-base" }
-macros = { package = "flatty-macros", path = "../flatty-macros" }
