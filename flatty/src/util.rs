@@ -10,6 +10,7 @@ pub const fn usize_max(a: usize, b: usize) -> usize {
 }
 
 // TODO: Remove when [`usize::min`] becomes `const`.
+#[allow(dead_code)]
 pub const fn usize_min(a: usize, b: usize) -> usize {
     if a <= b {
         a

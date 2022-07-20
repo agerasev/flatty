@@ -14,9 +14,8 @@ pub mod len;
 pub mod sized;
 pub mod vec;
 
-//pub mod unsized_enum;
-
 pub use base::Flat;
 pub use vec::FlatVec;
 
-//pub use unsized_enum::UnsizedEnum;
+#[cfg(test)]
+mod tests;

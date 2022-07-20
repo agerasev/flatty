@@ -1,6 +1,6 @@
 use std::mem::align_of;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum InterpretError {
     InsufficientSize,
     BadAlign,
