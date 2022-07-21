@@ -1,8 +1,8 @@
 use crate::{
+    base::{Flat, FlatBase, FlatInit, FlatUnsized},
     error::InterpretError,
     sized::FlatSized,
-    traits::{Flat, FlatBase, FlatInit},
-    util::upper_multiple,
+    util::{max, upper_multiple},
     FlatVec,
 };
 use core::slice::{from_raw_parts, from_raw_parts_mut};
@@ -23,21 +23,25 @@ impl UnsizedStruct {
 
 #[allow(dead_code)]
 pub struct UnsizedStructAlignAs {
-    a: <u8 as FlatBase>::AlignAs,
-    b: <u16 as FlatBase>::AlignAs,
-    c: <FlatVec<u64> as FlatBase>::AlignAs,
+    a: <u8 as FlatUnsized>::AlignAs,
+    b: <u16 as FlatUnsized>::AlignAs,
+    c: <FlatVec<u64> as FlatUnsized>::AlignAs,
 }
 
 impl FlatBase for UnsizedStruct {
-    type AlignAs = UnsizedStructAlignAs;
+    const ALIGN: usize = max(u8::ALIGN, max(u16::ALIGN, <FlatVec<u64>>::ALIGN));
 
     const MIN_SIZE: usize = Self::LAST_FIELD_OFFSET + <FlatVec<u64>>::MIN_SIZE;
     fn size(&self) -> usize {
         Self::LAST_FIELD_OFFSET + self.c.size()
     }
+}
 
-    fn _ptr_metadata(mem: &[u8]) -> usize {
-        <FlatVec<u64>>::_ptr_metadata(&mem[Self::LAST_FIELD_OFFSET..])
+impl FlatUnsized for UnsizedStruct {
+    type AlignAs = UnsizedStructAlignAs;
+
+    fn ptr_metadata(mem: &[u8]) -> usize {
+        <FlatVec<u64>>::ptr_metadata(&mem[Self::LAST_FIELD_OFFSET..])
     }
 }
 
@@ -78,11 +82,11 @@ impl FlatInit for UnsizedStruct {
     }
 
     unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
-        let slice = from_raw_parts(mem.as_ptr(), Self::_ptr_metadata(mem));
+        let slice = from_raw_parts(mem.as_ptr(), Self::ptr_metadata(mem));
         &*(slice as *const [_] as *const Self)
     }
     unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-        let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::_ptr_metadata(mem));
+        let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
         &mut *(slice as *mut [_] as *mut Self)
     }
 }

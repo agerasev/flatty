@@ -1,6 +1,6 @@
 use crate::{
+    base::{Flat, FlatInit},
     error::InterpretError,
-    traits::{Flat, FlatInit},
 };
 use core::ptr;
 

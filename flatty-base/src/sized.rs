@@ -1,5 +1,5 @@
-use crate::traits::{Flat, FlatBase};
-use core::mem::size_of;
+use crate::base::{Flat, FlatBase, FlatUnsized};
+use core::mem::{align_of, size_of};
 
 /// Statically-sized flat type.
 pub trait FlatSized: FlatBase {
@@ -8,18 +8,22 @@ pub trait FlatSized: FlatBase {
 }
 
 impl<T: Flat + Sized> FlatBase for T {
-    type AlignAs = Self;
+    const ALIGN: usize = align_of::<Self>();
 
     const MIN_SIZE: usize = Self::SIZE;
     fn size(&self) -> usize {
         Self::SIZE
     }
-
-    fn _ptr_metadata(_: &[u8]) -> usize {
-        0
-    }
 }
 
 impl<T: Flat + Sized> FlatSized for T {
     const SIZE: usize = size_of::<Self>();
+}
+
+impl<T: Flat + Sized> FlatUnsized for T {
+    type AlignAs = Self;
+
+    fn ptr_metadata(_: &[u8]) -> usize {
+        panic!("Getting ptr_metadata from sized type");
+    }
 }

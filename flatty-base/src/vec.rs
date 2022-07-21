@@ -1,8 +1,8 @@
 use crate::{
+    base::{Flat, FlatBase, FlatInit, FlatUnsized},
     error::InterpretError,
     len::FlatLen,
     sized::FlatSized,
-    traits::{Flat, FlatBase, FlatInit},
     util::{max, slice_assume_init_mut, slice_assume_init_ref, Never},
 };
 use core::{
@@ -68,14 +68,18 @@ pub enum FlatVecAlignAs<T: Flat + Sized, L: FlatLen> {
 }
 
 impl<T: Flat + Sized, L: FlatLen> FlatBase for FlatVec<T, L> {
-    type AlignAs = FlatVecAlignAs<T, L>;
+    const ALIGN: usize = max(L::ALIGN, T::ALIGN);
 
     const MIN_SIZE: usize = Self::DATA_OFFSET;
     fn size(&self) -> usize {
         Self::DATA_OFFSET + T::SIZE * self.len()
     }
+}
 
-    fn _ptr_metadata(mem: &[u8]) -> usize {
+impl<T: Flat + Sized, L: FlatLen> FlatUnsized for FlatVec<T, L> {
+    type AlignAs = FlatVecAlignAs<T, L>;
+
+    fn ptr_metadata(mem: &[u8]) -> usize {
         (mem.len() - Self::DATA_OFFSET) / T::SIZE
     }
 }
@@ -122,11 +126,11 @@ impl<T: Flat + Sized, L: FlatLen> FlatInit for FlatVec<T, L> {
     }
 
     unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
-        let slice = from_raw_parts(mem.as_ptr(), Self::_ptr_metadata(mem));
+        let slice = from_raw_parts(mem.as_ptr(), Self::ptr_metadata(mem));
         &*(slice as *const [_] as *const Self)
     }
     unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-        let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::_ptr_metadata(mem));
+        let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
         &mut *(slice as *mut [_] as *mut Self)
     }
 }

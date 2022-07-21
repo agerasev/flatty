@@ -6,7 +6,7 @@ mod utils;
 
 use proc_macro::TokenStream;
 
-#[proc_macro_derive(Flat)]
+#[proc_macro_derive(FlatSized)]
 pub fn derive_flat_sized(stream: TokenStream) -> TokenStream {
     sized::derive(stream)
 }

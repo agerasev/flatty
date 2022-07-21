@@ -1,6 +1,6 @@
-use crate::{self as flatty, Flat, FlatInit};
+use crate::{self as flatty, FlatInit, FlatSized};
 
-#[derive(Flat)]
+#[derive(FlatSized)]
 struct S {
     a: u8,
     b: u16,

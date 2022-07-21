@@ -1,14 +1,13 @@
 use crate::error::InterpretError;
-use core::mem::align_of;
 
+/// Basic functionality for flat types.
 pub trait FlatBase {
     /// Align of the type.
-    const ALIGN: usize = align_of::<Self::AlignAs>();
-    /// Sized type that has the same alignment as [`Self`].
-    type AlignAs: Sized;
+    const ALIGN: usize;
 
+    /// Minimal size of of an instance of the type.
     const MIN_SIZE: usize;
-    /// Dynamic size of the type.
+    /// Size of an instance of the type.
     fn size(&self) -> usize;
 
     fn check_size_and_align(mem: &[u8]) -> Result<(), InterpretError> {
@@ -20,11 +19,9 @@ pub trait FlatBase {
             Ok(())
         }
     }
-
-    /// Metadata to store in wide pointer. Used only for unsized types.
-    fn _ptr_metadata(mem: &[u8]) -> usize;
 }
 
+/// Construction of flat types.
 pub trait FlatInit: FlatBase {
     /// Initializer of the `Self` instance.
     type Init: Sized;
@@ -77,9 +74,20 @@ pub trait FlatInit: FlatBase {
     unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self;
 }
 
-/// Flat type.
+/// Dynamically-sized flat type.
+///
+/// *It must be implemented for all flat types until negative trait bounds supported.*
+pub trait FlatUnsized: FlatBase {
+    /// Sized type that has the same alignment as [`Self`].
+    type AlignAs: Sized;
+
+    /// Metadata to store in wide pointer.
+    fn ptr_metadata(mem: &[u8]) -> usize;
+}
+
+/// Marker trait for flat types.
 ///
 /// # Safety
 ///
 /// The type must have stable binary representation.
-pub unsafe trait Flat: FlatBase + FlatInit {}
+pub unsafe trait Flat: FlatBase + FlatInit + FlatUnsized {}

@@ -1,7 +1,7 @@
 use crate::{
+    base::{Flat, FlatBase, FlatInit, FlatUnsized},
     error::InterpretError,
     sized::FlatSized,
-    traits::{Flat, FlatBase, FlatInit},
     util::{max, min},
     FlatVec,
 };
@@ -17,7 +17,7 @@ pub enum UnsizedEnumState {
 #[repr(C)]
 pub struct UnsizedEnum {
     state: UnsizedEnumState,
-    _align: [<Self as FlatBase>::AlignAs; 0],
+    _align: [<Self as FlatUnsized>::AlignAs; 0],
     data: [u8],
 }
 
@@ -65,12 +65,12 @@ impl UnsizedEnum {
 #[repr(u8)]
 pub enum UnsizedEnumAlignAs {
     A,
-    B(<i32 as FlatBase>::AlignAs),
-    C(<FlatVec<u8> as FlatBase>::AlignAs),
+    B(<i32 as FlatUnsized>::AlignAs),
+    C(<FlatVec<u8> as FlatUnsized>::AlignAs),
 }
 
 impl FlatBase for UnsizedEnum {
-    type AlignAs = UnsizedEnumAlignAs;
+    const ALIGN: usize = max(u8::ALIGN, max(i32::ALIGN, <FlatVec<u8>>::ALIGN));
 
     const MIN_SIZE: usize = Self::DATA_OFFSET + min(0, min(i32::MIN_SIZE, FlatVec::<u8>::MIN_SIZE));
     fn size(&self) -> usize {
@@ -81,8 +81,12 @@ impl FlatBase for UnsizedEnum {
                 UnsizedEnumRef::C(r) => r.size(),
             }
     }
+}
 
-    fn _ptr_metadata(mem: &[u8]) -> usize {
+impl FlatUnsized for UnsizedEnum {
+    type AlignAs = UnsizedEnumAlignAs;
+
+    fn ptr_metadata(mem: &[u8]) -> usize {
         mem.len() - Self::DATA_OFFSET
     }
 }
@@ -149,11 +153,11 @@ impl FlatInit for UnsizedEnum {
     }
 
     unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
-        let slice = from_raw_parts(mem.as_ptr(), Self::_ptr_metadata(mem));
+        let slice = from_raw_parts(mem.as_ptr(), Self::ptr_metadata(mem));
         &*(slice as *const [_] as *const Self)
     }
     unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-        let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::_ptr_metadata(mem));
+        let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
         &mut *(slice as *mut [_] as *mut Self)
     }
 }

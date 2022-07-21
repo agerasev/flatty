@@ -10,14 +10,14 @@ mod error;
 mod prim;
 mod util;
 
+pub mod base;
 pub mod len;
 pub mod sized;
-pub mod traits;
 pub mod vec;
 
+pub use base::{Flat, FlatBase, FlatInit};
 pub use error::InterpretError;
 pub use sized::FlatSized;
-pub use traits::{Flat, FlatBase, FlatInit};
 pub use vec::FlatVec;
 
 #[cfg(test)]
