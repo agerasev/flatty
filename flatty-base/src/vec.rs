@@ -3,7 +3,7 @@ use crate::{
     error::InterpretError,
     len::FlatLen,
     sized::FlatSized,
-    util::{max, slice_assume_init_mut, slice_assume_init_ref, Never},
+    utils::{max, slice_assume_init_mut, slice_assume_init_ref, Never},
 };
 use core::{
     marker::PhantomData,

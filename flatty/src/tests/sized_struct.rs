@@ -1,6 +1,7 @@
 use crate::{self as flatty, FlatInit, FlatSized};
 
 #[derive(FlatSized)]
+#[repr(C)]
 struct S {
     a: u8,
     b: u16,
@@ -25,5 +26,22 @@ fn init() {
     assert_eq!(s.a, 200);
     assert_eq!(s.b, 40000);
     assert_eq!(s.c, 2000000000);
+    assert_eq!(s.d, [1, 2, 3, 4]);
+}
+
+#[test]
+fn interpret() {
+    let m = (0..4).fold(
+        vec![0x12, 0xff, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12],
+        |mut a, i| {
+            a.extend([i + 1, 0, 0, 0, 0, 0, 0, 0].into_iter());
+            a
+        },
+    );
+    let s = S::interpret(m.as_slice()).unwrap();
+
+    assert_eq!(s.a, 0x12);
+    assert_eq!(s.b, 0x1234);
+    assert_eq!(s.c, 0x12345678);
     assert_eq!(s.d, [1, 2, 3, 4]);
 }

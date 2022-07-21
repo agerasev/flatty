@@ -1,1 +1,1 @@
-mod sized;
+mod sized_struct;

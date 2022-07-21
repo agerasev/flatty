@@ -2,7 +2,7 @@ use crate::{
     base::{Flat, FlatBase, FlatInit, FlatUnsized},
     error::InterpretError,
     sized::FlatSized,
-    util::{max, upper_multiple},
+    utils::{max, upper_multiple},
     FlatVec,
 };
 use core::slice::{from_raw_parts, from_raw_parts_mut};

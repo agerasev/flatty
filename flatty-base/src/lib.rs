@@ -6,13 +6,13 @@
 //! + What if constructed from non-zeroed slice? Should we validate on constructing?
 //! + Interpret should return `Result`.
 
-mod error;
 mod prim;
-mod util;
 
 pub mod base;
+pub mod error;
 pub mod len;
 pub mod sized;
+pub mod utils;
 pub mod vec;
 
 pub use base::{Flat, FlatBase, FlatInit};

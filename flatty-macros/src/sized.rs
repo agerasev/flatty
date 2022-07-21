@@ -1,4 +1,7 @@
-use crate::generic::make_where_clause;
+use crate::parts::{
+    bounds::{self, where_},
+    validate,
+};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{self, parse_macro_input, DeriveInput};
@@ -7,15 +10,9 @@ pub fn derive(stream: TokenStream) -> TokenStream {
     let input = parse_macro_input!(stream as DeriveInput);
 
     let ident = &input.ident;
-
-    let where_clause = {
-        let w = make_where_clause(&input, quote! { flatty::FlatSized }, None);
-        if !w.is_empty() {
-            quote! { where #w }
-        } else {
-            quote! {}
-        }
-    };
+    let pre_validate = validate::make_pre(&input);
+    let post_validate = validate::make_post(&input);
+    let where_clause = where_(bounds::make(&input, quote! { flatty::FlatSized }, None));
 
     let expanded = quote! {
         unsafe impl flatty::Flat for #ident #where_clause {}
@@ -29,12 +26,10 @@ pub fn derive(stream: TokenStream) -> TokenStream {
                 self_
             }
             fn pre_validate(mem: &[u8]) -> Result<(), flatty::InterpretError> {
-                // TODO: Implement
-                Ok(())
+                #pre_validate
             }
             fn post_validate(&self) -> Result<(), flatty::InterpretError> {
-                // TODO: Implement
-                Ok(())
+                #post_validate
             }
             unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
                 &*(mem.as_ptr() as *const Self)
