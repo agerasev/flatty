@@ -1,6 +1,6 @@
 use flatty::{FlatInit, FlatSized};
 
-#[derive(FlatSized)]
+#[derive(FlatSized, Default)]
 #[repr(C)]
 struct S {
     a: u8,
@@ -27,6 +27,17 @@ fn init() {
     assert_eq!(s.b, 40000);
     assert_eq!(s.c, 2000000000);
     assert_eq!(s.d, [1, 2, 3, 4]);
+}
+
+#[test]
+fn init_default() {
+    let mut m = vec![0u8; 16 + 8 * 4];
+    let s = S::init_default(m.as_mut_slice()).unwrap();
+
+    assert_eq!(s.a, u8::default());
+    assert_eq!(s.b, u16::default());
+    assert_eq!(s.c, u32::default());
+    assert_eq!(s.d, <[u64; 4]>::default());
 }
 
 #[test]
