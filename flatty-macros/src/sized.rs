@@ -10,14 +10,14 @@ pub fn derive(stream: TokenStream) -> TokenStream {
     let input = parse_macro_input!(stream as DeriveInput);
 
     let ident = &input.ident;
+    let where_clause = where_(bounds::make(&input, quote! { ::flatty::FlatSized }, None));
     let pre_validate = validate::make_pre(&input);
     let post_validate = validate::make_post(&input);
-    let where_clause = where_(bounds::make(&input, quote! { flatty::FlatSized }, None));
 
     let expanded = quote! {
-        unsafe impl flatty::Flat for #ident #where_clause {}
+        unsafe impl ::flatty::Flat for #ident #where_clause {}
 
-        impl flatty::FlatInit for #ident #where_clause {
+        impl ::flatty::FlatInit for #ident #where_clause {
             type Init = Self;
             unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
                 let self_ = Self::interpret_mut_unchecked(mem);
@@ -25,10 +25,10 @@ pub fn derive(stream: TokenStream) -> TokenStream {
                 *self_ = core::ptr::read(&init as *const _ as *const Self);
                 self_
             }
-            fn pre_validate(mem: &[u8]) -> Result<(), flatty::InterpretError> {
+            fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::InterpretError> {
                 #pre_validate
             }
-            fn post_validate(&self) -> Result<(), flatty::InterpretError> {
+            fn post_validate(&self) -> Result<(), ::flatty::InterpretError> {
                 #post_validate
             }
             unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {

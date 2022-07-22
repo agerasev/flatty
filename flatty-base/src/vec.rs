@@ -135,6 +135,8 @@ impl<T: Flat + Sized, L: FlatLen> FlatInit for FlatVec<T, L> {
     }
 }
 
+unsafe impl<T: Flat + Sized, L: FlatLen> Flat for FlatVec<T, L> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

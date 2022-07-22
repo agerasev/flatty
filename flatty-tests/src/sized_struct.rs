@@ -2,7 +2,7 @@ use flatty::{FlatInit, FlatSized};
 
 #[derive(FlatSized, Default)]
 #[repr(C)]
-struct S {
+struct SizedStruct {
     a: u8,
     b: u16,
     c: u32,
@@ -12,9 +12,9 @@ struct S {
 #[test]
 fn init() {
     let mut m = vec![0u8; 16 + 8 * 4];
-    let s = S::init(
+    let s = SizedStruct::init(
         m.as_mut_slice(),
-        S {
+        SizedStruct {
             a: 200,
             b: 40000,
             c: 2000000000,
@@ -32,7 +32,7 @@ fn init() {
 #[test]
 fn init_default() {
     let mut m = vec![0u8; 16 + 8 * 4];
-    let s = S::init_default(m.as_mut_slice()).unwrap();
+    let s = SizedStruct::init_default(m.as_mut_slice()).unwrap();
 
     assert_eq!(s.a, u8::default());
     assert_eq!(s.b, u16::default());
@@ -49,7 +49,7 @@ fn interpret() {
             a
         },
     );
-    let s = S::interpret(m.as_slice()).unwrap();
+    let s = SizedStruct::interpret(m.as_slice()).unwrap();
 
     assert_eq!(s.a, 0x12);
     assert_eq!(s.b, 0x1234);

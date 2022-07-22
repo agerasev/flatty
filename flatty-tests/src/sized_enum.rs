@@ -2,7 +2,7 @@ use flatty::{FlatInit, FlatSized};
 
 #[derive(FlatSized, Default)]
 #[repr(C, u8)]
-enum E {
+enum SizedEnum {
     #[default]
     A,
     B(i32),
@@ -12,9 +12,9 @@ enum E {
 #[test]
 fn init_a() {
     let mut m = vec![0u8; 4 + 4];
-    let e = E::init_default(m.as_mut_slice()).unwrap();
+    let e = SizedEnum::init_default(m.as_mut_slice()).unwrap();
 
-    if let E::A = e {
+    if let SizedEnum::A = e {
     } else {
         panic!();
     }
@@ -25,9 +25,9 @@ fn init_a() {
 #[test]
 fn init_b() {
     let mut m = vec![0u8; 4 + 4];
-    let e = E::init(m.as_mut_slice(), E::B(0x12345678)).unwrap();
+    let e = SizedEnum::init(m.as_mut_slice(), SizedEnum::B(0x12345678)).unwrap();
 
-    if let E::B(a) = e {
+    if let SizedEnum::B(a) = e {
         assert_eq!(*a, 0x12345678);
     } else {
         panic!();
@@ -40,9 +40,9 @@ fn init_b() {
 #[test]
 fn init_c() {
     let mut m = vec![0u8; 4 + 4];
-    let e = E::init(m.as_mut_slice(), E::C(0xab, 0xabcd)).unwrap();
+    let e = SizedEnum::init(m.as_mut_slice(), SizedEnum::C(0xab, 0xabcd)).unwrap();
 
-    if let E::C(a, b) = e {
+    if let SizedEnum::C(a, b) = e {
         assert_eq!(*a, 0xab);
         assert_eq!(*b, 0xabcd);
     } else {
@@ -57,9 +57,9 @@ fn init_c() {
 #[test]
 fn interpret_c() {
     let m = vec![2, 0, 0, 0, 0xab, 0, 0xcd, 0xab];
-    let s = E::interpret(m.as_slice()).unwrap();
+    let s = SizedEnum::interpret(m.as_slice()).unwrap();
 
-    if let E::C(a, b) = s {
+    if let SizedEnum::C(a, b) = s {
         assert_eq!(*a, 0xab);
         assert_eq!(*b, 0xabcd);
     } else {
