@@ -1,4 +1,4 @@
-use crate::{self as flatty, FlatInit, FlatSized};
+use flatty::{FlatInit, FlatSized};
 
 #[derive(FlatSized)]
 #[repr(C)]
