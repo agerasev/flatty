@@ -1,10 +1,10 @@
-//use crate::utils::fields_iter::FieldsIter;
+use crate::utils::fields_iter::FieldsIter;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{self, Data, DeriveInput, Fields, Ident};
+use syn::{self, Data, DeriveInput, Fields, Ident, Index};
 
 pub fn make_type(input: &DeriveInput) -> (Ident, TokenStream2) {
-    let ident = Ident::new(&format!("_{}Init", input.ident), input.ident.span());
+    let ident = Ident::new(&format!("{}Init", input.ident), input.ident.span());
     let contents = match &input.data {
         Data::Struct(struct_data) => match &struct_data.fields {
             Fields::Named(fields) => {
@@ -31,12 +31,18 @@ pub fn make_type(input: &DeriveInput) -> (Ident, TokenStream2) {
     (ident, contents)
 }
 
-/*
 fn make_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
     let iter = fields.fields_iter();
     let len = iter.len();
     iter.enumerate().fold(quote! {}, |accum, (i, field)| {
         let ty = &field.ty;
+        let ident = match &field.ident {
+            Some(x) => quote! { #x },
+            None => {
+                let index = Index::from(i);
+                quote! { #index }
+            }
+        };
         let add_size = if i + 1 < len {
             quote! { offset += <#ty as ::flatty::FlatSized>::SIZE; }
         } else {
@@ -45,7 +51,7 @@ fn make_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
         quote! {
             #accum
             offset = ::flatty::utils::upper_multiple(offset, <#ty as ::flatty::FlatBase>::ALIGN);
-            <#ty>::pre_validate(&mem[offset..])?;
+            <#ty>::init_unchecked(&mut mem[offset..], init.#ident);
             #add_size
         }
     })
@@ -54,40 +60,12 @@ fn make_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
 pub fn make(input: &DeriveInput) -> TokenStream2 {
     let body = match &input.data {
         Data::Struct(struct_data) => make_fields(&struct_data.fields),
-        Data::Enum(enum_data) => {
-            let enum_body =
-                enum_data
-                    .variants
-                    .iter()
-                    .enumerate()
-                    .fold(quote! {}, |accum, (i, variant)| {
-                        let index = Index::from(i);
-                        let code = make_fields(&variant.fields);
-                        quote! {
-                            #accum
-                            #index => { #code },
-                        }
-                    });
-            let enum_ty = quote! { u8 }; // TODO: Detect type from `#[repr(..)]`
-            let enum_len = Index::from(enum_data.variants.len());
-            quote! {
-                let state = <#enum_ty>::interpret(mem).unwrap();
-                if *state >= #enum_len {
-                    return Err(::flatty::InterpretError::InvalidState);
-                }
-                offset += <#enum_ty as ::flatty::FlatSized>::SIZE;
-                match state {
-                    #enum_body
-                    _ => unreachable!(),
-                };
-            }
-        }
-        Data::Union(_) => quote! { panic!("Union cannot be validated alone"); },
+        Data::Enum(_enum_data) => unimplemented!(),
+        Data::Union(_union_data) => unimplemented!(),
     };
     quote! {
         let mut offset: usize = 0;
         #body
-        Ok(())
+        Self::interpret_mut_unchecked(mem)
     }
 }
-*/

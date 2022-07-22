@@ -27,13 +27,12 @@ pub fn derive(stream: TokenStream) -> TokenStream {
     let ptr_metadata = layout::make_ptr_metadata(&input);
 
     let (init_ident, init_body) = init::make_type(&input);
+    let init_fn = init::make(&input);
     let pre_validate = validate::make_pre(&input);
     let post_validate = validate::make_post(&input);
 
     let expanded = quote! {
-        /*
         unsafe impl ::flatty::Flat for #ident #where_clause {}
-        */
 
         #[allow(dead_code)]
         #[repr(C)]
@@ -63,16 +62,7 @@ pub fn derive(stream: TokenStream) -> TokenStream {
             type Init = #init_ident;
 
             unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
-                /*
-                let mut offset = 0;
-                <u8 as FlatInit>::init_unchecked(&mut mem[offset..], init.a);
-                offset = upper_multiple(offset + <u8>::SIZE, u16::ALIGN);
-                <u16 as FlatInit>::init_unchecked(&mut mem[offset..], init.b);
-                offset = upper_multiple(offset + <u16>::SIZE, <FlatVec<u64>>::ALIGN);
-                <FlatVec<u64> as FlatInit>::init_unchecked(&mut mem[offset..], init.c);
-                */
-                // TODO: Implement
-                Self::interpret_mut_unchecked(mem)
+                #init_fn
             }
 
             fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::InterpretError> {
