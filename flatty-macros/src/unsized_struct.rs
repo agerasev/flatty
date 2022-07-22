@@ -1,7 +1,7 @@
 use crate::parts::{
     align_as,
     bounds::{self, where_},
-    layout, validate,
+    init, layout, validate,
 };
 use proc_macro::TokenStream;
 use quote::quote;
@@ -26,42 +26,15 @@ pub fn derive(stream: TokenStream) -> TokenStream {
     let (align_as_ident, align_as_contents) = align_as::make(&input);
     let ptr_metadata = layout::make_ptr_metadata(&input);
 
+    let (init_ident, init_body) = init::make_type(&input);
     let pre_validate = validate::make_pre(&input);
     let post_validate = validate::make_post(&input);
 
     let expanded = quote! {
         /*
         unsafe impl ::flatty::Flat for #ident #where_clause {}
-
-        impl ::flatty::FlatInit for #ident #where_clause {
-            type Init = Self;
-            unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
-                let self_ = Self::interpret_mut_unchecked(mem);
-                // Dirty hack because the compiler cannot prove that `Self::Init` is the same as `Self`.
-                *self_ = core::ptr::read(&init as *const _ as *const Self);
-                self_
-            }
-            fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::InterpretError> {
-                #pre_validate
-            }
-            fn post_validate(&self) -> Result<(), ::flatty::InterpretError> {
-                #post_validate
-            }
-            unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
-                &*(mem.as_ptr() as *const Self)
-            }
-            unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-                &mut *(mem.as_mut_ptr() as *mut Self)
-            }
-        }
-
-        impl #ident {
-            const LAST_FIELD_OFFSET: usize = upper_multiple(
-                upper_multiple(<u8 as FlatSized>::SIZE, u16::ALIGN) + u16::SIZE,
-                <FlatVec<u64>>::ALIGN,
-            );
-        }
         */
+
         #[allow(dead_code)]
         #[repr(C)]
         #vis struct #align_as_ident ( #align_as_contents );
@@ -83,53 +56,41 @@ pub fn derive(stream: TokenStream) -> TokenStream {
             }
         }
 
-        /*
-        #[derive(Default)]
-        pub struct UnsizedStructInit {
-            a: <u8 as FlatInit>::Init,
-            b: <u16 as FlatInit>::Init,
-            c: <FlatVec<u64> as FlatInit>::Init,
-        }
+        //#[derive(Default)]
+        #vis struct #init_ident #init_body
 
-        impl FlatInit for UnsizedStruct {
-            type Init = UnsizedStructInit;
+        impl ::flatty::FlatInit for #ident #where_clause {
+            type Init = #init_ident;
 
             unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+                /*
                 let mut offset = 0;
                 <u8 as FlatInit>::init_unchecked(&mut mem[offset..], init.a);
                 offset = upper_multiple(offset + <u8>::SIZE, u16::ALIGN);
                 <u16 as FlatInit>::init_unchecked(&mut mem[offset..], init.b);
                 offset = upper_multiple(offset + <u16>::SIZE, <FlatVec<u64>>::ALIGN);
                 <FlatVec<u64> as FlatInit>::init_unchecked(&mut mem[offset..], init.c);
+                */
+                // TODO: Implement
                 Self::interpret_mut_unchecked(mem)
             }
 
-            fn pre_validate(mem: &[u8]) -> Result<(), InterpretError> {
-                let mut offset = 0;
-                <u8 as FlatInit>::pre_validate(&mem[offset..])?;
-                offset = upper_multiple(offset + <u8>::SIZE, u16::ALIGN);
-                <u16 as FlatInit>::pre_validate(&mem[offset..])?;
-                offset = upper_multiple(offset + <u16>::SIZE, <FlatVec<u64>>::ALIGN);
-                <FlatVec<u64> as FlatInit>::pre_validate(&mem[offset..])?;
-                Ok(())
+            fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::InterpretError> {
+                #pre_validate
             }
-            fn post_validate(&self) -> Result<(), InterpretError> {
-                self.a.post_validate()?;
-                self.b.post_validate()?;
-                self.c.post_validate()?;
-                Ok(())
+            fn post_validate(&self) -> Result<(), ::flatty::InterpretError> {
+                #post_validate
             }
 
             unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
-                let slice = from_raw_parts(mem.as_ptr(), Self::ptr_metadata(mem));
+                let slice = ::core::slice::from_raw_parts(mem.as_ptr(), Self::ptr_metadata(mem));
                 &*(slice as *const [_] as *const Self)
             }
             unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-                let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
+                let slice = ::core::slice::from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
                 &mut *(slice as *mut [_] as *mut Self)
             }
         }
-        */
     };
 
     TokenStream::from(expanded)
