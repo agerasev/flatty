@@ -1,10 +1,10 @@
 mod parts;
 mod utils;
 
-mod make_flat;
+mod base;
 mod sized;
+mod unsized_enum;
 mod unsized_struct;
-//mod unsized_enum;
 
 use proc_macro::TokenStream;
 
@@ -20,5 +20,10 @@ pub fn derive_flat_unsized(stream: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
-    make_flat::apply(attr, item)
+    base::make(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn make_flat_unsized_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
+    unsized_enum::make(attr, item)
 }

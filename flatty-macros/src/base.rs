@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{self, parse_macro_input, Data, DeriveInput};
 
-pub fn apply(attr: TokenStream, stream: TokenStream) -> TokenStream {
+pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     let info = parse_macro_input!(attr as attrs::MakeFlatInfo);
     let input = parse_macro_input!(stream as DeriveInput);
 
@@ -19,18 +19,21 @@ pub fn apply(attr: TokenStream, stream: TokenStream) -> TokenStream {
         ),
     };
 
-    let trait_ = if info.sized {
-        quote! { FlatSized }
-    } else {
-        quote! { FlatUnsized }
-    };
     let enum_type = match info.enum_type {
         Some(ty) => quote! { , #ty },
         None => quote! {},
     };
 
+    let derive = match (&input.data, info.sized) {
+        (Data::Enum(_), false) => {
+            quote! { #[::flatty::make_flat_unsized_enum] }
+        }
+        (_, true) => quote! { #[derive(FlatSized)] },
+        (_, false) => quote! { #[derive(FlatUnsized)] },
+    };
+
     let expanded = quote! {
-        #[derive(#trait_)]
+        #derive
         #[repr(C #enum_type)]
         #input
     };
