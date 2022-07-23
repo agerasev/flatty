@@ -1,7 +1,7 @@
-use flatty::{FlatInit, FlatSized};
+use flatty::{make_flat, FlatInit, FlatSized};
 
-#[derive(FlatSized, Default)]
-#[repr(C)]
+#[make_flat]
+#[derive(Default)]
 struct SizedStruct {
     a: u8,
     b: u16,

@@ -1,7 +1,7 @@
-use flatty::{FlatInit, FlatSized};
+use flatty::{make_flat, FlatInit, FlatSized};
 
-#[derive(FlatSized, Default)]
-#[repr(C, u8)]
+#[make_flat(enum_type = "u8")]
+#[derive(Default)]
 enum SizedEnum {
     #[default]
     A,

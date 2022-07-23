@@ -1,7 +1,6 @@
-use flatty::{FlatInit, FlatUnsized, FlatVec};
+use flatty::{make_flat, FlatInit, FlatUnsized, FlatVec};
 
-#[derive(FlatUnsized)]
-#[repr(C)]
+#[make_flat(sized = false)]
 struct UnsizedStruct {
     a: u8,
     b: u16,
