@@ -1,4 +1,5 @@
 use crate::parts::{
+    attrs,
     bounds::{self, where_},
     validate,
 };
@@ -8,6 +9,7 @@ use syn::{self, parse_macro_input, DeriveInput};
 
 pub fn derive(stream: TokenStream) -> TokenStream {
     let input = parse_macro_input!(stream as DeriveInput);
+    attrs::validate_repr(&input);
 
     let ident = &input.ident;
     let where_clause = where_(bounds::make(&input, quote! { ::flatty::FlatSized }, None));

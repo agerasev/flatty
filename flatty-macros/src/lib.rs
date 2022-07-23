@@ -16,3 +16,8 @@ pub fn derive_flat_sized(stream: TokenStream) -> TokenStream {
 pub fn derive_flat_unsized(stream: TokenStream) -> TokenStream {
     unsized_struct::derive(stream)
 }
+/*
+#[proc_macro_attribute]
+pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
+}
+*/

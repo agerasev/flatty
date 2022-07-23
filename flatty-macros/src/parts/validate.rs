@@ -1,4 +1,7 @@
-use crate::{parts::match_, utils::fields_iter::FieldsIter};
+use crate::{
+    parts::{attrs, match_},
+    utils::fields_iter::FieldsIter,
+};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::iter::Iterator;
@@ -40,7 +43,7 @@ pub fn make_pre(input: &DeriveInput) -> TokenStream2 {
                             #index => { #code },
                         }
                     });
-            let enum_ty = quote! { u8 }; // TODO: Detect type from `#[repr(..)]`
+            let enum_ty = attrs::get_enum_type(input);
             let enum_len = Index::from(enum_data.variants.len());
             quote! {
                 let state = <#enum_ty>::interpret(mem).unwrap();

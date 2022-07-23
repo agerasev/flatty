@@ -1,4 +1,4 @@
-use crate::utils::fields_iter::FieldsIter;
+use crate::{parts::attrs, utils::fields_iter::FieldsIter};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::iter::Iterator;
@@ -33,8 +33,7 @@ pub fn make_align(input: &DeriveInput) -> TokenStream2 {
     match &input.data {
         Data::Struct(struct_data) => make_align_fields(&struct_data.fields),
         Data::Enum(enum_data) => {
-            // TODO: Get variant index align
-            let enum_ty = quote! { u8 };
+            let enum_ty = attrs::get_enum_type(input);
             enum_data.variants.iter().fold(
                 quote! { <#enum_ty as ::flatty::FlatBase>::ALIGN },
                 |accum, variant| {
@@ -52,8 +51,7 @@ pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
     match &input.data {
         Data::Struct(struct_data) => make_min_size_fields(&struct_data.fields),
         Data::Enum(enum_data) => {
-            // TODO: Get variant index size
-            let enum_ty = quote! { u8 };
+            let enum_ty = attrs::get_enum_type(input);
             let contents = enum_data
                 .variants
                 .iter()
