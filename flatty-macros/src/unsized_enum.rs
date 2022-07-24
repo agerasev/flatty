@@ -17,21 +17,23 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
 
     let enum_ty = attrs::get_enum_type(&input);
     let (state_ident, state_contents) = enum_::make_state(&input);
-    let (ref_ident, ref_contents) = enum_::make_ref(&input);
-    let (mut_ident, mut_contents) = enum_::make_mut(&input);
 
-    /*
     let where_clause = where_(bounds::make(
         &input,
         quote! { ::flatty::FlatSized },
         Some(quote! { ::flatty::Flat }),
     ));
-
     let align = layout::make_align(&input);
     let min_size = layout::make_min_size(&input);
-    let size = layout::make_size(&input);
+    let size = enum_::make_size(&input);
+
+    let (ref_ident, ref_contents) = enum_::make_ref(&input);
+    let (mut_ident, mut_contents) = enum_::make_mut(&input);
+    let as_ref_ident = enum_::make_as_ref(&input);
+    let as_mut_ident = enum_::make_as_mut(&input);
 
     let (align_as_ident, align_as_contents) = align_as::make(&input);
+    /*
     let ptr_metadata = layout::make_ptr_metadata(&input);
 
     let (init_ident, init_body) = init::make_type(&input);
@@ -60,65 +62,43 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         #vis enum #mut_ident<'a> {
             #mut_contents
         }
-        /*
-        impl UnsizedEnum {
-            const DATA_OFFSET: usize = max(u8::SIZE, Self::ALIGN);
+
+        #[allow(dead_code)]
+        #[repr(C)]
+        #vis struct #align_as_ident ( #align_as_contents );
+
+        impl #ident #where_clause {
+            const DATA_OFFSET: usize = ::flatty::utils::max(<#enum_ty as ::flatty::FlatSized>::SIZE, <Self as ::flatty::FlatBase>::ALIGN);
 
             pub fn as_ref(&self) -> UnsizedEnumRef<'_> {
-                match self.state {
-                    UnsizedEnumState::A => UnsizedEnumRef::A,
-                    UnsizedEnumState::B => {
-                        UnsizedEnumRef::B(unsafe { i32::interpret_unchecked(&self.data) })
-                    }
-                    UnsizedEnumState::C => {
-                        UnsizedEnumRef::C(unsafe { FlatVec::<u8>::interpret_unchecked(&self.data) })
-                    }
-                }
+                #as_ref_ident
             }
 
             pub fn as_mut(&mut self) -> UnsizedEnumMut<'_> {
-                match self.state {
-                    UnsizedEnumState::A => UnsizedEnumMut::A,
-                    UnsizedEnumState::B => {
-                        UnsizedEnumMut::B(unsafe { i32::interpret_mut_unchecked(&mut self.data) })
-                    }
-                    UnsizedEnumState::C => {
-                        UnsizedEnumMut::C(unsafe { FlatVec::<u8>::interpret_mut_unchecked(&mut self.data) })
-                    }
-                }
+                #as_mut_ident
             }
         }
 
-        #[allow(dead_code)]
-        #[repr(u8)]
-        pub enum UnsizedEnumAlignAs {
-            A,
-            B(<i32 as FlatUnsized>::AlignAs),
-            C(<FlatVec<u8> as FlatUnsized>::AlignAs),
-        }
+        impl ::flatty::FlatBase for #ident #where_clause {
+            const ALIGN: usize = #align;
 
-        impl FlatBase for UnsizedEnum {
-            const ALIGN: usize = max(u8::ALIGN, max(i32::ALIGN, <FlatVec<u8>>::ALIGN));
+            const MIN_SIZE: usize = #min_size;
 
-            const MIN_SIZE: usize = Self::DATA_OFFSET + min(0, min(i32::MIN_SIZE, FlatVec::<u8>::MIN_SIZE));
+            #[allow(unused_variables)]
             fn size(&self) -> usize {
-                Self::DATA_OFFSET
-                    + match self.as_ref() {
-                        UnsizedEnumRef::A => 0,
-                        UnsizedEnumRef::B(r) => r.size(),
-                        UnsizedEnumRef::C(r) => r.size(),
-                    }
+                #size
             }
         }
 
-        impl FlatUnsized for UnsizedEnum {
-            type AlignAs = UnsizedEnumAlignAs;
+        impl ::flatty::FlatUnsized for #ident #where_clause {
+            type AlignAs = #align_as_ident;
 
             fn ptr_metadata(mem: &[u8]) -> usize {
                 mem.len() - Self::DATA_OFFSET
             }
         }
 
+        /*
         pub enum UnsizedEnumInit {
             A,
             B(<i32 as FlatInit>::Init),
@@ -194,19 +174,6 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
 
         /*
         unsafe impl ::flatty::Flat for #ident #where_clause {}
-
-        #[allow(dead_code)]
-        #[repr(C)]
-        #vis struct #align_as_ident ( #align_as_contents );
-
-        impl ::flatty::FlatBase for #ident #where_clause {
-            const ALIGN: usize = #align;
-
-            const MIN_SIZE: usize = #min_size;
-            fn size(&self) -> usize {
-                #size
-            }
-        }
 
         impl ::flatty::FlatUnsized for #ident #where_clause {
             type AlignAs = #align_as_ident;

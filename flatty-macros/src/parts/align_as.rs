@@ -20,7 +20,8 @@ pub fn make(input: &DeriveInput) -> (Ident, TokenStream2) {
                 .variants
                 .iter()
                 .fold(quote! { #enum_ty, }, |accum, variant| {
-                    quote! { #accum #variant }
+                    let items = make_fields(&variant.fields);
+                    quote! { #accum #items }
                 })
         }
         Data::Union(union_data) => make_fields(&union_data.fields),
