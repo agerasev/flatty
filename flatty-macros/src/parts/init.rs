@@ -3,32 +3,53 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{self, Data, DeriveInput, Fields, Ident, Index};
 
+fn make_type_fields(fields: &Fields) -> TokenStream2 {
+    match fields {
+        Fields::Named(fields) => {
+            let contents = fields.named.iter().fold(quote! {}, |accum, field| {
+                let field_ty = &field.ty;
+                let field_ident = field.ident.as_ref().unwrap();
+                quote! { #accum #field_ident: <#field_ty as ::flatty::FlatInit>::Init, }
+            });
+            quote! { { #contents } }
+        }
+        Fields::Unnamed(fields) => {
+            let contents = fields.unnamed.iter().fold(quote! {}, |accum, field| {
+                let field_ty = &field.ty;
+                assert!(field.ident.is_none());
+                quote! { #accum <#field_ty as ::flatty::FlatInit>::Init, }
+            });
+            quote! { (#contents) }
+        }
+        Fields::Unit => quote! {},
+    }
+}
+
 pub fn make_type(input: &DeriveInput) -> (Ident, TokenStream2) {
     let ident = Ident::new(&format!("{}Init", input.ident), input.ident.span());
-    let contents = match &input.data {
-        Data::Struct(struct_data) => match &struct_data.fields {
-            Fields::Named(fields) => {
-                let contents = fields.named.iter().fold(quote! {}, |accum, field| {
-                    let field_ty = &field.ty;
-                    let field_ident = field.ident.as_ref().unwrap();
-                    quote! { #accum #field_ident: <#field_ty as ::flatty::FlatInit>::Init, }
-                });
-                quote! { { #contents } }
-            }
-            Fields::Unnamed(fields) => {
-                let contents = fields.unnamed.iter().fold(quote! {}, |accum, field| {
-                    let field_ty = &field.ty;
-                    assert!(field.ident.is_none());
-                    quote! { #accum <#field_ty as ::flatty::FlatInit>::Init, }
-                });
-                quote! { (#contents); }
-            }
-            Fields::Unit => quote! { ; },
-        },
-        Data::Enum(_enum_data) => unimplemented!(),
+    let body = match &input.data {
+        Data::Struct(struct_data) => {
+            let body = make_type_fields(&struct_data.fields);
+            let semi = match &struct_data.fields {
+                Fields::Unnamed(_) | Fields::Unit => quote! { ; },
+                Fields::Named(_) => quote! {},
+            };
+            quote! { #body #semi }
+        }
+        Data::Enum(enum_data) => {
+            let contents = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
+                let var_body = make_type_fields(&variant.fields);
+                let var_ident = &variant.ident;
+                quote! {
+                    #accum
+                    #var_ident #var_body,
+                }
+            });
+            quote! { { #contents }}
+        }
         Data::Union(_union_data) => unimplemented!(),
     };
-    (ident, contents)
+    (ident, body)
 }
 
 fn make_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {

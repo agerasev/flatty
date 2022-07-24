@@ -33,10 +33,9 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     let as_mut_ident = enum_::make_as_mut(&input);
 
     let (align_as_ident, align_as_contents) = align_as::make(&input);
-    /*
-    let ptr_metadata = layout::make_ptr_metadata(&input);
 
     let (init_ident, init_body) = init::make_type(&input);
+    /*
     let init_fn = init::make(&input);
     let pre_validate = validate::make_pre(&input);
     let post_validate = validate::make_post(&input);
@@ -98,13 +97,9 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
             }
         }
 
-        /*
-        pub enum UnsizedEnumInit {
-            A,
-            B(<i32 as FlatInit>::Init),
-            C(<FlatVec<u8> as FlatInit>::Init),
-        }
+        #vis enum #init_ident #init_body
 
+        /*
         impl FlatInit for UnsizedEnum {
             type Init = UnsizedEnumInit;
             unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
