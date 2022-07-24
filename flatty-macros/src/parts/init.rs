@@ -1,4 +1,7 @@
-use crate::utils::fields_iter::FieldsIter;
+use crate::{
+    parts::{attrs, match_},
+    utils::fields_iter::FieldsIter,
+};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{self, Data, DeriveInput, Fields, Ident, Index};
@@ -25,8 +28,12 @@ fn make_type_fields(fields: &Fields) -> TokenStream2 {
     }
 }
 
+pub fn type_ident(input: &DeriveInput) -> Ident {
+    Ident::new(&format!("{}Init", input.ident), input.ident.span())
+}
+
 pub fn make_type(input: &DeriveInput) -> (Ident, TokenStream2) {
-    let ident = Ident::new(&format!("{}Init", input.ident), input.ident.span());
+    let ident = type_ident(input);
     let body = match &input.data {
         Data::Struct(struct_data) => {
             let body = make_type_fields(&struct_data.fields);
@@ -52,7 +59,7 @@ pub fn make_type(input: &DeriveInput) -> (Ident, TokenStream2) {
     (ident, body)
 }
 
-fn make_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
+fn make_fields<FI: FieldsIter>(fields: &FI, prefix: TokenStream2) -> TokenStream2 {
     let iter = fields.fields_iter();
     let len = iter.len();
     iter.enumerate().fold(quote! {}, |accum, (i, field)| {
@@ -72,16 +79,46 @@ fn make_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
         quote! {
             #accum
             offset = ::flatty::utils::upper_multiple(offset, <#ty as ::flatty::FlatBase>::ALIGN);
-            <#ty>::init_unchecked(&mut mem[offset..], init.#ident);
+            <#ty>::init_unchecked(&mut mem[offset..], #prefix #ident);
             #add_size
         }
     })
 }
 
 pub fn make(input: &DeriveInput) -> TokenStream2 {
+    let type_ident = type_ident(input);
     let body = match &input.data {
-        Data::Struct(struct_data) => make_fields(&struct_data.fields),
-        Data::Enum(_enum_data) => unimplemented!(),
+        Data::Struct(struct_data) => make_fields(&struct_data.fields, quote! { init. }),
+        Data::Enum(enum_data) => {
+            let enum_ty = attrs::get_enum_type(input);
+            let contents =
+                enum_data
+                    .variants
+                    .iter()
+                    .enumerate()
+                    .fold(quote! {}, |accum, (i, variant)| {
+                        let var_ident = &variant.ident;
+                        let index = Index::from(i);
+                        let bs = match_::make_bindings(&variant.fields);
+                        let (bindings, wrapper) = (bs.bindings, bs.wrapper);
+                        let items = make_fields(&variant.fields, bs.prefix);
+                        quote! {
+                            #accum
+                            #type_ident::#var_ident #bindings => {
+                                #wrapper
+                                <#enum_ty as ::flatty::FlatInit>::init_unchecked(mem, #index);
+                                offset += Self::DATA_OFFSET;
+                                // FIXME: Check variant size
+                                #items
+                            }
+                        }
+                    });
+            quote! {
+                match init {
+                    #contents
+                }
+            }
+        }
         Data::Union(_union_data) => unimplemented!(),
     };
     quote! {

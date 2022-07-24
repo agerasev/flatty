@@ -5,7 +5,7 @@ use crate::{
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::iter::Iterator;
-use syn::{self, Data, DeriveInput, Index};
+use syn::{self, Data, DeriveInput, Ident, Index};
 
 fn make_pre_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
     let iter = fields.fields_iter();
@@ -83,8 +83,7 @@ fn make_post_fields<FI: FieldsIter>(fields: &FI, prefix: TokenStream2) -> TokenS
         })
 }
 
-pub fn make_post(input: &DeriveInput) -> TokenStream2 {
-    let ty = &input.ident;
+pub fn make_post_gen(input: &DeriveInput, ident: &Ident, value: TokenStream2) -> TokenStream2 {
     let body = match &input.data {
         Data::Struct(struct_data) => make_post_fields(&struct_data.fields, quote! { self. }),
         Data::Enum(enum_data) => {
@@ -95,14 +94,14 @@ pub fn make_post(input: &DeriveInput) -> TokenStream2 {
                 let code = make_post_fields(&variant.fields, bs.prefix);
                 quote! {
                     #accum
-                    #ty::#var #bindings => {
+                    #ident::#var #bindings => {
                         #wrapper
                         #code
                     },
                 }
             });
             quote! {
-                match (self) {
+                match #value {
                     #enum_body
                 }
             }
@@ -113,4 +112,8 @@ pub fn make_post(input: &DeriveInput) -> TokenStream2 {
         #body
         Ok(())
     }
+}
+
+pub fn make_post(input: &DeriveInput) -> TokenStream2 {
+    make_post_gen(input, &input.ident, quote! { self })
 }

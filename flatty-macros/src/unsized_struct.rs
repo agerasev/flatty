@@ -74,11 +74,11 @@ pub fn derive(stream: TokenStream) -> TokenStream {
             }
 
             unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
-                let slice = ::core::slice::from_raw_parts(mem.as_ptr(), Self::ptr_metadata(mem));
+                let slice = ::core::slice::from_raw_parts(mem.as_ptr(), <Self as ::flatty::FlatUnsized>::ptr_metadata(mem));
                 &*(slice as *const [_] as *const Self)
             }
             unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-                let slice = ::core::slice::from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
+                let slice = ::core::slice::from_raw_parts_mut(mem.as_mut_ptr(), <Self as ::flatty::FlatUnsized>::ptr_metadata(mem));
                 &mut *(slice as *mut [_] as *mut Self)
             }
         }

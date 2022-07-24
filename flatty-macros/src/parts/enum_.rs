@@ -1,4 +1,4 @@
-use crate::{parts::layout, utils::fields_iter::FieldsIter};
+use crate::{parts::{layout, validate}, utils::fields_iter::FieldsIter};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{self, parse2, Data, DeriveInput, Fields, Ident, Type};
@@ -185,4 +185,11 @@ pub fn make_as_mut(input: &DeriveInput) -> TokenStream2 {
 
 pub fn make_size(input: &DeriveInput) -> TokenStream2 {
     layout::make_size_gen(input, &ref_ident(input), quote! { self.as_ref() })
+}
+
+
+
+
+pub fn make_post_validate(input: &DeriveInput) -> TokenStream2 {
+    validate::make_post_gen(input, &ref_ident(input), quote! { self.as_ref() })
 }

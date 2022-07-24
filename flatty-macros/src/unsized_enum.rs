@@ -35,11 +35,10 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     let (align_as_ident, align_as_contents) = align_as::make(&input);
 
     let (init_ident, init_body) = init::make_type(&input);
-    /*
+
     let init_fn = init::make(&input);
     let pre_validate = validate::make_pre(&input);
-    let post_validate = validate::make_post(&input);
-    */
+    let post_validate = enum_::make_post_validate(&input);
 
     let expanded = quote! {
         #[repr(#enum_ty)]
@@ -50,7 +49,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         #[repr(C)]
         #vis struct #ident {
             state: #state_ident,
-            //_align: [<Self as ::flatty::FlatUnsized>::AlignAs; 0],
+            _align: [<Self as ::flatty::FlatUnsized>::AlignAs; 0],
             data: [u8],
         }
 
@@ -98,6 +97,32 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         }
 
         #vis enum #init_ident #init_body
+
+        impl ::flatty::FlatInit for #ident #where_clause {
+            type Init = #init_ident;
+
+            unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+                #init_fn
+            }
+
+            fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::InterpretError> {
+                #pre_validate
+            }
+            fn post_validate(&self) -> Result<(), ::flatty::InterpretError> {
+                #post_validate
+            }
+
+            unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
+                let slice = ::core::slice::from_raw_parts(mem.as_ptr(), <Self as ::flatty::FlatUnsized>::ptr_metadata(mem));
+                &*(slice as *const [_] as *const Self)
+            }
+            unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
+                let slice = ::core::slice::from_raw_parts_mut(mem.as_mut_ptr(), <Self as ::flatty::FlatUnsized>::ptr_metadata(mem));
+                &mut *(slice as *mut [_] as *mut Self)
+            }
+        }
+
+        unsafe impl ::flatty::Flat for #ident #where_clause {}
 
         /*
         impl FlatInit for UnsizedEnum {
@@ -161,46 +186,6 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
             }
             unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
                 let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
-                &mut *(slice as *mut [_] as *mut Self)
-            }
-        }
-
-        */
-
-        /*
-        unsafe impl ::flatty::Flat for #ident #where_clause {}
-
-        impl ::flatty::FlatUnsized for #ident #where_clause {
-            type AlignAs = #align_as_ident;
-
-            fn ptr_metadata(mem: &[u8]) -> usize {
-                #ptr_metadata
-            }
-        }
-
-        //#[derive(Default)]
-        #vis struct #init_ident #init_body
-
-        impl ::flatty::FlatInit for #ident #where_clause {
-            type Init = #init_ident;
-
-            unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
-                #init_fn
-            }
-
-            fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::InterpretError> {
-                #pre_validate
-            }
-            fn post_validate(&self) -> Result<(), ::flatty::InterpretError> {
-                #post_validate
-            }
-
-            unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
-                let slice = ::core::slice::from_raw_parts(mem.as_ptr(), Self::ptr_metadata(mem));
-                &*(slice as *const [_] as *const Self)
-            }
-            unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-                let slice = ::core::slice::from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
                 &mut *(slice as *mut [_] as *mut Self)
             }
         }
