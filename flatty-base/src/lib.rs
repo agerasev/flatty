@@ -19,6 +19,3 @@ pub use base::{Flat, FlatBase, FlatInit, FlatUnsized};
 pub use error::InterpretError;
 pub use sized::FlatSized;
 pub use vec::FlatVec;
-
-#[cfg(test)]
-mod tests;

@@ -43,6 +43,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     let post_validate = enum_::make_post_validate(&input);
 
     let expanded = quote! {
+        #[allow(dead_code)]
         #[repr(#enum_ty)]
         #vis enum #state_ident {
             #state_contents
