@@ -17,7 +17,7 @@ fn init() {
         UnsizedStructInit {
             a: 200,
             b: 40000,
-            c: <FlatVec<u64> as FlatInit>::Init::Empty,
+            c: Vec::new(),
         },
     )
     .unwrap();
@@ -46,7 +46,7 @@ fn layout() {
         UnsizedStructInit {
             a: 0,
             b: 0,
-            c: <FlatVec<u64> as FlatInit>::Init::Empty,
+            c: Vec::new(),
         },
     )
     .unwrap();

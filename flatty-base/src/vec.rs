@@ -3,10 +3,9 @@ use crate::{
     error::InterpretError,
     len::FlatLen,
     sized::FlatSized,
-    utils::{max, slice_assume_init_mut, slice_assume_init_ref, Never},
+    utils::{max, slice_assume_init_mut, slice_assume_init_ref},
 };
 use core::{
-    marker::PhantomData,
     mem::MaybeUninit,
     slice::{from_raw_parts, from_raw_parts_mut},
 };
@@ -61,11 +60,8 @@ impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
     }
 }
 
-#[repr(C, u8)]
-pub enum FlatVecAlignAs<T: Flat + Sized, L: FlatLen> {
-    Len(L),
-    Item(T),
-}
+#[repr(C)]
+pub struct FlatVecAlignAs<T: Flat + Sized, L: FlatLen>(L, T);
 
 impl<T: Flat + Sized, L: FlatLen> FlatBase for FlatVec<T, L> {
     const ALIGN: usize = max(L::ALIGN, T::ALIGN);
@@ -84,27 +80,24 @@ impl<T: Flat + Sized, L: FlatLen> FlatUnsized for FlatVec<T, L> {
     }
 }
 
-pub enum FlatVecInit<T: Flat + Sized> {
-    Empty,
-    Never(Never, PhantomData<T>),
-}
-impl<T: Flat + Sized> Default for FlatVecInit<T> {
-    fn default() -> Self {
-        FlatVecInit::Empty
-    }
-}
-
 impl<T: Flat + Sized, L: FlatLen> FlatInit for FlatVec<T, L> {
-    type Init = FlatVecInit<T>;
+    type Init = Vec<T>;
     unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
         let self_ = Self::interpret_mut_unchecked(mem);
-        match init {
-            FlatVecInit::Empty => {
-                self_.len = L::from_usize(0).unwrap();
-            }
-            FlatVecInit::Never(..) => unreachable!(),
+        for x in init.into_iter() {
+            assert!(self_.push(x).is_ok());
         }
         self_
+    }
+    fn init(mem: &mut [u8], init: Self::Init) -> Result<&mut Self, InterpretError> {
+        Self::check_size_and_align(mem)?;
+        let self_ = unsafe { Self::init_unchecked(mem, Vec::new()) };
+        for x in init.into_iter() {
+            if self_.push(x).is_err() {
+                return Err(InterpretError::InsufficientSize);
+            }
+        }
+        Ok(self_)
     }
 
     fn pre_validate(_mem: &[u8]) -> Result<(), InterpretError> {
