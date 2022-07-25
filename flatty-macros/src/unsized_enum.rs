@@ -24,7 +24,8 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         Some(quote! { ::flatty::Flat }),
     ));
     let align = layout::make_align(&input);
-    let min_size = layout::make_min_size(&input);
+    let (vars_count, var_min_sizes) = enum_::make_var_min_sizes(&input);
+    let min_size = enum_::make_min_size(&input);
     let size = enum_::make_size(&input);
 
     let (ref_ident, ref_contents) = enum_::make_ref(&input);
@@ -68,10 +69,14 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         impl #ident #where_clause {
             const DATA_OFFSET: usize = ::flatty::utils::max(<#enum_ty as ::flatty::FlatSized>::SIZE, <Self as ::flatty::FlatBase>::ALIGN);
 
+            const VAR_MIN_SIZES: [usize; #vars_count] = #var_min_sizes;
+
+            #[allow(clippy::eval_order_dependence)]
             pub fn as_ref(&self) -> UnsizedEnumRef<'_> {
                 #as_ref_ident
             }
 
+            #[allow(clippy::eval_order_dependence)]
             pub fn as_mut(&mut self) -> UnsizedEnumMut<'_> {
                 #as_mut_ident
             }

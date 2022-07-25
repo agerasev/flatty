@@ -33,7 +33,7 @@ pub fn make_align(input: &DeriveInput) -> TokenStream2 {
     }
 }
 
-fn make_min_size_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
+pub fn make_min_size_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
     let iter = fields.fields_iter();
     let len = iter.len();
     iter.enumerate().fold(quote! { 0 }, |accum, (i, field)| {
@@ -58,14 +58,17 @@ pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
                 .variants
                 .iter()
                 .fold(quote! { 0 }, |accum, variant| {
-                    let variant_align = make_min_size_fields(&variant.fields);
-                    quote! { ::flatty::utils::min(#accum, #variant_align) }
+                    let variant_min_size = make_min_size_fields(&variant.fields);
+                    quote! { ::flatty::utils::min(#accum, #variant_min_size) }
                 });
             quote! {
                 ::flatty::utils::upper_multiple(
-                    <#enum_ty as ::flatty::FlatSized>::SIZE,
+                    ::flatty::utils::upper_multiple(
+                        <#enum_ty as ::flatty::FlatSized>::SIZE,
+                        Self::ALIGN,
+                    ) + #contents,
                     Self::ALIGN,
-                ) + #contents
+                )
             }
         }
         Data::Union(union_data) => make_min_size_fields(&union_data.fields),

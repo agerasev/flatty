@@ -11,7 +11,7 @@ fn make_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
 }
 
 pub fn make(input: &DeriveInput) -> (Ident, TokenStream2) {
-    let ident = Ident::new(&format!("_{}AlignAs", input.ident), input.ident.span());
+    let ident = Ident::new(&format!("{}AlignAs", input.ident), input.ident.span());
     let contents = match &input.data {
         Data::Struct(struct_data) => make_fields(&struct_data.fields),
         Data::Enum(enum_data) => {

@@ -1,7 +1,7 @@
-use crate::{parts::{layout, validate}, utils::fields_iter::FieldsIter};
+use crate::{parts::{layout, validate, attrs}, utils::fields_iter::FieldsIter};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{self, parse2, Data, DeriveInput, Fields, Ident, Type};
+use syn::{self, parse2, Data, DeriveInput, Fields, Ident, Type, Index};
 
 fn state_ident(input: &DeriveInput) -> Ident {
     Ident::new(&format!("{}State", input.ident), input.ident.span())
@@ -104,11 +104,12 @@ pub fn make_as_gen<F: Fn(TokenStream2) -> TokenStream2>(
                             Some(fi) => quote!{ #fi: },
                             None => quote!{},
                         };
+                        let data = map_data(quote!{ data[(offset - last_offset)..] });
                         let (split, add_size) = if i + 1 < len {
                             let size = quote!{ <#ty as ::flatty::FlatSized>::SIZE };
                             (
                                 quote!{ 
-                                    let (last_data, next_data) = data[(offset - last_offset)..].#split_fn(#size);
+                                    let (last_data, next_data) = (#data).#split_fn(#size);
                                     data = next_data;
                                 },
                                 quote! {
@@ -117,7 +118,7 @@ pub fn make_as_gen<F: Fn(TokenStream2) -> TokenStream2>(
                                 },
                             )
                         } else {
-                            (quote! { let last_data = data; }, quote!{})
+                            (quote! { let last_data = #data; }, quote!{})
                         };
                         quote! {
                             #accum
@@ -187,8 +188,48 @@ pub fn make_size(input: &DeriveInput) -> TokenStream2 {
     layout::make_size_gen(input, &ref_ident(input), quote! { self.as_ref() })
 }
 
+pub fn make_var_min_sizes(input: &DeriveInput) -> (usize, TokenStream2) {
+    match &input.data {
+        Data::Enum(enum_data) => {
+            let count = enum_data.variants.len();
+            let items = enum_data
+            .variants
+            .iter()
+            .fold(quote! {}, |accum, variant| {
+                let var_min_size = layout::make_min_size_fields(&variant.fields);
+                quote! { #accum #var_min_size, }
+            });
+            (count, quote! { [ #items ] })
+        }
+        Data::Struct(_) | Data::Union(_) => unimplemented!(),
+    }
+}
 
-
+pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
+    match &input.data {
+        Data::Struct(_) | Data::Union(_) => unimplemented!(),
+        Data::Enum(enum_data) => {
+            let enum_ty = attrs::get_enum_type(input);
+            let items = enum_data
+                .variants
+                .iter().enumerate()
+                .fold(quote! { usize::MAX }, |accum, (i, _)| {
+                    let index = Index::from(i);
+                    let var_min_size = quote!{ Self::VAR_MIN_SIZES[#index] };
+                    quote! { ::flatty::utils::min(#accum, #var_min_size) }
+                });
+            quote! {
+                ::flatty::utils::upper_multiple(
+                    ::flatty::utils::upper_multiple(
+                        <#enum_ty as ::flatty::FlatSized>::SIZE,
+                        Self::ALIGN,
+                    ) + #items,
+                    Self::ALIGN,
+                )
+            }
+        }
+    }
+}
 
 pub fn make_post_validate(input: &DeriveInput) -> TokenStream2 {
     validate::make_post_gen(input, &ref_ident(input), quote! { self.as_ref() })
