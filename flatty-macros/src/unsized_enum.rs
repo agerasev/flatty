@@ -1,7 +1,7 @@
 use crate::parts::{
     align_as, attrs,
     bounds::{self, where_},
-    enum_, init, layout, validate,
+    enum_, init, layout,
 };
 use proc_macro::TokenStream;
 use quote::quote;
@@ -38,7 +38,8 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     let (init_ident, init_body) = init::make_type(&input);
 
     let init_fn = init::make(&input);
-    let pre_validate = validate::make_pre(&input);
+    let init_fn_checked = enum_::make_init_checked(&input);
+    let pre_validate = enum_::make_pre_validate(&input);
     let post_validate = enum_::make_post_validate(&input);
 
     let expanded = quote! {
@@ -108,6 +109,11 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
 
             unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
                 #init_fn
+            }
+
+            #[allow(unused_variables)]
+            fn init(mem: &mut [u8], init: Self::Init) -> Result<&mut Self, ::flatty::InterpretError> {
+                #init_fn_checked
             }
 
             fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::InterpretError> {

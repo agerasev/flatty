@@ -1,4 +1,4 @@
-use crate::{parts::{layout, validate, attrs}, utils::fields_iter::FieldsIter};
+use crate::{parts::{layout, validate, init, match_}, utils::fields_iter::FieldsIter};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{self, parse2, Data, DeriveInput, Fields, Ident, Type, Index};
@@ -209,7 +209,6 @@ pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
     match &input.data {
         Data::Struct(_) | Data::Union(_) => unimplemented!(),
         Data::Enum(enum_data) => {
-            let enum_ty = attrs::get_enum_type(input);
             let items = enum_data
                 .variants
                 .iter().enumerate()
@@ -220,16 +219,61 @@ pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
                 });
             quote! {
                 ::flatty::utils::upper_multiple(
-                    ::flatty::utils::upper_multiple(
-                        <#enum_ty as ::flatty::FlatSized>::SIZE,
-                        Self::ALIGN,
-                    ) + #items,
+                    Self::DATA_OFFSET + #items,
                     Self::ALIGN,
                 )
             }
         }
     }
 }
+
+pub fn make_init_checked(input: &DeriveInput) -> TokenStream2 {
+    let ident = init::type_ident(input);
+    let body = match &input.data {
+        Data::Struct(_) | Data::Union(_) => unimplemented!(),
+        Data::Enum(enum_data) => {
+            let contents =
+                enum_data
+                    .variants
+                    .iter()
+                    .enumerate()
+                    .fold(quote! {}, |accum, (i, variant)| {
+                        let var_ident = &variant.ident;
+                        let index = Index::from(i);
+                        let bs = match_::make_bindings(&variant.fields);
+                        let bindings = bs.bindings;
+                        quote! {
+                            #accum
+                            #ident::#var_ident #bindings => {
+                                if mem.len() < Self::DATA_OFFSET + Self::VAR_MIN_SIZES[#index] {
+                                    return Err(::flatty::InterpretError::InsufficientSize)
+                                }
+                            }
+                        }
+                    });
+            quote! {
+                match &init {
+                    #contents
+                }
+            }
+        }
+    };
+    quote!{
+        <Self as ::flatty::FlatBase>::check_size_and_align(mem)?;
+        #body
+        Ok(unsafe { Self::init_unchecked(mem, init) })
+    }
+}
+
+pub fn make_pre_validate(input: &DeriveInput) -> TokenStream2 {
+    validate::make_pre_gen(input, quote! {
+        if mem.len() < Self::DATA_OFFSET + Self::VAR_MIN_SIZES[*state as usize] {
+            return Err(::flatty::InterpretError::InsufficientSize)
+        }
+    })
+}
+
+
 
 pub fn make_post_validate(input: &DeriveInput) -> TokenStream2 {
     validate::make_post_gen(input, &ref_ident(input), quote! { self.as_ref() })

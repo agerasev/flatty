@@ -106,9 +106,8 @@ pub fn make(input: &DeriveInput) -> TokenStream2 {
                             #accum
                             #type_ident::#var_ident #bindings => {
                                 #wrapper
-                                <#enum_ty as ::flatty::FlatInit>::init_unchecked(mem, #index);
+                                let state = <#enum_ty as ::flatty::FlatInit>::init_unchecked(mem, #index);
                                 offset += Self::DATA_OFFSET;
-                                // FIXME: Check variant size
                                 #items
                             }
                         }

@@ -26,7 +26,7 @@ fn make_pre_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
     })
 }
 
-pub fn make_pre(input: &DeriveInput) -> TokenStream2 {
+pub fn make_pre_gen(input: &DeriveInput, check: TokenStream2) -> TokenStream2 {
     let body = match &input.data {
         Data::Struct(struct_data) => make_pre_fields(&struct_data.fields),
         Data::Enum(enum_data) => {
@@ -51,6 +51,7 @@ pub fn make_pre(input: &DeriveInput) -> TokenStream2 {
                     return Err(::flatty::InterpretError::InvalidState);
                 }
                 offset += <#enum_ty as ::flatty::FlatSized>::SIZE;
+                #check
                 match state {
                     #enum_body
                     _ => unreachable!(),
@@ -64,6 +65,10 @@ pub fn make_pre(input: &DeriveInput) -> TokenStream2 {
         #body
         Ok(())
     }
+}
+
+pub fn make_pre(input: &DeriveInput) -> TokenStream2 {
+    make_pre_gen(input, quote! {})
 }
 
 fn make_post_fields<FI: FieldsIter>(fields: &FI, prefix: TokenStream2) -> TokenStream2 {
