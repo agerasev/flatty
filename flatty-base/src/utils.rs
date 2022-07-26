@@ -1,6 +1,6 @@
 use core::mem::MaybeUninit;
 
-// TODO: Remove when [`usize::max`] becomes `const`.
+/// `const` version of [`usize::max`].
 pub const fn max(a: usize, b: usize) -> usize {
     if a >= b {
         a
@@ -9,7 +9,7 @@ pub const fn max(a: usize, b: usize) -> usize {
     }
 }
 
-// TODO: Remove when [`usize::min`] becomes `const`.
+/// `const` version of [`usize::min`].
 pub const fn min(a: usize, b: usize) -> usize {
     if a <= b {
         a
@@ -18,19 +18,10 @@ pub const fn min(a: usize, b: usize) -> usize {
     }
 }
 
+/// Smallest number that is both greater or equal to `x` and a multiple of `m`.
 #[allow(dead_code)]
 pub const fn upper_multiple(x: usize, m: usize) -> usize {
     ((x + m - 1) / m) * m
-}
-
-#[allow(dead_code)]
-pub const fn aligned_add(a: usize, b: usize, m: usize) -> usize {
-    upper_multiple(a, m) + b
-}
-
-#[allow(dead_code)]
-pub const fn aligned_max(a: usize, b: usize, m: usize) -> usize {
-    upper_multiple(max(a, b), m)
 }
 
 /// Assume that slice of [`MaybeUninit`] is initialized.

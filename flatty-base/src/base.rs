@@ -10,6 +10,7 @@ pub trait FlatBase {
     /// Size of an instance of the type.
     fn size(&self) -> usize;
 
+    /// Check that memory size and alignment are suitable for `Self`.
     fn check_size_and_align(mem: &[u8]) -> Result<(), Error> {
         if mem.len() < Self::MIN_SIZE {
             Err(Error::InsufficientSize)
@@ -40,6 +41,8 @@ pub trait FlatInit: FlatBase {
     /// Initialize without checks.
     ///
     /// # Safety
+    ///
+    /// Size, alignment and specific type requirements must be ok.
     unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self;
 
     /// Validate memory before interpretation.
@@ -67,16 +70,20 @@ pub trait FlatInit: FlatBase {
     /// Interpret without checks.
     ///
     /// # Safety
+    ///
+    /// Memory must have suitable size, align for `Self` and its contents must be valid.  
     unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self;
     /// Interpret without checks providing mutable reference.
     ///
-    ///  # Safety
+    /// # Safety
+    ///
+    /// Memory must have suitable size, align for `Self` and its contents must be valid.  
     unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self;
 }
 
 /// Dynamically-sized flat type.
 ///
-/// *It must be implemented for all flat types until negative trait bounds supported.*
+/// *For now it must be implemented for all flat types until negative trait bounds supported.*
 pub trait FlatUnsized: FlatBase {
     /// Sized type that has the same alignment as [`Self`].
     type AlignAs: Sized;
@@ -87,7 +94,9 @@ pub trait FlatUnsized: FlatBase {
 
 /// Marker trait for flat types.
 ///
+/// *If you want to implement this type for your custom type it's recommended to use safe `make_flat` macro instead.*
+///
 /// # Safety
 ///
-/// The type must have stable binary representation.
+/// The type must have portable binary representation.
 pub unsafe trait Flat: FlatBase + FlatInit + FlatUnsized {}

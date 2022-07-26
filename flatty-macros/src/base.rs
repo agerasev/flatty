@@ -26,10 +26,10 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
 
     let derive = match (&input.data, info.sized) {
         (Data::Enum(_), false) => {
-            quote! { #[::flatty::make_flat_unsized_enum] }
+            quote! { #[::flatty::macros::make_flat_unsized_enum] }
         }
-        (_, true) => quote! { #[derive(FlatSized)] },
-        (_, false) => quote! { #[derive(FlatUnsized)] },
+        (_, true) => quote! { #[derive(::flatty::macros::FlatSized)] },
+        (_, false) => quote! { #[derive(::flatty::macros::FlatUnsized)] },
     };
 
     let expanded = quote! {

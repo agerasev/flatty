@@ -1,7 +1,4 @@
-use crate::{
-    base::{Flat, FlatInit},
-    error::Error,
-};
+use crate::{Error, Flat, FlatInit, FlatSized};
 use core::ptr;
 
 /// Primitive flat type.
@@ -9,7 +6,7 @@ use core::ptr;
 /// # Safety
 ///
 /// Any possible memory representation must be valid.
-pub unsafe trait FlatPrim: Flat + Sized + Copy {}
+pub unsafe trait FlatPrim: FlatSized + Copy {}
 
 impl<T: FlatPrim> FlatInit for T {
     type Init = Self;

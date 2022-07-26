@@ -1,5 +1,5 @@
 use core::mem::{align_of_val, size_of_val};
-use flatty::{make_flat, FlatBase, FlatInit, FlatUnsized, FlatVec};
+use flatty::{make_flat, FlatBase, FlatInit, FlatVec};
 
 #[make_flat(sized = false)]
 //#[derive(Default)]

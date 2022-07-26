@@ -1,15 +1,17 @@
 use crate::{
-    base::{Flat, FlatBase, FlatInit, FlatUnsized},
-    error::Error,
-    len::FlatLen,
-    sized::FlatSized,
     utils::{max, slice_assume_init_mut, slice_assume_init_ref},
+    Error, Flat, FlatBase, FlatInit, FlatLen, FlatSized, FlatUnsized,
 };
 use core::{
     mem::MaybeUninit,
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
+/// Growable flat vector of sized items.
+///
+/// It doesn't allocate memory on the heap but instead stores its contents in the same memory behind itself.
+///
+/// Obviously, this type is DST.
 #[repr(C)]
 pub struct FlatVec<T: Flat + Sized, L: FlatLen = u32> {
     len: L,
@@ -19,19 +21,26 @@ pub struct FlatVec<T: Flat + Sized, L: FlatLen = u32> {
 impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
     const DATA_OFFSET: usize = max(L::SIZE, T::ALIGN);
 
+    /// Maximum number of items could be stored in this vector.
+    ///
+    /// The capacity is determined by its reference metadata.
     pub fn capacity(&self) -> usize {
         self.data.len()
     }
+    /// Number of items stored in the vactor.
     pub fn len(&self) -> usize {
         self.len.into_usize()
     }
+    /// Whether the vector is empty.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    /// Whether the vector is full.
     pub fn is_full(&self) -> bool {
         self.len() == self.capacity()
     }
 
+    /// Put a new item to the end of the vector.
     pub fn push(&mut self, x: T) -> Result<(), T> {
         if !self.is_full() {
             self.data[self.len()] = MaybeUninit::new(x);
@@ -41,6 +50,7 @@ impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
             Err(x)
         }
     }
+    /// Take and return an item from the end of the vector.
     pub fn pop(&mut self) -> Option<T> {
         if !self.is_empty() {
             self.len -= L::from_usize(1).unwrap();
@@ -50,16 +60,19 @@ impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
         }
     }
 
+    /// Return a slice of stored items.
     pub fn as_slice(&self) -> &[T] {
         let len = self.len();
         unsafe { slice_assume_init_ref(&self.data[..len]) }
     }
+    /// Return a mutable slice of stored items.
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         let len = self.len();
         unsafe { slice_assume_init_mut(&mut self.data[..len]) }
     }
 }
 
+/// Sized type that has same alignment as [`FlatVec<T, L>`](`FlatVec`).
 #[repr(C)]
 pub struct FlatVecAlignAs<T: Flat + Sized, L: FlatLen>(L, T);
 
