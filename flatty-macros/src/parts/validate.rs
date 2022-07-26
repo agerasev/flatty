@@ -46,9 +46,9 @@ pub fn make_pre_gen(input: &DeriveInput, check: TokenStream2) -> TokenStream2 {
             let enum_ty = attrs::get_enum_type(input);
             let enum_len = Index::from(enum_data.variants.len());
             quote! {
-                let state = <#enum_ty>::interpret(mem).unwrap();
+                let state = <#enum_ty>::reinterpret(mem).unwrap();
                 if *state >= #enum_len {
-                    return Err(::flatty::InterpretError::InvalidState);
+                    return Err(::flatty::Error::InvalidState);
                 }
                 offset += <#enum_ty as ::flatty::FlatSized>::SIZE;
                 #check

@@ -108,27 +108,27 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         impl ::flatty::FlatInit for #ident #where_clause {
             type Init = #init_ident;
 
-            unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+            unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
                 #init_fn
             }
 
             #[allow(unused_variables)]
-            fn init(mem: &mut [u8], init: Self::Init) -> Result<&mut Self, ::flatty::InterpretError> {
+            fn placement_new(mem: &mut [u8], init: Self::Init) -> Result<&mut Self, ::flatty::Error> {
                 #init_fn_checked
             }
 
-            fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::InterpretError> {
+            fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::Error> {
                 #pre_validate
             }
-            fn post_validate(&self) -> Result<(), ::flatty::InterpretError> {
+            fn post_validate(&self) -> Result<(), ::flatty::Error> {
                 #post_validate
             }
 
-            unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
+            unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self {
                 let slice = ::core::slice::from_raw_parts(mem.as_ptr(), <Self as ::flatty::FlatUnsized>::ptr_metadata(mem));
                 &*(slice as *const [_] as *const Self)
             }
-            unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
+            unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
                 let slice = ::core::slice::from_raw_parts_mut(mem.as_mut_ptr(), <Self as ::flatty::FlatUnsized>::ptr_metadata(mem));
                 &mut *(slice as *mut [_] as *mut Self)
             }
@@ -139,37 +139,37 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         /*
         impl FlatInit for UnsizedEnum {
             type Init = UnsizedEnumInit;
-            unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
-                let self_ = Self::interpret_mut_unchecked(mem);
+            unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+                let self_ = Self::reinterpret_mut_unchecked(mem);
                 match init {
                     UnsizedEnumInit::A => {
                         self_.state = UnsizedEnumState::A;
                     }
                     UnsizedEnumInit::B(inner_init) => {
                         self_.state = UnsizedEnumState::B;
-                        i32::init_unchecked(&mut self_.data, inner_init);
+                        i32::placement_new_unchecked(&mut self_.data, inner_init);
                     }
                     UnsizedEnumInit::C(inner_init) => {
                         self_.state = UnsizedEnumState::C;
-                        <FlatVec<u8>>::init_unchecked(&mut self_.data, inner_init);
+                        <FlatVec<u8>>::placement_new_unchecked(&mut self_.data, inner_init);
                     }
                 }
                 self_
             }
 
-            fn pre_validate(mem: &[u8]) -> Result<(), InterpretError> {
-                if *u8::interpret(mem).unwrap() >= 3 {
-                    Err(InterpretError::InvalidState)
+            fn pre_validate(mem: &[u8]) -> Result<(), Error> {
+                if *u8::reinterpret(mem).unwrap() >= 3 {
+                    Err(Error::InvalidState)
                 } else {
                     Ok(())
                 }
             }
-            fn post_validate(&self) -> Result<(), InterpretError> {
+            fn post_validate(&self) -> Result<(), Error> {
                 match &self.state {
                     UnsizedEnumState::A => Ok(()),
                     UnsizedEnumState::B => {
                         if self.data.len() < i32::MIN_SIZE {
-                            return Err(InterpretError::InsufficientSize);
+                            return Err(Error::InsufficientSize);
                         }
                         i32::pre_validate(&self.data)?;
                         if let UnsizedEnumRef::B(inner) = self.as_ref() {
@@ -180,7 +180,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
                     }
                     UnsizedEnumState::C => {
                         if self.data.len() < FlatVec::<u8>::MIN_SIZE {
-                            return Err(InterpretError::InsufficientSize);
+                            return Err(Error::InsufficientSize);
                         }
                         <FlatVec<u8>>::pre_validate(&self.data)?;
                         if let UnsizedEnumRef::C(inner) = self.as_ref() {
@@ -192,11 +192,11 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
                 }
             }
 
-            unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
+            unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self {
                 let slice = from_raw_parts(mem.as_ptr(), Self::ptr_metadata(mem));
                 &*(slice as *const [_] as *const Self)
             }
-            unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
+            unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
                 let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
                 &mut *(slice as *mut [_] as *mut Self)
             }

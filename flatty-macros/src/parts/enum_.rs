@@ -167,7 +167,7 @@ pub fn make_as_ref(input: &DeriveInput) -> TokenStream2 {
     make_as_gen(
         input,
         &ref_ident(input),
-        &quote! { interpret_unchecked },
+        &quote! { reinterpret_unchecked },
         |slice| {
             quote! { &#slice }
         },
@@ -179,7 +179,7 @@ pub fn make_as_mut(input: &DeriveInput) -> TokenStream2 {
     make_as_gen(
         input,
         &mut_ident(input),
-        &quote! { interpret_mut_unchecked },
+        &quote! { reinterpret_mut_unchecked },
         |slice| {
             quote! { &mut #slice }
         },
@@ -246,7 +246,7 @@ pub fn make_init_checked(input: &DeriveInput) -> TokenStream2 {
                             #accum
                             #ident::#var_ident #bindings => {
                                 if mem.len() < Self::DATA_OFFSET + Self::VAR_MIN_SIZES[#index] {
-                                    return Err(::flatty::InterpretError::InsufficientSize)
+                                    return Err(::flatty::Error::InsufficientSize)
                                 }
                             }
                         }
@@ -261,7 +261,7 @@ pub fn make_init_checked(input: &DeriveInput) -> TokenStream2 {
     quote! {
         <Self as ::flatty::FlatBase>::check_size_and_align(mem)?;
         #body
-        Ok(unsafe { Self::init_unchecked(mem, init) })
+        Ok(unsafe { Self::placement_new_unchecked(mem, init) })
     }
 }
 
@@ -270,7 +270,7 @@ pub fn make_pre_validate(input: &DeriveInput) -> TokenStream2 {
         input,
         quote! {
             if mem.len() < Self::DATA_OFFSET + Self::VAR_MIN_SIZES[*state as usize] {
-                return Err(::flatty::InterpretError::InsufficientSize)
+                return Err(::flatty::Error::InsufficientSize)
             }
         },
     )

@@ -1,4 +1,4 @@
-use flatty::{make_flat, FlatInit, FlatVec, InterpretError};
+use flatty::{make_flat, Error, FlatInit, FlatVec};
 
 #[make_flat(sized = false, enum_type = "u8")]
 enum UnsizedEnum {
@@ -10,7 +10,7 @@ enum UnsizedEnum {
 #[test]
 fn init_a() {
     let mut mem = vec![0u8; 2];
-    let unsized_enum = UnsizedEnum::init(mem.as_mut_slice(), UnsizedEnumInit::A).unwrap();
+    let unsized_enum = UnsizedEnum::placement_new(mem.as_mut_slice(), UnsizedEnumInit::A).unwrap();
 
     match unsized_enum.as_ref() {
         UnsizedEnumRef::A => (),
@@ -24,7 +24,7 @@ fn init_a() {
 fn init_b() {
     let mut mem = vec![0u8; 6];
     let unsized_enum =
-        UnsizedEnum::init(mem.as_mut_slice(), UnsizedEnumInit::B(0xab, 0xcdef)).unwrap();
+        UnsizedEnum::placement_new(mem.as_mut_slice(), UnsizedEnumInit::B(0xab, 0xcdef)).unwrap();
 
     match unsized_enum.as_ref() {
         UnsizedEnumRef::B(x, y) => {
@@ -42,7 +42,7 @@ fn init_b() {
 #[test]
 fn init_c() {
     let mut mem = vec![0u8; 12];
-    let unsized_enum = UnsizedEnum::init(
+    let unsized_enum = UnsizedEnum::placement_new(
         mem.as_mut_slice(),
         UnsizedEnumInit::C {
             a: 0xab,
@@ -72,6 +72,6 @@ fn init_c() {
 #[test]
 fn init_err() {
     let mut mem = vec![0u8; 1];
-    let res = UnsizedEnum::init(mem.as_mut_slice(), UnsizedEnumInit::A);
-    assert_eq!(res.err().unwrap(), InterpretError::InsufficientSize);
+    let res = UnsizedEnum::placement_new(mem.as_mut_slice(), UnsizedEnumInit::A);
+    assert_eq!(res.err().unwrap(), Error::InsufficientSize);
 }

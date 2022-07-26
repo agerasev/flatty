@@ -1,5 +1,5 @@
 #[derive(Clone, PartialEq, Debug)]
-pub enum InterpretError {
+pub enum Error {
     InsufficientSize,
     BadAlign,
     InvalidState,

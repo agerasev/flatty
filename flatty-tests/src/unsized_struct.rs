@@ -12,7 +12,7 @@ struct UnsizedStruct {
 #[test]
 fn init() {
     let mut mem = vec![0u8; 16 + 8 * 4];
-    let us = UnsizedStruct::init(
+    let us = UnsizedStruct::placement_new(
         mem.as_mut_slice(),
         UnsizedStructInit {
             a: 200,
@@ -41,7 +41,7 @@ fn init() {
 #[test]
 fn layout() {
     let mut mem = vec![0u8; 16 + 8 * 4];
-    let us = UnsizedStruct::init(
+    let us = UnsizedStruct::placement_new(
         mem.as_mut_slice(),
         UnsizedStructInit {
             a: 0,

@@ -16,6 +16,6 @@ pub mod utils;
 pub mod vec;
 
 pub use base::{Flat, FlatBase, FlatInit, FlatUnsized};
-pub use error::InterpretError;
+pub use error::Error;
 pub use sized::FlatSized;
 pub use vec::FlatVec;

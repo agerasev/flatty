@@ -1,4 +1,4 @@
-use crate::error::InterpretError;
+use crate::error::Error;
 
 /// Basic functionality for flat types.
 pub trait FlatBase {
@@ -10,11 +10,11 @@ pub trait FlatBase {
     /// Size of an instance of the type.
     fn size(&self) -> usize;
 
-    fn check_size_and_align(mem: &[u8]) -> Result<(), InterpretError> {
+    fn check_size_and_align(mem: &[u8]) -> Result<(), Error> {
         if mem.len() < Self::MIN_SIZE {
-            Err(InterpretError::InsufficientSize)
+            Err(Error::InsufficientSize)
         } else if mem.as_ptr().align_offset(Self::ALIGN) != 0 {
-            Err(InterpretError::BadAlign)
+            Err(Error::BadAlign)
         } else {
             Ok(())
         }
@@ -26,40 +26,40 @@ pub trait FlatInit: FlatBase {
     /// Initializer of the `Self` instance.
     type Init: Sized;
     /// Create a new instance of `Self` onto raw memory.
-    fn init(mem: &mut [u8], init: Self::Init) -> Result<&mut Self, InterpretError> {
+    fn placement_new(mem: &mut [u8], init: Self::Init) -> Result<&mut Self, Error> {
         Self::check_size_and_align(mem)?;
-        Ok(unsafe { Self::init_unchecked(mem, init) })
+        Ok(unsafe { Self::placement_new_unchecked(mem, init) })
     }
     /// Create a new default instance of `Self` onto raw memory.
-    fn init_default(mem: &mut [u8]) -> Result<&mut Self, InterpretError>
+    fn placement_default(mem: &mut [u8]) -> Result<&mut Self, Error>
     where
         Self::Init: Default,
     {
-        Self::init(mem, Self::Init::default())
+        Self::placement_new(mem, Self::Init::default())
     }
     /// Initialize without checks.
     ///
     /// # Safety
-    unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self;
+    unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self;
 
     /// Validate memory before interpretation.
-    fn pre_validate(mem: &[u8]) -> Result<(), InterpretError>;
+    fn pre_validate(mem: &[u8]) -> Result<(), Error>;
     /// Validate memory after interpretation.
-    fn post_validate(&self) -> Result<(), InterpretError>;
+    fn post_validate(&self) -> Result<(), Error>;
 
     /// Interpret a previously iniailized memory as an instance of `Self`.
-    fn interpret(mem: &[u8]) -> Result<&Self, InterpretError> {
+    fn reinterpret(mem: &[u8]) -> Result<&Self, Error> {
         Self::check_size_and_align(mem)?;
         Self::pre_validate(mem)?;
-        let self_ = unsafe { Self::interpret_unchecked(mem) };
+        let self_ = unsafe { Self::reinterpret_unchecked(mem) };
         self_.post_validate()?;
         Ok(self_)
     }
-    /// The same as [`interpret`](`Self::interpret`) but provides a mutable reference.
-    fn interpret_mut(mem: &mut [u8]) -> Result<&mut Self, InterpretError> {
+    /// The same as [`reinterpret`](`Self::reinterpret`) but provides a mutable reference.
+    fn reinterpret_mut(mem: &mut [u8]) -> Result<&mut Self, Error> {
         Self::check_size_and_align(mem)?;
         Self::pre_validate(mem)?;
-        let self_ = unsafe { Self::interpret_mut_unchecked(mem) };
+        let self_ = unsafe { Self::reinterpret_mut_unchecked(mem) };
         self_.post_validate()?;
         Ok(self_)
     }
@@ -67,11 +67,11 @@ pub trait FlatInit: FlatBase {
     /// Interpret without checks.
     ///
     /// # Safety
-    unsafe fn interpret_unchecked(mem: &[u8]) -> &Self;
+    unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self;
     /// Interpret without checks providing mutable reference.
     ///
     ///  # Safety
-    unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self;
+    unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self;
 }
 
 /// Dynamically-sized flat type.

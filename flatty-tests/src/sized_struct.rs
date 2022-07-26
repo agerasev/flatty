@@ -13,7 +13,7 @@ struct SizedStruct {
 #[test]
 fn init() {
     let mut m = vec![0u8; 16 + 8 * 4];
-    let ss = SizedStruct::init(
+    let ss = SizedStruct::placement_new(
         m.as_mut_slice(),
         SizedStruct {
             a: 200,
@@ -33,7 +33,7 @@ fn init() {
 #[test]
 fn init_default() {
     let mut m = vec![0u8; 16 + 8 * 4];
-    let ss = SizedStruct::init_default(m.as_mut_slice()).unwrap();
+    let ss = SizedStruct::placement_default(m.as_mut_slice()).unwrap();
 
     assert_eq!(ss.a, u8::default());
     assert_eq!(ss.b, u16::default());
@@ -50,7 +50,7 @@ fn interpret() {
             a
         },
     );
-    let ss = SizedStruct::interpret(m.as_slice()).unwrap();
+    let ss = SizedStruct::reinterpret(m.as_slice()).unwrap();
 
     assert_eq!(ss.a, 0x12);
     assert_eq!(ss.b, 0x1234);
@@ -61,7 +61,7 @@ fn interpret() {
 #[test]
 fn layout() {
     let mut m = vec![0u8; 16 + 8 * 4];
-    let ss = SizedStruct::init_default(m.as_mut_slice()).unwrap();
+    let ss = SizedStruct::placement_default(m.as_mut_slice()).unwrap();
 
     assert_eq!(align_of::<SizedStruct>(), <SizedStruct as FlatBase>::ALIGN);
     assert_eq!(size_of::<SizedStruct>(), <SizedStruct as FlatSized>::SIZE);

@@ -79,7 +79,7 @@ fn make_fields<FI: FieldsIter>(fields: &FI, prefix: TokenStream2) -> TokenStream
         quote! {
             #accum
             offset = ::flatty::utils::upper_multiple(offset, <#ty as ::flatty::FlatBase>::ALIGN);
-            <#ty>::init_unchecked(&mut mem[offset..], #prefix #ident);
+            <#ty>::placement_new_unchecked(&mut mem[offset..], #prefix #ident);
             #add_size
         }
     })
@@ -106,7 +106,7 @@ pub fn make(input: &DeriveInput) -> TokenStream2 {
                             #accum
                             #type_ident::#var_ident #bindings => {
                                 #wrapper
-                                let state = <#enum_ty as ::flatty::FlatInit>::init_unchecked(mem, #index);
+                                let state = <#enum_ty as ::flatty::FlatInit>::placement_new_unchecked(mem, #index);
                                 offset += Self::DATA_OFFSET;
                                 #items
                             }
@@ -123,6 +123,6 @@ pub fn make(input: &DeriveInput) -> TokenStream2 {
     quote! {
         let mut offset: usize = 0;
         #body
-        Self::interpret_mut_unchecked(mem)
+        Self::reinterpret_mut_unchecked(mem)
     }
 }

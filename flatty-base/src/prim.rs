@@ -1,6 +1,6 @@
 use crate::{
     base::{Flat, FlatInit},
-    error::InterpretError,
+    error::Error,
 };
 use core::ptr;
 
@@ -13,24 +13,24 @@ pub unsafe trait FlatPrim: Flat + Sized + Copy {}
 
 impl<T: FlatPrim> FlatInit for T {
     type Init = Self;
-    unsafe fn init_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
-        let self_ = Self::interpret_mut_unchecked(mem);
+    unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+        let self_ = Self::reinterpret_mut_unchecked(mem);
         // Dirty hack because the compiler cannot prove that `Self::Init` is the same as `Self`.
         *self_ = ptr::read(&init as *const _ as *const Self);
         self_
     }
 
-    fn pre_validate(_: &[u8]) -> Result<(), InterpretError> {
+    fn pre_validate(_: &[u8]) -> Result<(), Error> {
         Ok(())
     }
-    fn post_validate(&self) -> Result<(), InterpretError> {
+    fn post_validate(&self) -> Result<(), Error> {
         Ok(())
     }
 
-    unsafe fn interpret_unchecked(mem: &[u8]) -> &Self {
+    unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self {
         &*(mem.as_ptr() as *const Self)
     }
-    unsafe fn interpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
+    unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
         &mut *(mem.as_mut_ptr() as *mut Self)
     }
 }

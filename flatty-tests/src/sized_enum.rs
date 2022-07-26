@@ -17,7 +17,7 @@ enum SizedEnum {
 #[test]
 fn init_a() {
     let mut m = vec![0u8; 4 + 4];
-    let se = SizedEnum::init_default(m.as_mut_slice()).unwrap();
+    let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
 
     if let SizedEnum::A = se {
     } else {
@@ -30,7 +30,7 @@ fn init_a() {
 #[test]
 fn init_b() {
     let mut m = vec![0u8; 4 + 4];
-    let se = SizedEnum::init(m.as_mut_slice(), SizedEnum::B(0x1234, 0x56)).unwrap();
+    let se = SizedEnum::placement_new(m.as_mut_slice(), SizedEnum::B(0x1234, 0x56)).unwrap();
 
     if let SizedEnum::B(a, b) = se {
         assert_eq!(*a, 0x1234);
@@ -46,7 +46,8 @@ fn init_b() {
 #[test]
 fn init_c() {
     let mut m = vec![0u8; 4 + 4];
-    let se = SizedEnum::init(m.as_mut_slice(), SizedEnum::C { a: 0xab, b: 0xcdef }).unwrap();
+    let se =
+        SizedEnum::placement_new(m.as_mut_slice(), SizedEnum::C { a: 0xab, b: 0xcdef }).unwrap();
 
     if let SizedEnum::C { a, b } = se {
         assert_eq!(*a, 0xab);
@@ -63,7 +64,7 @@ fn init_c() {
 #[test]
 fn init_d() {
     let mut m = vec![0u8; 4 + 4];
-    let se = SizedEnum::init(m.as_mut_slice(), SizedEnum::D(0x12345678)).unwrap();
+    let se = SizedEnum::placement_new(m.as_mut_slice(), SizedEnum::D(0x12345678)).unwrap();
 
     if let SizedEnum::D(a) = se {
         assert_eq!(*a, 0x12345678);
@@ -78,7 +79,7 @@ fn init_d() {
 #[test]
 fn interpret_c() {
     let m = vec![2, 0, 0, 0, 0xab, 0, 0xef, 0xcd];
-    let s = SizedEnum::interpret(m.as_slice()).unwrap();
+    let s = SizedEnum::reinterpret(m.as_slice()).unwrap();
 
     if let SizedEnum::C { a, b } = s {
         assert_eq!(*a, 0xab);
@@ -91,7 +92,7 @@ fn interpret_c() {
 #[test]
 fn layout() {
     let mut m = vec![0u8; 4 + 4];
-    let se = SizedEnum::init_default(m.as_mut_slice()).unwrap();
+    let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
 
     assert_eq!(align_of::<SizedEnum>(), <SizedEnum as FlatBase>::ALIGN);
     assert_eq!(size_of::<SizedEnum>(), <SizedEnum as FlatSized>::SIZE);
