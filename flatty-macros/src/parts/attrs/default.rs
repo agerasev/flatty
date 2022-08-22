@@ -1,5 +1,5 @@
 use quote::quote;
-use syn::{Data, DeriveInput, Meta, NestedMeta};
+use syn::{Attribute, Data, DeriveInput, Meta, NestedMeta};
 
 pub fn has(input: &DeriveInput) -> bool {
     for attr in &input.attrs {
@@ -23,9 +23,8 @@ pub fn has(input: &DeriveInput) -> bool {
     false
 }
 
-pub fn filter_out(input: &DeriveInput) -> DeriveInput {
-    let mut output = input.clone();
-    output.attrs.retain_mut(|attr| {
+pub fn remove_derive(attrs: &mut Vec<Attribute>) {
+    attrs.retain_mut(|attr| {
         if attr.path.is_ident("derive") {
             let mut tokens = quote! {};
             let mut found = false;
@@ -52,6 +51,11 @@ pub fn filter_out(input: &DeriveInput) -> DeriveInput {
             true
         }
     });
+}
+
+pub fn filter_out(input: &DeriveInput) -> DeriveInput {
+    let mut output = input.clone();
+    remove_derive(&mut output.attrs);
     match &mut output.data {
         Data::Enum(enum_data) => {
             for variant in &mut enum_data.variants {

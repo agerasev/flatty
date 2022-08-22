@@ -3,7 +3,10 @@ use crate::{
     Error, Flat, FlatBase, FlatInit, FlatLen, FlatSized, FlatUnsized,
 };
 use core::{
+    cmp::{Eq, PartialEq},
+    fmt::{self, Debug, Formatter},
     mem::MaybeUninit,
+    ops::{Deref, DerefMut},
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
@@ -144,6 +147,33 @@ impl<T: Flat + Sized, L: FlatLen> FlatInit for FlatVec<T, L> {
 
 unsafe impl<T: Flat + Sized, L: FlatLen> Flat for FlatVec<T, L> {}
 
+impl<T: Flat + Sized, L: FlatLen> Deref for FlatVec<T, L> {
+    type Target = [T];
+    fn deref(&self) -> &[T] {
+        self.as_slice()
+    }
+}
+
+impl<T: Flat + Sized, L: FlatLen> DerefMut for FlatVec<T, L> {
+    fn deref_mut(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+}
+
+impl<T: Flat + Sized + Eq, L: FlatLen> PartialEq for FlatVec<T, L> {
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().zip(other.iter()).all(|(x, y)| x == y)
+    }
+}
+
+impl<T: Flat + Sized + Eq, L: FlatLen> Eq for FlatVec<T, L> {}
+
+impl<T: Flat + Sized + Debug, L: FlatLen> Debug for FlatVec<T, L> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.as_slice().fmt(f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,5 +217,22 @@ mod tests {
         }
         assert_eq!(flat_vec.len(), 3);
         assert_eq!(size_of_val(flat_vec), flat_vec.size());
+    }
+
+    #[test]
+    fn eq() {
+        let mut mem_a = vec![0u8; 4 * 5];
+        let mut mem_b = vec![0u8; 4 * 5];
+        let mut mem_c = vec![0u8; 4 * 3];
+        let vec_a = FlatVec::<i32>::placement_new(&mut mem_a, vec![1, 2, 3, 4]).unwrap();
+        let vec_b = FlatVec::<i32>::placement_new(&mut mem_b, vec![1, 2, 3, 4]).unwrap();
+        let vec_c = FlatVec::<i32>::placement_new(&mut mem_c, vec![1, 2]).unwrap();
+
+        assert_eq!(vec_a, vec_b);
+        assert_ne!(vec_a, vec_c);
+        assert_ne!(vec_b, vec_c);
+
+        vec_b[3] = 5;
+        assert_ne!(vec_a, vec_b);
     }
 }

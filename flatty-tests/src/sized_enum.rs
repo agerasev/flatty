@@ -2,7 +2,7 @@ use core::mem::{align_of, size_of};
 use flatty::{make_flat, FlatBase, FlatInit, FlatSized};
 
 #[make_flat(enum_type = "u8")]
-#[derive(Default)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 enum SizedEnum {
     #[default]
     A,

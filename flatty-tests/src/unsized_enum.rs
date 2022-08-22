@@ -1,7 +1,7 @@
 use flatty::{make_flat, Error, FlatInit, FlatVec};
 
 #[make_flat(sized = false, enum_type = "u8")]
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq, Eq)]
 enum UnsizedEnum {
     #[default]
     A,

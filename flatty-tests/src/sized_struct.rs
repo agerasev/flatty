@@ -2,7 +2,7 @@ use core::mem::{align_of, size_of};
 use flatty::{make_flat, FlatBase, FlatInit, FlatSized};
 
 #[make_flat]
-#[derive(Default)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 struct SizedStruct {
     a: u8,
     b: u16,
