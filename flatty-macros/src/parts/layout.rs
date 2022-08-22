@@ -116,6 +116,7 @@ pub fn make_size_gen(input: &DeriveInput, ident: &Ident, value: TokenStream2) ->
                 }
             });
             quote! {
+                offset += Self::DATA_OFFSET;
                 match (#value) {
                     #enum_body
                 }

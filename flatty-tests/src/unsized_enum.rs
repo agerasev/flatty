@@ -1,4 +1,5 @@
-use flatty::{make_flat, Error, FlatInit, FlatVec};
+use core::mem::{align_of_val, size_of_val};
+use flatty::{make_flat, Error, FlatBase, FlatInit, FlatVec};
 
 #[make_flat(sized = false, enum_type = "u8")]
 #[derive(Default, Debug, PartialEq, Eq)]
@@ -15,9 +16,10 @@ enum UnsizedEnum {
 #[test]
 fn init_a() {
     let mut mem = vec![0u8; 2];
-    let unsized_enum = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
+    let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
+    assert_eq!(ue.size(), 2);
 
-    match unsized_enum.as_ref() {
+    match ue.as_ref() {
         UnsizedEnumRef::A => (),
         _ => panic!(),
     }
@@ -28,10 +30,11 @@ fn init_a() {
 #[test]
 fn init_b() {
     let mut mem = vec![0u8; 6];
-    let unsized_enum =
+    let ue =
         UnsizedEnum::placement_new(mem.as_mut_slice(), UnsizedEnumInit::B(0xab, 0xcdef)).unwrap();
+    assert_eq!(ue.size(), 6);
 
-    match unsized_enum.as_ref() {
+    match ue.as_ref() {
         UnsizedEnumRef::B(x, y) => {
             assert_eq!(*x, 0xab);
             assert_eq!(*y, 0xcdef);
@@ -47,7 +50,7 @@ fn init_b() {
 #[test]
 fn init_c() {
     let mut mem = vec![0u8; 12];
-    let unsized_enum = UnsizedEnum::placement_new(
+    let ue = UnsizedEnum::placement_new(
         mem.as_mut_slice(),
         UnsizedEnumInit::C {
             a: 0xab,
@@ -55,8 +58,9 @@ fn init_c() {
         },
     )
     .unwrap();
+    assert_eq!(ue.size(), 10);
 
-    match unsized_enum.as_mut() {
+    match ue.as_mut() {
         UnsizedEnumMut::C { a, b } => {
             assert_eq!(*a, 0xab);
             assert_eq!(b.len(), 4);
@@ -67,6 +71,7 @@ fn init_c() {
         }
         _ => panic!(),
     }
+    assert_eq!(ue.size(), 12);
 
     assert_eq!(mem[0], 2);
     assert_eq!(mem[2], 0xab);
@@ -79,4 +84,32 @@ fn init_err() {
     let mut mem = vec![0u8; 1];
     let res = UnsizedEnum::placement_new(mem.as_mut_slice(), UnsizedEnumInit::A);
     assert_eq!(res.err().unwrap(), Error::InsufficientSize);
+}
+
+#[test]
+fn layout() {
+    let mut mem = vec![0u8; 6 + 8 * 2 + 1];
+    let us = UnsizedEnum::placement_new(
+        mem.as_mut_slice(),
+        UnsizedEnumInit::C {
+            a: 0xab,
+            b: Vec::new(),
+        },
+    )
+    .unwrap();
+
+    if let UnsizedEnumMut::C { b, .. } = us.as_mut() {
+        for i in 0.. {
+            if b.push(i).is_err() {
+                break;
+            }
+        }
+    } else {
+        panic!();
+    }
+
+    assert_eq!(UnsizedEnum::DATA_OFFSET, 2);
+    assert_eq!(align_of_val(us), <UnsizedEnum as FlatBase>::ALIGN);
+    assert_eq!(size_of_val(us), us.size());
+    assert_eq!(us.size(), mem.len() - 1);
 }

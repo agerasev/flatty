@@ -107,7 +107,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
             type AlignAs = #align_as_ident<#params>;
 
             fn ptr_metadata(mem: &[u8]) -> usize {
-                mem.len() - Self::DATA_OFFSET
+                ::flatty::utils::lower_multiple(mem.len() - Self::DATA_OFFSET, <Self as ::flatty::FlatBase>::ALIGN)
             }
         }
 

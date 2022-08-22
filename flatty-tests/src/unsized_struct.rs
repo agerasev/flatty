@@ -22,6 +22,7 @@ fn init() {
     )
     .unwrap();
 
+    assert_eq!(us.size(), 16);
     assert_eq!(us.a, 200);
     assert_eq!(us.b, 40000);
     assert_eq!(us.c.len(), 0);
@@ -32,6 +33,7 @@ fn init() {
         }
     }
 
+    assert_eq!(us.size(), 48);
     assert_eq!(us.a, 200);
     assert_eq!(us.b, 40000);
     assert_eq!(us.c.len(), 4);
@@ -43,6 +45,7 @@ fn default() {
     let mut mem = vec![0u8; 16 + 8 * 4];
     let us = UnsizedStruct::placement_default(mem.as_mut_slice()).unwrap();
 
+    assert_eq!(us.size(), 16);
     assert_eq!(us.a, 0);
     assert_eq!(us.b, 0);
     assert_eq!(us.c.len(), 0);

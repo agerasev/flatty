@@ -24,6 +24,12 @@ pub const fn upper_multiple(x: usize, m: usize) -> usize {
     ((x + m - 1) / m) * m
 }
 
+/// Biggest number that is both lower or equal to `x` and a multiple of `m`.
+#[allow(dead_code)]
+pub const fn lower_multiple(x: usize, m: usize) -> usize {
+    (x / m) * m
+}
+
 /// Assume that slice of [`MaybeUninit`] is initialized.
 ///
 /// # Safety
