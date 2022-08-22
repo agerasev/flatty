@@ -2,7 +2,7 @@ use core::mem::{align_of_val, size_of_val};
 use flatty::{make_flat, FlatBase, FlatInit, FlatVec};
 
 #[make_flat(sized = false)]
-//#[derive(Default)]
+#[derive(Default)]
 struct UnsizedStruct {
     a: u8,
     b: u16,
@@ -36,6 +36,16 @@ fn init() {
     assert_eq!(us.b, 40000);
     assert_eq!(us.c.len(), 4);
     assert_eq!(us.c.as_slice(), [0, 1, 2, 3]);
+}
+
+#[test]
+fn default() {
+    let mut mem = vec![0u8; 16 + 8 * 4];
+    let us = UnsizedStruct::placement_default(mem.as_mut_slice()).unwrap();
+
+    assert_eq!(us.a, 0);
+    assert_eq!(us.b, 0);
+    assert_eq!(us.c.len(), 0);
 }
 
 #[test]

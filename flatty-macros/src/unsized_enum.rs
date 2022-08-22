@@ -10,13 +10,19 @@ use syn::{self, parse_macro_input, DeriveInput};
 pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     assert!(attr.is_empty());
     let input = parse_macro_input!(stream as DeriveInput);
-    attrs::validate_repr(&input);
+    attrs::repr::validate(&input);
 
     let vis = &input.vis;
     let ident = &input.ident;
 
-    let enum_ty = attrs::get_enum_type(&input);
+    let enum_ty = attrs::repr::get_enum_type(&input);
     let (state_ident, state_contents) = enum_::make_state(&input);
+
+    let derive_default = if attrs::default::has(&input) {
+        quote! { #[derive(Default)] }
+    } else {
+        quote! {}
+    };
 
     let (params, bindings) = generic::make_params(&input);
     let where_clause = where_(generic::make_bounds(
@@ -105,6 +111,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
             }
         }
 
+        #derive_default
         #vis enum #init_ident<#bindings> #init_body
 
         impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {

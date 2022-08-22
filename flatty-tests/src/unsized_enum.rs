@@ -1,16 +1,21 @@
 use flatty::{make_flat, Error, FlatInit, FlatVec};
 
 #[make_flat(sized = false, enum_type = "u8")]
+#[derive(Default)]
 enum UnsizedEnum {
+    #[default]
     A,
     B(u8, u16),
-    C { a: u8, b: FlatVec<u8, u16> },
+    C {
+        a: u8,
+        b: FlatVec<u8, u16>,
+    },
 }
 
 #[test]
 fn init_a() {
     let mut mem = vec![0u8; 2];
-    let unsized_enum = UnsizedEnum::placement_new(mem.as_mut_slice(), UnsizedEnumInit::A).unwrap();
+    let unsized_enum = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
 
     match unsized_enum.as_ref() {
         UnsizedEnumRef::A => (),

@@ -9,7 +9,7 @@ use syn::{self, parse_macro_input, DeriveInput};
 
 pub fn derive(stream: TokenStream) -> TokenStream {
     let input = parse_macro_input!(stream as DeriveInput);
-    attrs::validate_repr(&input);
+    attrs::repr::validate(&input);
 
     let ident = &input.ident;
     let (params, bindings) = generic::make_params(&input);

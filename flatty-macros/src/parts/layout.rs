@@ -20,7 +20,7 @@ pub fn make_align(input: &DeriveInput) -> TokenStream2 {
     match &input.data {
         Data::Struct(struct_data) => make_align_fields(&struct_data.fields),
         Data::Enum(enum_data) => {
-            let enum_ty = attrs::get_enum_type(input);
+            let enum_ty = attrs::repr::get_enum_type(input);
             enum_data.variants.iter().fold(
                 quote! { <#enum_ty as ::flatty::FlatBase>::ALIGN },
                 |accum, variant| {
@@ -53,7 +53,7 @@ pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
     match &input.data {
         Data::Struct(struct_data) => make_min_size_fields(&struct_data.fields),
         Data::Enum(enum_data) => {
-            let enum_ty = attrs::get_enum_type(input);
+            let enum_ty = attrs::repr::get_enum_type(input);
             let contents = enum_data
                 .variants
                 .iter()

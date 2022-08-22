@@ -7,12 +7,19 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{self, parse_macro_input, DeriveInput};
 
-pub fn derive(stream: TokenStream) -> TokenStream {
+pub fn make(_attr: TokenStream, stream: TokenStream) -> TokenStream {
     let input = parse_macro_input!(stream as DeriveInput);
-    attrs::validate_repr(&input);
+    attrs::repr::validate(&input);
 
     let vis = &input.vis;
     let ident = &input.ident;
+
+    let derive_default = if attrs::default::has(&input) {
+        quote! { #[derive(Default)] }
+    } else {
+        quote! {}
+    };
+    let input_without_default = attrs::default::filter_out(&input);
 
     let (params, bindings) = generic::make_params(&input);
     let where_clause = where_(generic::make_bounds(
@@ -34,6 +41,8 @@ pub fn derive(stream: TokenStream) -> TokenStream {
     let post_validate = validate::make_post(&input);
 
     let expanded = quote! {
+        #input_without_default
+
         #[allow(dead_code)]
         #[repr(C)]
         #vis struct #align_as_ident<#bindings> ( #align_as_contents );
@@ -55,7 +64,7 @@ pub fn derive(stream: TokenStream) -> TokenStream {
             }
         }
 
-        //#[derive(Default)]
+        #derive_default
         #vis struct #init_ident<#bindings> #init_body
 
         impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {

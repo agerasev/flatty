@@ -47,8 +47,18 @@ pub fn make_type(input: &DeriveInput) -> (Ident, TokenStream2) {
             let contents = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
                 let var_body = make_type_fields(&variant.fields);
                 let var_ident = &variant.ident;
+                let default = if variant
+                    .attrs
+                    .iter()
+                    .any(|attr| attr.path.is_ident("default"))
+                {
+                    quote! { #[default] }
+                } else {
+                    quote! {}
+                };
                 quote! {
                     #accum
+                    #default
                     #var_ident #var_body,
                 }
             });
@@ -90,7 +100,7 @@ pub fn make(input: &DeriveInput) -> TokenStream2 {
     let body = match &input.data {
         Data::Struct(struct_data) => make_fields(&struct_data.fields, quote! { init. }),
         Data::Enum(enum_data) => {
-            let enum_ty = attrs::get_enum_type(input);
+            let enum_ty = attrs::repr::get_enum_type(input);
             let contents =
                 enum_data
                     .variants

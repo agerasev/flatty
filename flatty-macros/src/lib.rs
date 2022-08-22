@@ -19,9 +19,9 @@ pub fn derive_flat_sized(stream: TokenStream) -> TokenStream {
 /// Create an unsized struct.
 ///
 /// *It is recommended to use [`make_flat()`] macro instead.*
-#[proc_macro_derive(FlatUnsized)]
-pub fn derive_flat_unsized(stream: TokenStream) -> TokenStream {
-    unsized_struct::derive(stream)
+#[proc_macro_attribute]
+pub fn make_flat_unsized_struct(attr: TokenStream, stream: TokenStream) -> TokenStream {
+    unsized_struct::make(attr, stream)
 }
 
 /// Create an unsized enum.

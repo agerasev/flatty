@@ -15,7 +15,7 @@ pub fn make(input: &DeriveInput) -> (Ident, TokenStream2) {
     let contents = match &input.data {
         Data::Struct(struct_data) => make_fields(&struct_data.fields),
         Data::Enum(enum_data) => {
-            let enum_ty = attrs::get_enum_type(input);
+            let enum_ty = attrs::repr::get_enum_type(input);
             enum_data
                 .variants
                 .iter()

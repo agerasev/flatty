@@ -31,7 +31,7 @@ fn init() {
 }
 
 #[test]
-fn init_default() {
+fn default() {
     let mut m = vec![0u8; 16 + 8 * 4];
     let ss = SizedStruct::placement_default(m.as_mut_slice()).unwrap();
 

@@ -4,7 +4,7 @@ use quote::quote;
 use syn::{self, parse_macro_input, Data, DeriveInput};
 
 pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
-    let info = parse_macro_input!(attr as attrs::MakeFlatInfo);
+    let info = parse_macro_input!(attr as attrs::make_flat::MakeFlatInfo);
     let input = parse_macro_input!(stream as DeriveInput);
 
     let enum_type = match input.data {
@@ -18,12 +18,13 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         },
     };
 
-    let derive = match (&input.data, info.sized) {
-        (Data::Enum(_), false) => {
-            quote! { #[::flatty::macros::make_flat_unsized_enum] }
-        }
-        (_, true) => quote! { #[derive(::flatty::macros::FlatSized)] },
-        (_, false) => quote! { #[derive(::flatty::macros::FlatUnsized)] },
+    let derive = match info.sized {
+        true => quote! { #[derive(::flatty::macros::FlatSized)] },
+        false => match &input.data {
+            Data::Enum(_) => quote! { #[::flatty::macros::make_flat_unsized_enum] },
+            Data::Struct(_) => quote! { #[::flatty::macros::make_flat_unsized_struct] },
+            _ => panic!(),
+        },
     };
 
     let expanded = quote! {
