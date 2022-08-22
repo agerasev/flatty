@@ -71,13 +71,13 @@ pub trait FlatInit: FlatBase {
     ///
     /// # Safety
     ///
-    /// Memory must have suitable size, align for `Self` and its contents must be valid.  
+    /// Memory must have suitable size and align for `Self` and its contents must be valid.  
     unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self;
     /// Interpret without checks providing mutable reference.
     ///
     /// # Safety
     ///
-    /// Memory must have suitable size, align for `Self` and its contents must be valid.  
+    /// Memory must have suitable size and align for `Self` and its contents must be valid.  
     unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self;
 }
 

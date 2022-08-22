@@ -54,10 +54,10 @@ struct SizedStruct {
 
 ### Sized enum
 
-For enum you need to explicitly set the type of variant index.
+For enum you may explicitly set the type of variant index (default value is `u8`).
 
 ```rust
-#[flatty::make_flat(enum_type = "u8")]
+#[flatty::make_flat(enum_type = "u32")]
 enum SizedEnum {
     A,
     B(u16, u8),
@@ -68,7 +68,7 @@ enum SizedEnum {
 
 ### Unsized struct
 
-Unsized struct is Rust DST. The reference to that structure contains its size.
+Unsized struct is [DST](https://doc.rust-lang.org/reference/dynamically-sized-types.html). The reference to that structure contains its size.
 
 ```rust
 #[flatty::make_flat(sized = false)]
@@ -82,12 +82,12 @@ struct UnsizedStruct {
 
 ### Unsized enum
 
-Rust doesn't support DST enums yet so for now enum declaration is translated to unsized structure.
+Rust doesn't support [DST](https://doc.rust-lang.org/reference/dynamically-sized-types.html) enums yet so for now enum declaration is translated to unsized structure.
 
 But it has `as_ref`/`as_mut` methods that returns a native enum that contains references to original enum fields.
 
 ```rust
-#[flatty::make_flat(sized = false, enum_type = "u8")]
+#[flatty::make_flat(sized = false)]
 enum UnsizedEnum {
     A,
     B(u8, u16),
