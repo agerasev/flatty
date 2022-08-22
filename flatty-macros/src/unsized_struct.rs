@@ -1,6 +1,6 @@
 use crate::parts::{
     align_as, attrs,
-    bounds::{self, where_},
+    generic::{self, where_},
     init, layout, validate,
 };
 use proc_macro::TokenStream;
@@ -14,7 +14,8 @@ pub fn derive(stream: TokenStream) -> TokenStream {
     let vis = &input.vis;
     let ident = &input.ident;
 
-    let where_clause = where_(bounds::make(
+    let (params, bindings) = generic::make_params(&input);
+    let where_clause = where_(generic::make_bounds(
         &input,
         quote! { ::flatty::FlatSized },
         Some(quote! { ::flatty::Flat }),
@@ -33,13 +34,11 @@ pub fn derive(stream: TokenStream) -> TokenStream {
     let post_validate = validate::make_post(&input);
 
     let expanded = quote! {
-        unsafe impl ::flatty::Flat for #ident #where_clause {}
-
         #[allow(dead_code)]
         #[repr(C)]
-        #vis struct #align_as_ident ( #align_as_contents );
+        #vis struct #align_as_ident<#bindings> ( #align_as_contents );
 
-        impl ::flatty::FlatBase for #ident #where_clause {
+        impl<#bindings> ::flatty::FlatBase for #ident<#params> #where_clause {
             const ALIGN: usize = #align;
 
             const MIN_SIZE: usize = #min_size;
@@ -48,8 +47,8 @@ pub fn derive(stream: TokenStream) -> TokenStream {
             }
         }
 
-        impl ::flatty::FlatUnsized for #ident #where_clause {
-            type AlignAs = #align_as_ident;
+        impl<#bindings> ::flatty::FlatUnsized for #ident<#params> #where_clause {
+            type AlignAs = #align_as_ident<#params>;
 
             fn ptr_metadata(mem: &[u8]) -> usize {
                 #ptr_metadata
@@ -57,10 +56,10 @@ pub fn derive(stream: TokenStream) -> TokenStream {
         }
 
         //#[derive(Default)]
-        #vis struct #init_ident #init_body
+        #vis struct #init_ident<#bindings> #init_body
 
-        impl ::flatty::FlatInit for #ident #where_clause {
-            type Init = #init_ident;
+        impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {
+            type Init = #init_ident<#params>;
 
             unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
                 #init_fn
@@ -82,6 +81,8 @@ pub fn derive(stream: TokenStream) -> TokenStream {
                 &mut *(slice as *mut [_] as *mut Self)
             }
         }
+
+        unsafe impl<#bindings> ::flatty::Flat for #ident<#params> #where_clause {}
     };
 
     TokenStream::from(expanded)

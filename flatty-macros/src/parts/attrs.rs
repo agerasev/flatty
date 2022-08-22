@@ -8,7 +8,7 @@ use syn::{
 
 fn get_repr(input: &DeriveInput) -> Option<Ident> {
     let panic_msg = "Bad `repr` attribute format";
-    let mut output = None;
+    let mut enum_type = None;
     let mut has_repr = false;
     for attr in &input.attrs {
         if attr.path.is_ident("repr") {
@@ -22,8 +22,8 @@ fn get_repr(input: &DeriveInput) -> Option<Ident> {
                             has_repr_c = true;
                         } else {
                             assert!(
-                                output.replace(ident.clone()).is_none(),
-                                "`repr(..)` contains more than one type",
+                                enum_type.replace(ident.clone()).is_none(),
+                                "`repr(..)` contains more than one enum type",
                             );
                         }
                     } else {
@@ -40,7 +40,7 @@ fn get_repr(input: &DeriveInput) -> Option<Ident> {
         has_repr,
         "User-defined types must have `repr(..)` attribute",
     );
-    output
+    enum_type
 }
 
 pub fn validate_repr(input: &DeriveInput) {

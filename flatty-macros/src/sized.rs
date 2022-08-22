@@ -1,6 +1,6 @@
 use crate::parts::{
     attrs,
-    bounds::{self, where_},
+    generic::{self, where_},
     validate,
 };
 use proc_macro::TokenStream;
@@ -12,14 +12,17 @@ pub fn derive(stream: TokenStream) -> TokenStream {
     attrs::validate_repr(&input);
 
     let ident = &input.ident;
-    let where_clause = where_(bounds::make(&input, quote! { ::flatty::FlatSized }, None));
+    let (params, bindings) = generic::make_params(&input);
+    let where_clause = where_(generic::make_bounds(
+        &input,
+        quote! { ::flatty::FlatSized },
+        None,
+    ));
     let pre_validate = validate::make_pre(&input);
     let post_validate = validate::make_post(&input);
 
     let expanded = quote! {
-        unsafe impl ::flatty::Flat for #ident #where_clause {}
-
-        impl ::flatty::FlatInit for #ident #where_clause {
+        impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {
             type Init = Self;
             unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
                 let self_ = Self::reinterpret_mut_unchecked(mem);
@@ -40,6 +43,8 @@ pub fn derive(stream: TokenStream) -> TokenStream {
                 &mut *(mem.as_mut_ptr() as *mut Self)
             }
         }
+
+        unsafe impl<#bindings> ::flatty::Flat for #ident<#params> #where_clause {}
     };
 
     TokenStream::from(expanded)

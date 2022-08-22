@@ -97,6 +97,7 @@ impl<T: Flat + Sized, L: FlatLen> FlatInit for FlatVec<T, L> {
     type Init = Vec<T>;
     unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
         let self_ = Self::reinterpret_mut_unchecked(mem);
+        self_.len = L::from_usize(0).unwrap();
         for x in init.into_iter() {
             assert!(self_.push(x).is_ok());
         }

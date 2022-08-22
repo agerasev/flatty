@@ -6,9 +6,11 @@
 //! + What if constructed from non-zeroed slice? Should we validate on constructing?
 //! + Interpret should return `Result`.
 
+mod array;
 mod base;
 mod error;
 mod len;
+mod marker;
 mod prim;
 mod sized;
 

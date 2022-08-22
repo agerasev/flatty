@@ -1,7 +1,7 @@
 use crate::parts::{
-    align_as, attrs,
-    bounds::{self, where_},
-    enum_, init, layout,
+    align_as, attrs, enum_,
+    generic::{self, where_},
+    init, layout,
 };
 use proc_macro::TokenStream;
 use quote::quote;
@@ -18,7 +18,8 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     let enum_ty = attrs::get_enum_type(&input);
     let (state_ident, state_contents) = enum_::make_state(&input);
 
-    let where_clause = where_(bounds::make(
+    let (params, bindings) = generic::make_params(&input);
+    let where_clause = where_(generic::make_bounds(
         &input,
         quote! { ::flatty::FlatSized },
         Some(quote! { ::flatty::Flat }),
@@ -50,41 +51,42 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         }
 
         #[repr(C)]
-        #vis struct #ident {
+        #vis struct #ident<#bindings> {
             state: #state_ident,
             _align: [<Self as ::flatty::FlatUnsized>::AlignAs; 0],
+            _phantom: ::core::marker::PhantomData<#init_ident<#params>>,
             data: [u8],
         }
 
-        #vis enum #ref_ident<'a> {
+        #vis enum #ref_ident<'__flatty_a, #bindings> {
             #ref_contents
         }
 
-        #vis enum #mut_ident<'a> {
+        #vis enum #mut_ident<'__flatty_a, #bindings> {
             #mut_contents
         }
 
         #[allow(dead_code)]
         #[repr(C)]
-        #vis struct #align_as_ident ( #align_as_contents );
+        #vis struct #align_as_ident<#bindings> ( #align_as_contents );
 
-        impl #ident #where_clause {
+        impl<#bindings> #ident<#params> #where_clause {
             const DATA_OFFSET: usize = ::flatty::utils::max(<#enum_ty as ::flatty::FlatSized>::SIZE, <Self as ::flatty::FlatBase>::ALIGN);
 
             const VAR_MIN_SIZES: [usize; #vars_count] = #var_min_sizes;
 
             #[allow(clippy::eval_order_dependence)]
-            pub fn as_ref(&self) -> UnsizedEnumRef<'_> {
+            pub fn as_ref(&self) -> #ref_ident<'_, #params> {
                 #as_ref_ident
             }
 
             #[allow(clippy::eval_order_dependence)]
-            pub fn as_mut(&mut self) -> UnsizedEnumMut<'_> {
+            pub fn as_mut(&mut self) -> #mut_ident<'_, #params> {
                 #as_mut_ident
             }
         }
 
-        impl ::flatty::FlatBase for #ident #where_clause {
+        impl<#bindings> ::flatty::FlatBase for #ident<#params> #where_clause {
             const ALIGN: usize = #align;
 
             const MIN_SIZE: usize = #min_size;
@@ -95,18 +97,18 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
             }
         }
 
-        impl ::flatty::FlatUnsized for #ident #where_clause {
-            type AlignAs = #align_as_ident;
+        impl<#bindings> ::flatty::FlatUnsized for #ident<#params> #where_clause {
+            type AlignAs = #align_as_ident<#params>;
 
             fn ptr_metadata(mem: &[u8]) -> usize {
                 mem.len() - Self::DATA_OFFSET
             }
         }
 
-        #vis enum #init_ident #init_body
+        #vis enum #init_ident<#bindings> #init_body
 
-        impl ::flatty::FlatInit for #ident #where_clause {
-            type Init = #init_ident;
+        impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {
+            type Init = #init_ident<#params>;
 
             unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
                 #init_fn
@@ -134,74 +136,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
             }
         }
 
-        unsafe impl ::flatty::Flat for #ident #where_clause {}
-
-        /*
-        impl FlatInit for UnsizedEnum {
-            type Init = UnsizedEnumInit;
-            unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
-                let self_ = Self::reinterpret_mut_unchecked(mem);
-                match init {
-                    UnsizedEnumInit::A => {
-                        self_.state = UnsizedEnumState::A;
-                    }
-                    UnsizedEnumInit::B(inner_init) => {
-                        self_.state = UnsizedEnumState::B;
-                        i32::placement_new_unchecked(&mut self_.data, inner_init);
-                    }
-                    UnsizedEnumInit::C(inner_init) => {
-                        self_.state = UnsizedEnumState::C;
-                        <FlatVec<u8>>::placement_new_unchecked(&mut self_.data, inner_init);
-                    }
-                }
-                self_
-            }
-
-            fn pre_validate(mem: &[u8]) -> Result<(), Error> {
-                if *u8::reinterpret(mem).unwrap() >= 3 {
-                    Err(Error::InvalidState)
-                } else {
-                    Ok(())
-                }
-            }
-            fn post_validate(&self) -> Result<(), Error> {
-                match &self.state {
-                    UnsizedEnumState::A => Ok(()),
-                    UnsizedEnumState::B => {
-                        if self.data.len() < i32::MIN_SIZE {
-                            return Err(Error::InsufficientSize);
-                        }
-                        i32::pre_validate(&self.data)?;
-                        if let UnsizedEnumRef::B(inner) = self.as_ref() {
-                            inner.post_validate()
-                        } else {
-                            unreachable!();
-                        }
-                    }
-                    UnsizedEnumState::C => {
-                        if self.data.len() < FlatVec::<u8>::MIN_SIZE {
-                            return Err(Error::InsufficientSize);
-                        }
-                        <FlatVec<u8>>::pre_validate(&self.data)?;
-                        if let UnsizedEnumRef::C(inner) = self.as_ref() {
-                            inner.post_validate()
-                        } else {
-                            unreachable!();
-                        }
-                    }
-                }
-            }
-
-            unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self {
-                let slice = from_raw_parts(mem.as_ptr(), Self::ptr_metadata(mem));
-                &*(slice as *const [_] as *const Self)
-            }
-            unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-                let slice = from_raw_parts_mut(mem.as_mut_ptr(), Self::ptr_metadata(mem));
-                &mut *(slice as *mut [_] as *mut Self)
-            }
-        }
-        */
+        unsafe impl<#bindings> ::flatty::Flat for #ident<#params> #where_clause {}
     };
 
     TokenStream::from(expanded)

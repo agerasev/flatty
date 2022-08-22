@@ -2,7 +2,7 @@ use crate::utils::fields_iter::FieldsIter;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::iter::Iterator;
-use syn::{self, Data, DeriveInput};
+use syn::{self, Data, DeriveInput, GenericParam};
 
 fn make_fields<FI: FieldsIter>(
     fields: &FI,
@@ -25,7 +25,34 @@ fn make_fields<FI: FieldsIter>(
     })
 }
 
-pub fn make(
+pub fn make_params(input: &DeriveInput) -> (TokenStream2, TokenStream2) {
+    let params = input
+        .generics
+        .params
+        .iter()
+        .fold(quote! {}, |accum, param| {
+            let param = match param {
+                GenericParam::Type(type_param) => {
+                    let param = &type_param.ident;
+                    quote! { #param }
+                }
+                GenericParam::Lifetime(lifetime_def) => {
+                    let param = &lifetime_def.lifetime;
+                    quote! { #param }
+                }
+                GenericParam::Const(const_param) => {
+                    let param = &const_param.ident;
+                    quote! { #param }
+                }
+            };
+            quote! { #accum #param, }
+        });
+
+    let generated = &input.generics.params;
+    (params, quote! { #generated })
+}
+
+pub fn make_bounds(
     input: &DeriveInput,
     bound: TokenStream2,
     last_bound: Option<TokenStream2>,

@@ -1,55 +1,56 @@
-use crate::{Error, Flat, FlatInit, FlatSized};
-use core::ptr;
+use crate::{Error, Flat, FlatInit};
 
-/// Primitive flat type.
+/// Macro for implementing [`Flat`] for primitive types..
 ///
 /// # Safety
 ///
-/// Any possible memory representation must be valid.
-pub unsafe trait FlatPrim: FlatSized + Copy {}
+/// Type must be [`Sized`]` + `[`Copy`].
+///
+/// Any possible memory state of the variable of the type must be valid.
+macro_rules! impl_flat_prim {
+    ($ty:ty) => {
+        impl FlatInit for $ty {
+            type Init = $ty;
+            unsafe fn placement_new_unchecked(mem: &mut [u8], init: $ty) -> &mut Self {
+                let self_ = Self::reinterpret_mut_unchecked(mem);
+                *self_ = init;
+                self_
+            }
 
-impl<T: FlatPrim> FlatInit for T {
-    type Init = Self;
-    unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
-        let self_ = Self::reinterpret_mut_unchecked(mem);
-        // Dirty hack because the compiler cannot prove that `Self::Init` is the same as `Self`.
-        *self_ = ptr::read(&init as *const _ as *const Self);
-        self_
-    }
+            fn pre_validate(_: &[u8]) -> Result<(), Error> {
+                Ok(())
+            }
+            fn post_validate(&self) -> Result<(), Error> {
+                Ok(())
+            }
 
-    fn pre_validate(_: &[u8]) -> Result<(), Error> {
-        Ok(())
-    }
-    fn post_validate(&self) -> Result<(), Error> {
-        Ok(())
-    }
+            unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self {
+                &*(mem.as_ptr() as *const Self)
+            }
+            unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
+                &mut *(mem.as_mut_ptr() as *mut Self)
+            }
+        }
 
-    unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self {
-        &*(mem.as_ptr() as *const Self)
-    }
-    unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-        &mut *(mem.as_mut_ptr() as *mut Self)
-    }
+        unsafe impl Flat for $ty {}
+    };
 }
-unsafe impl<T: FlatPrim> Flat for T {}
 
-unsafe impl FlatPrim for () {}
+impl_flat_prim!(());
 
-unsafe impl FlatPrim for bool {}
+impl_flat_prim!(bool);
 
-unsafe impl FlatPrim for u8 {}
-unsafe impl FlatPrim for u16 {}
-unsafe impl FlatPrim for u32 {}
-unsafe impl FlatPrim for u64 {}
-unsafe impl FlatPrim for u128 {}
+impl_flat_prim!(u8);
+impl_flat_prim!(u16);
+impl_flat_prim!(u32);
+impl_flat_prim!(u64);
+impl_flat_prim!(u128);
 
-unsafe impl FlatPrim for i8 {}
-unsafe impl FlatPrim for i16 {}
-unsafe impl FlatPrim for i32 {}
-unsafe impl FlatPrim for i64 {}
-unsafe impl FlatPrim for i128 {}
+impl_flat_prim!(i8);
+impl_flat_prim!(i16);
+impl_flat_prim!(i32);
+impl_flat_prim!(i64);
+impl_flat_prim!(i128);
 
-unsafe impl FlatPrim for f32 {}
-unsafe impl FlatPrim for f64 {}
-
-unsafe impl<T: FlatPrim + Sized, const N: usize> FlatPrim for [T; N] {}
+impl_flat_prim!(f32);
+impl_flat_prim!(f64);

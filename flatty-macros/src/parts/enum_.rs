@@ -70,7 +70,7 @@ fn mut_ident(input: &DeriveInput) -> Ident {
 pub fn make_ref(input: &DeriveInput) -> (Ident, TokenStream2) {
     let ident = ref_ident(input);
     let contents = make_mapped(input, |ty| {
-        let stream = quote! { &'a #ty };
+        let stream = quote! { &'__flatty_a #ty };
         parse2::<Type>(stream).unwrap()
     });
     (ident, contents)
@@ -79,7 +79,7 @@ pub fn make_ref(input: &DeriveInput) -> (Ident, TokenStream2) {
 pub fn make_mut(input: &DeriveInput) -> (Ident, TokenStream2) {
     let ident = mut_ident(input);
     let contents = make_mapped(input, |ty| {
-        let stream = quote! { &'a mut #ty };
+        let stream = quote! { &'__flatty_a mut #ty };
         parse2::<Type>(stream).unwrap()
     });
     (ident, contents)

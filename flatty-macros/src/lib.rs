@@ -44,14 +44,15 @@ pub fn make_flat_unsized_enum(attr: TokenStream, item: TokenStream) -> TokenStre
 /// or
 ///
 /// ```rust_no_check
-/// #[flatty::make_flat(sized = false, enum_type = "u8")]
+/// #[flatty::make_flat(sized = false, enum_type = "u32")]
 /// enum ... { ... }
 /// ```
 ///
 /// # Arguments
 ///
 /// + `sized: bool`, optional, `true` by default. Whether structure is sized or not.
-/// + `enum_type: str`, for `enum` declaration only. The type used for enum variant index. Possible valiues: `"u8"`, `"u16"`, `"u32"`.
+/// + `enum_type: str`, for `enum` declaration only, optional, `"u8"` by default.
+///   The type used for enum variant index. Possible valiues: `"u8"`, `"u16"`, `"u32"`.
 #[proc_macro_attribute]
 pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
     base::make(attr, item)
