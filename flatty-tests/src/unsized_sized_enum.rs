@@ -31,7 +31,7 @@ fn init_a() {
 fn init_b() {
     let mut mem = vec![0u8; 6];
     let use_ =
-        UnsizedSizedEnum::placement_new(mem.as_mut_slice(), UnsizedSizedEnumInit::B(0xab, 0xcdef))
+        UnsizedSizedEnum::placement_new(mem.as_mut_slice(), &UnsizedSizedEnumDyn::B(0xab, 0xcdef))
             .unwrap();
     assert_eq!(use_.size(), 6);
 
@@ -53,7 +53,7 @@ fn init_c() {
     let mut mem = vec![0u8; 10];
     let use_ = UnsizedSizedEnum::placement_new(
         mem.as_mut_slice(),
-        UnsizedSizedEnumInit::C {
+        &UnsizedSizedEnumDyn::C {
             a: 0xab,
             b: 0xcdef,
             c: [0x12, 0x34, 0x56, 0x78],
@@ -80,6 +80,6 @@ fn init_c() {
 #[test]
 fn init_err() {
     let mut mem = vec![0u8; 1];
-    let res = UnsizedSizedEnum::placement_new(mem.as_mut_slice(), UnsizedSizedEnumInit::A);
+    let res = UnsizedSizedEnum::placement_new(mem.as_mut_slice(), &UnsizedSizedEnumDyn::A);
     assert_eq!(res.err().unwrap(), Error::InsufficientSize);
 }

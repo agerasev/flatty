@@ -15,7 +15,7 @@ fn init() {
     let mut m = vec![0u8; 16 + 8 * 4];
     let ss = SizedStruct::placement_new(
         m.as_mut_slice(),
-        SizedStruct {
+        &SizedStruct {
             a: 200,
             b: 40000,
             c: 2000000000,

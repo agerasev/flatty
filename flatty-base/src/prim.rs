@@ -1,4 +1,5 @@
 use crate::{Error, Flat, FlatInit};
+use core::mem::size_of;
 
 /// Macro for implementing [`Flat`] for primitive types..
 ///
@@ -10,10 +11,17 @@ use crate::{Error, Flat, FlatInit};
 macro_rules! impl_flat_prim {
     ($ty:ty) => {
         impl FlatInit for $ty {
-            type Init = $ty;
-            unsafe fn placement_new_unchecked(mem: &mut [u8], init: $ty) -> &mut Self {
+            type Dyn = $ty;
+            fn size_of(_: &$ty) -> usize {
+                size_of::<$ty>()
+            }
+
+            unsafe fn placement_new_unchecked<'a, 'b>(
+                mem: &'a mut [u8],
+                init: &'b $ty,
+            ) -> &'a mut Self {
                 let self_ = Self::reinterpret_mut_unchecked(mem);
-                *self_ = init;
+                *self_ = *init;
                 self_
             }
 

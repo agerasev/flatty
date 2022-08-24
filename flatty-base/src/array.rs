@@ -1,11 +1,17 @@
-use crate::{Error, Flat, FlatInit};
+use crate::{Error, Flat, FlatInit, FlatSized};
 use core::mem::size_of;
 
 impl<T: Flat + Sized, const N: usize> FlatInit for [T; N] {
-    type Init = [T::Init; N];
+    type Dyn = [T::Dyn; N];
+    fn size_of(_: &Self::Dyn) -> usize {
+        T::SIZE * N
+    }
 
-    unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
-        for (i, ii) in init.into_iter().enumerate() {
+    unsafe fn placement_new_unchecked<'a, 'b>(
+        mem: &'a mut [u8],
+        init: &'b Self::Dyn,
+    ) -> &'a mut Self {
+        for (i, ii) in init.iter().enumerate() {
             T::placement_new_unchecked(&mut mem[(i * size_of::<T>())..][..size_of::<T>()], ii);
         }
         Self::reinterpret_mut_unchecked(mem)

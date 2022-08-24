@@ -12,7 +12,7 @@ fn make_type_fields(fields: &Fields) -> TokenStream2 {
             let contents = fields.named.iter().fold(quote! {}, |accum, field| {
                 let field_ty = &field.ty;
                 let field_ident = field.ident.as_ref().unwrap();
-                quote! { #accum #field_ident: <#field_ty as ::flatty::FlatInit>::Init, }
+                quote! { #accum #field_ident: <#field_ty as ::flatty::FlatInit>::Dyn, }
             });
             quote! { { #contents } }
         }
@@ -20,7 +20,7 @@ fn make_type_fields(fields: &Fields) -> TokenStream2 {
             let contents = fields.unnamed.iter().fold(quote! {}, |accum, field| {
                 let field_ty = &field.ty;
                 assert!(field.ident.is_none());
-                quote! { #accum <#field_ty as ::flatty::FlatInit>::Init, }
+                quote! { #accum <#field_ty as ::flatty::FlatInit>::Dyn, }
             });
             quote! { (#contents) }
         }
@@ -29,7 +29,7 @@ fn make_type_fields(fields: &Fields) -> TokenStream2 {
 }
 
 pub fn type_ident(input: &DeriveInput) -> Ident {
-    Ident::new(&format!("{}Init", input.ident), input.ident.span())
+    Ident::new(&format!("{}Dyn", input.ident), input.ident.span())
 }
 
 pub fn make_type(input: &DeriveInput) -> (Ident, TokenStream2) {
@@ -98,7 +98,7 @@ fn make_fields<FI: FieldsIter>(fields: &FI, prefix: TokenStream2) -> TokenStream
 pub fn make(input: &DeriveInput) -> TokenStream2 {
     let type_ident = type_ident(input);
     let body = match &input.data {
-        Data::Struct(struct_data) => make_fields(&struct_data.fields, quote! { init. }),
+        Data::Struct(struct_data) => make_fields(&struct_data.fields, quote! { &init. }),
         Data::Enum(enum_data) => {
             let enum_ty = attrs::repr::get_enum_type(input);
             let contents =
@@ -110,13 +110,13 @@ pub fn make(input: &DeriveInput) -> TokenStream2 {
                         let var_ident = &variant.ident;
                         let index = Index::from(i);
                         let bs = match_::make_bindings(&variant.fields);
-                        let (bindings, wrapper) = (bs.bindings, bs.wrapper);
-                        let items = make_fields(&variant.fields, bs.prefix);
+                        let (bindings, wrapper, prefix) = (bs.bindings, bs.wrapper, bs.prefix);
+                        let items = make_fields(&variant.fields, quote!{ &#prefix });
                         quote! {
                             #accum
                             #type_ident::#var_ident #bindings => {
                                 #wrapper
-                                let state = <#enum_ty as ::flatty::FlatInit>::placement_new_unchecked(mem, #index);
+                                let state = <#enum_ty as ::flatty::FlatInit>::placement_new_unchecked(mem, &#index);
                                 offset += Self::DATA_OFFSET;
                                 #items
                             }

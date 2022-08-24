@@ -25,3 +25,7 @@ pub use error::Error;
 pub use len::FlatLen;
 pub use sized::FlatSized;
 pub use vec::FlatVec;
+
+pub mod prelude {
+    pub use super::{Flat, FlatBase, FlatInit, FlatSized, FlatUnsized};
+}
