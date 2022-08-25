@@ -31,6 +31,7 @@ pub fn make(_attr: TokenStream, stream: TokenStream) -> TokenStream {
     let align = layout::make_align(&input);
     let min_size = layout::make_min_size(&input);
     let size = layout::make_size(&input);
+    let size_of = layout::make_size_of(&input);
 
     let (align_as_ident, align_as_contents) = align_as::make(&input);
     let ptr_metadata = layout::make_ptr_metadata(&input);
@@ -68,9 +69,12 @@ pub fn make(_attr: TokenStream, stream: TokenStream) -> TokenStream {
         #vis struct #init_ident<#bindings> #init_body
 
         impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {
-            type Init = #init_ident<#params>;
+            type Dyn = #init_ident<#params>;
+            fn size_of(value: &Self::Dyn) -> usize {
+                #size_of
+            }
 
-            unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+            unsafe fn placement_new_unchecked<'__flatty_a, '__flatty_b>(mem: &'__flatty_a mut [u8], init: &'__flatty_b Self::Dyn) -> &'__flatty_a mut Self {
                 #init_fn
             }
 

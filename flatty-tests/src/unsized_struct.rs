@@ -12,22 +12,19 @@ struct UnsizedStruct {
 #[test]
 fn init() {
     let mut mem = vec![0u8; 16 + 8 * 4];
-    let us = UnsizedStruct::placement_new(
-        mem.as_mut_slice(),
-        UnsizedStructInit {
-            a: 200,
-            b: 40000,
-            c: Vec::new(),
-        },
-    )
-    .unwrap();
+    let usd = UnsizedStructDyn {
+        a: 200,
+        b: 40000,
+        c: vec![0, 1],
+    };
+    let us = UnsizedStruct::placement_new(mem.as_mut_slice(), &usd).unwrap();
 
-    assert_eq!(us.size(), 16);
+    assert_eq!(us.size(), 32);
     assert_eq!(us.a, 200);
     assert_eq!(us.b, 40000);
-    assert_eq!(us.c.len(), 0);
+    assert_eq!(us.c.len(), 2);
 
-    for i in 0.. {
+    for i in 2.. {
         if us.c.push(i).is_err() {
             break;
         }
@@ -56,7 +53,7 @@ fn layout() {
     let mut mem = vec![0u8; 16 + 8 * 4];
     let us = UnsizedStruct::placement_new(
         mem.as_mut_slice(),
-        UnsizedStructInit {
+        &UnsizedStructDyn {
             a: 0,
             b: 0,
             c: Vec::new(),
@@ -80,7 +77,7 @@ fn eq() {
     let mut mem_c = vec![0u8; 16 + 8 * 3];
     UnsizedStruct::placement_new(
         &mut mem_ab,
-        UnsizedStructInit {
+        &UnsizedStructDyn {
             a: 1,
             b: 2,
             c: vec![3, 4, 5, 6],
@@ -91,7 +88,7 @@ fn eq() {
     let us_b = UnsizedStruct::reinterpret(&mem_ab).unwrap();
     let us_c = UnsizedStruct::placement_new(
         &mut mem_c,
-        UnsizedStructInit {
+        &UnsizedStructDyn {
             a: 1,
             b: 2,
             c: vec![3, 4, 5],

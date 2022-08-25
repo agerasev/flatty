@@ -97,37 +97,50 @@ impl<T: Flat + Sized, L: FlatLen> FlatUnsized for FlatVec<T, L> {
 }
 
 impl<T: Flat + Sized, L: FlatLen> FlatInit for FlatVec<T, L> {
-    type Init = Vec<T>;
-    unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+    type Dyn = Vec<T::Dyn>;
+    fn size_of(value: &Self::Dyn) -> usize {
+        T::SIZE * value.len()
+    }
+
+    unsafe fn placement_new_unchecked<'a, 'b>(
+        mem: &'a mut [u8],
+        init: &'b Self::Dyn,
+    ) -> &'a mut Self {
         let self_ = Self::reinterpret_mut_unchecked(mem);
-        self_.len = L::from_usize(0).unwrap();
-        for x in init.into_iter() {
-            assert!(self_.push(x).is_ok());
+        self_.len = L::from_usize(init.len()).unwrap();
+        for (src, dst) in init.iter().zip(self_.data.iter_mut()) {
+            T::placement_new_unchecked(
+                from_raw_parts_mut(dst.as_mut_ptr() as *mut u8, T::SIZE),
+                src,
+            );
         }
         self_
     }
-    fn placement_new(mem: &mut [u8], init: Self::Init) -> Result<&mut Self, Error> {
+    fn placement_new<'a, 'b>(
+        mem: &'a mut [u8],
+        init: &'b Self::Dyn,
+    ) -> Result<&'a mut Self, Error> {
         Self::check_size_and_align(mem)?;
-        let self_ = unsafe { Self::placement_new_unchecked(mem, Vec::new()) };
-        for x in init.into_iter() {
-            if self_.push(x).is_err() {
-                return Err(Error::InsufficientSize);
-            }
+        if mem.len() - Self::DATA_OFFSET < T::SIZE * init.len() {
+            return Err(Error::InsufficientSize);
         }
-        Ok(self_)
+        Ok(unsafe { Self::placement_new_unchecked(mem, init) })
     }
 
-    fn pre_validate(_mem: &[u8]) -> Result<(), Error> {
+    fn pre_validate(mem: &[u8]) -> Result<(), Error> {
+        let len = unsafe { L::reinterpret_unchecked(mem) }.into_usize();
+        let data = &mem[Self::DATA_OFFSET..];
+        if len > data.len() / T::SIZE {
+            return Err(Error::InsufficientSize);
+        }
+        for i in 0..len {
+            T::pre_validate(unsafe { from_raw_parts(data.as_ptr().add(i * T::SIZE), T::SIZE) })?;
+        }
         Ok(())
     }
     fn post_validate(&self) -> Result<(), Error> {
         if self.len() > self.capacity() {
-            return Err(Error::InsufficientSize);
-        }
-        for i in 0..self.len() {
-            T::pre_validate(unsafe {
-                from_raw_parts((self.data.as_ptr() as *const u8).add(i * T::SIZE), T::SIZE)
-            })?;
+            unreachable!();
         }
         for x in self.as_slice() {
             x.post_validate()?;
@@ -224,9 +237,9 @@ mod tests {
         let mut mem_a = vec![0u8; 4 * 5];
         let mut mem_b = vec![0u8; 4 * 5];
         let mut mem_c = vec![0u8; 4 * 3];
-        let vec_a = FlatVec::<i32>::placement_new(&mut mem_a, vec![1, 2, 3, 4]).unwrap();
-        let vec_b = FlatVec::<i32>::placement_new(&mut mem_b, vec![1, 2, 3, 4]).unwrap();
-        let vec_c = FlatVec::<i32>::placement_new(&mut mem_c, vec![1, 2]).unwrap();
+        let vec_a = FlatVec::<i32>::placement_new(&mut mem_a, &vec![1, 2, 3, 4]).unwrap();
+        let vec_b = FlatVec::<i32>::placement_new(&mut mem_b, &vec![1, 2, 3, 4]).unwrap();
+        let vec_c = FlatVec::<i32>::placement_new(&mut mem_c, &vec![1, 2]).unwrap();
 
         assert_eq!(vec_a, vec_b);
         assert_ne!(vec_a, vec_c);

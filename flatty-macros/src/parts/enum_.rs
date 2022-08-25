@@ -188,7 +188,21 @@ pub fn make_as_mut(input: &DeriveInput) -> TokenStream2 {
 }
 
 pub fn make_size(input: &DeriveInput) -> TokenStream2 {
-    layout::make_size_gen(input, &ref_ident(input), quote! { self.as_ref() })
+    layout::make_size_gen(
+        input,
+        &ref_ident(input),
+        quote! { self.as_ref() },
+        |_, value| quote! { #value.size() },
+    )
+}
+
+pub fn make_size_of(input: &DeriveInput) -> TokenStream2 {
+    layout::make_size_gen(
+        input,
+        &init::type_ident(input),
+        quote! { value },
+        |ty, value| quote! { <#ty as ::flatty::FlatInit>::size_of(&#value) },
+    )
 }
 
 pub fn make_var_min_sizes(input: &DeriveInput) -> (usize, TokenStream2) {
@@ -220,7 +234,7 @@ pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
             quote! {
                 ::flatty::utils::upper_multiple(
                     Self::DATA_OFFSET + #items,
-                    Self::ALIGN,
+                    <Self as ::flatty::FlatBase>::ALIGN,
                 )
             }
         }

@@ -5,7 +5,7 @@ use crate::{
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::iter::Iterator;
-use syn::{self, Data, DeriveInput, Ident, Index};
+use syn::{self, Data, DeriveInput, Ident, Index, Type};
 
 fn make_align_fields<FI: FieldsIter>(fields: &FI) -> TokenStream2 {
     fields.fields_iter().fold(quote! { 1 }, |accum, field| {
@@ -65,9 +65,9 @@ pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
                 ::flatty::utils::upper_multiple(
                     ::flatty::utils::upper_multiple(
                         <#enum_ty as ::flatty::FlatSized>::SIZE,
-                        Self::ALIGN,
+                        <Self as ::flatty::FlatBase>::ALIGN,
                     ) + #contents,
-                    Self::ALIGN,
+                    <Self as ::flatty::FlatBase>::ALIGN,
                 )
             }
         }
@@ -75,7 +75,10 @@ pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
     }
 }
 
-fn make_size_fields<FI: FieldsIter>(fields: &FI, prefix: TokenStream2) -> TokenStream2 {
+fn make_size_fields<FI: FieldsIter, F>(fields: &FI, map_ident: F) -> TokenStream2
+where
+    F: Fn(&Type, &TokenStream2) -> TokenStream2,
+{
     let iter = fields.fields_iter();
     let len = iter.len();
     iter.enumerate().fold(quote! {}, |accum, (i, field)| {
@@ -88,7 +91,8 @@ fn make_size_fields<FI: FieldsIter>(fields: &FI, prefix: TokenStream2) -> TokenS
         let add_size = if i + 1 < len {
             quote! { offset += <#ty as ::flatty::FlatSized>::SIZE; }
         } else {
-            quote! { offset += (#prefix #ident).size(); }
+            let mapped_ident = map_ident(ty, &ident);
+            quote! { offset += #mapped_ident; }
         };
         quote! {
             #accum
@@ -98,15 +102,27 @@ fn make_size_fields<FI: FieldsIter>(fields: &FI, prefix: TokenStream2) -> TokenS
     })
 }
 
-pub fn make_size_gen(input: &DeriveInput, ident: &Ident, value: TokenStream2) -> TokenStream2 {
+pub fn make_size_gen<F>(
+    input: &DeriveInput,
+    ident: &Ident,
+    value: TokenStream2,
+    last_size_expr: F,
+) -> TokenStream2
+where
+    F: Fn(&Type, &TokenStream2) -> TokenStream2,
+{
     let body = match &input.data {
-        Data::Struct(struct_data) => make_size_fields(&struct_data.fields, quote! { self. }),
+        Data::Struct(struct_data) => make_size_fields(&struct_data.fields, |ty, fid| {
+            last_size_expr(ty, &quote! {#value.#fid})
+        }),
         Data::Enum(enum_data) => {
             let enum_body = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
                 let var = &variant.ident;
                 let bs = match_::make_bindings(&variant.fields);
-                let (bindings, wrapper) = (bs.bindings, bs.wrapper);
-                let code = make_size_fields(&variant.fields, bs.prefix);
+                let (bindings, wrapper, prefix) = (bs.bindings, bs.wrapper, bs.prefix);
+                let code = make_size_fields(&variant.fields, |ty, fid| {
+                    last_size_expr(ty, &quote! {#prefix #fid})
+                });
                 quote! {
                     #accum
                     #ident::#var #bindings => {
@@ -127,13 +143,27 @@ pub fn make_size_gen(input: &DeriveInput, ident: &Ident, value: TokenStream2) ->
     quote! {
         let mut offset: usize = 0;
         #body
-        offset = ::flatty::utils::upper_multiple(offset, Self::ALIGN);
+        offset = ::flatty::utils::upper_multiple(offset, <Self as ::flatty::FlatBase>::ALIGN);
         offset
     }
 }
 
 pub fn make_size(input: &DeriveInput) -> TokenStream2 {
-    make_size_gen(input, &input.ident, quote! { self })
+    make_size_gen(
+        input,
+        &input.ident,
+        quote! { self },
+        |_, value| quote! { #value.size() },
+    )
+}
+
+pub fn make_size_of(input: &DeriveInput) -> TokenStream2 {
+    make_size_gen(
+        input,
+        &input.ident,
+        quote! { value },
+        |ty, value| quote! { <#ty as ::flatty::FlatInit>::size_of(&#value) },
+    )
 }
 
 pub fn make_ptr_metadata(input: &DeriveInput) -> TokenStream2 {

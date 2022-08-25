@@ -2,8 +2,12 @@ use crate::{Error, Flat, FlatInit};
 use core::marker::PhantomData;
 
 impl<T> FlatInit for PhantomData<T> {
-    type Init = Self;
-    unsafe fn placement_new_unchecked(mem: &mut [u8], _: Self::Init) -> &mut Self {
+    type Dyn = Self;
+    fn size_of(_: &Self) -> usize {
+        0
+    }
+
+    unsafe fn placement_new_unchecked<'a, 'b>(mem: &'a mut [u8], _: &'b Self::Dyn) -> &'a mut Self {
         &mut *(mem as *mut _ as *mut PhantomData<T>)
     }
 

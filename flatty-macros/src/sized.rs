@@ -23,11 +23,15 @@ pub fn derive(stream: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {
-            type Init = Self;
-            unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+            type Dyn = Self;
+            fn size_of(_: &Self::Dyn) -> usize {
+                ::core::mem::size_of::<Self>()
+            }
+
+            unsafe fn placement_new_unchecked<'__flatty_a, '__flatty_b>(mem: &'__flatty_a mut [u8], init: &'__flatty_b Self::Dyn) -> &'__flatty_a mut Self {
                 let self_ = Self::reinterpret_mut_unchecked(mem);
-                // Dirty hack because the compiler cannot prove that `Self::Init` is the same as `Self`.
-                *self_ = ::core::ptr::read(&init as *const _ as *const Self);
+                // Dirty hack because the compiler cannot prove that `Self::Dyn` is the same as `Self`.
+                *self_ = ::core::ptr::read(init as *const _ as *const Self);
                 self_
             }
             fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::Error> {

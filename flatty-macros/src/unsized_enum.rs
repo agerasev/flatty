@@ -34,6 +34,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     let (vars_count, var_min_sizes) = enum_::make_var_min_sizes(&input);
     let min_size = enum_::make_min_size(&input);
     let size = enum_::make_size(&input);
+    let size_of = enum_::make_size_of(&input);
 
     let (ref_ident, ref_contents) = enum_::make_ref(&input);
     let (mut_ident, mut_contents) = enum_::make_mut(&input);
@@ -115,14 +116,18 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         #vis enum #init_ident<#bindings> #init_body
 
         impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {
-            type Init = #init_ident<#params>;
+            type Dyn = #init_ident<#params>;
+            #[allow(unused_variables)]
+            fn size_of(value: &Self::Dyn) -> usize {
+                #size_of
+            }
 
-            unsafe fn placement_new_unchecked(mem: &mut [u8], init: Self::Init) -> &mut Self {
+            unsafe fn placement_new_unchecked<'__flatty_a, '__flatty_b>(mem: &'__flatty_a mut [u8], init: &'__flatty_b Self::Dyn) -> &'__flatty_a mut Self {
                 #init_fn
             }
 
             #[allow(unused_variables)]
-            fn placement_new(mem: &mut [u8], init: Self::Init) -> Result<&mut Self, ::flatty::Error> {
+            fn placement_new<'__flatty_a, '__flatty_b>(mem: &'__flatty_a mut [u8], init: &'__flatty_b Self::Dyn) -> Result<&'__flatty_a mut Self, ::flatty::Error> {
                 #init_fn_checked
             }
 
