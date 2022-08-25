@@ -1,4 +1,4 @@
-use crate::{Error, Flat, FlatInit};
+use crate::{Error, Flat, FlatInit, Portable};
 use core::marker::PhantomData;
 
 impl<T> FlatInit for PhantomData<T> {
@@ -27,3 +27,5 @@ impl<T> FlatInit for PhantomData<T> {
 }
 
 unsafe impl<T> Flat for PhantomData<T> {}
+
+unsafe impl<T> Portable for PhantomData<T> {}

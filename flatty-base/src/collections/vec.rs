@@ -1,6 +1,6 @@
 use crate::{
     utils::{max, slice_assume_init_mut, slice_assume_init_ref},
-    Error, Flat, FlatBase, FlatInit, FlatLen, FlatSized, FlatUnsized,
+    Error, Flat, FlatBase, FlatInit, FlatSized, FlatUnsized, Portable,
 };
 use core::{
     cmp::{Eq, PartialEq},
@@ -9,6 +9,7 @@ use core::{
     ops::{Deref, DerefMut},
     slice::{from_raw_parts, from_raw_parts_mut},
 };
+use num_traits::{FromPrimitive, ToPrimitive, Unsigned};
 
 /// Growable flat vector of sized items.
 ///
@@ -16,12 +17,20 @@ use core::{
 ///
 /// Obviously, this type is DST.
 #[repr(C)]
-pub struct FlatVec<T: Flat + Sized, L: FlatLen = u32> {
+pub struct FlatVec<T, L = usize>
+where
+    T: Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
     len: L,
     data: [MaybeUninit<T>],
 }
 
-impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
+impl<T, L> FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
     const DATA_OFFSET: usize = max(L::SIZE, T::ALIGN);
 
     /// Maximum number of items could be stored in this vector.
@@ -32,7 +41,7 @@ impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
     }
     /// Number of items stored in the vactor.
     pub fn len(&self) -> usize {
-        self.len.into_usize()
+        self.len.to_usize().unwrap()
     }
     /// Whether the vector is empty.
     pub fn is_empty(&self) -> bool {
@@ -47,7 +56,7 @@ impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
     pub fn push(&mut self, x: T) -> Result<(), T> {
         if !self.is_full() {
             self.data[self.len()] = MaybeUninit::new(x);
-            self.len += L::from_usize(1).unwrap();
+            self.len = self.len + L::one();
             Ok(())
         } else {
             Err(x)
@@ -56,7 +65,7 @@ impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
     /// Take and return an item from the end of the vector.
     pub fn pop(&mut self) -> Option<T> {
         if !self.is_empty() {
-            self.len -= L::from_usize(1).unwrap();
+            self.len = self.len - L::one();
             Some(unsafe { self.data[self.len()].assume_init_read() })
         } else {
             None
@@ -77,9 +86,16 @@ impl<T: Flat + Sized, L: FlatLen> FlatVec<T, L> {
 
 /// Sized type that has same alignment as [`FlatVec<T, L>`](`FlatVec`).
 #[repr(C)]
-pub struct FlatVecAlignAs<T: Flat + Sized, L: FlatLen>(L, T);
+pub struct FlatVecAlignAs<T, L>(L, T)
+where
+    T: Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive;
 
-impl<T: Flat + Sized, L: FlatLen> FlatBase for FlatVec<T, L> {
+impl<T, L> FlatBase for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
     const ALIGN: usize = max(L::ALIGN, T::ALIGN);
 
     const MIN_SIZE: usize = Self::DATA_OFFSET;
@@ -88,7 +104,11 @@ impl<T: Flat + Sized, L: FlatLen> FlatBase for FlatVec<T, L> {
     }
 }
 
-impl<T: Flat + Sized, L: FlatLen> FlatUnsized for FlatVec<T, L> {
+impl<T, L> FlatUnsized for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
     type AlignAs = FlatVecAlignAs<T, L>;
 
     fn ptr_metadata(mem: &[u8]) -> usize {
@@ -96,7 +116,11 @@ impl<T: Flat + Sized, L: FlatLen> FlatUnsized for FlatVec<T, L> {
     }
 }
 
-impl<T: Flat + Sized, L: FlatLen> FlatInit for FlatVec<T, L> {
+impl<T, L> FlatInit for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
     type Dyn = Vec<T::Dyn>;
     fn size_of(value: &Self::Dyn) -> usize {
         T::SIZE * value.len()
@@ -128,7 +152,7 @@ impl<T: Flat + Sized, L: FlatLen> FlatInit for FlatVec<T, L> {
     }
 
     fn pre_validate(mem: &[u8]) -> Result<(), Error> {
-        let len = unsafe { L::reinterpret_unchecked(mem) }.into_usize();
+        let len = unsafe { L::reinterpret_unchecked(mem) }.to_usize().unwrap();
         let data = &mem[Self::DATA_OFFSET..];
         if len > data.len() / T::SIZE {
             return Err(Error::InsufficientSize);
@@ -158,30 +182,63 @@ impl<T: Flat + Sized, L: FlatLen> FlatInit for FlatVec<T, L> {
     }
 }
 
-unsafe impl<T: Flat + Sized, L: FlatLen> Flat for FlatVec<T, L> {}
+unsafe impl<T, L> Flat for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
+}
 
-impl<T: Flat + Sized, L: FlatLen> Deref for FlatVec<T, L> {
+unsafe impl<T, L> Portable for FlatVec<T, L>
+where
+    T: Portable + Flat + Sized,
+    L: Portable + Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
+}
+
+impl<T, L> Deref for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
     type Target = [T];
     fn deref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<T: Flat + Sized, L: FlatLen> DerefMut for FlatVec<T, L> {
+impl<T, L> DerefMut for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
     fn deref_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
-impl<T: Flat + Sized + Eq, L: FlatLen> PartialEq for FlatVec<T, L> {
+impl<T, L> PartialEq for FlatVec<T, L>
+where
+    T: PartialEq + Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.iter().zip(other.iter()).all(|(x, y)| x == y)
     }
 }
 
-impl<T: Flat + Sized + Eq, L: FlatLen> Eq for FlatVec<T, L> {}
+impl<T, L> Eq for FlatVec<T, L>
+where
+    T: Eq + Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
+}
 
-impl<T: Flat + Sized + Debug, L: FlatLen> Debug for FlatVec<T, L> {
+impl<T, L> Debug for FlatVec<T, L>
+where
+    T: Debug + Flat + Sized,
+    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.as_slice().fmt(f)
     }
@@ -190,6 +247,7 @@ impl<T: Flat + Sized + Debug, L: FlatLen> Debug for FlatVec<T, L> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::portable::{le, NativeCast};
     use std::mem::{align_of_val, size_of_val};
 
     #[test]
@@ -197,21 +255,21 @@ mod tests {
         let mut mem = vec![0u8; 2 + 3 * 4];
         let flat_vec = FlatVec::<i32, u16>::placement_default(mem.as_mut_slice()).unwrap();
 
-        assert_eq!(align_of_val(flat_vec), FlatVec::<i32>::ALIGN);
+        assert_eq!(align_of_val(flat_vec), FlatVec::<i32, u16>::ALIGN);
     }
 
     #[test]
     fn align() {
         let mut mem = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32>::placement_default(mem.as_mut_slice()).unwrap();
+        let flat_vec = FlatVec::<i32, u32>::placement_default(mem.as_mut_slice()).unwrap();
 
-        assert_eq!(align_of_val(flat_vec), FlatVec::<i32>::ALIGN);
+        assert_eq!(align_of_val(flat_vec), FlatVec::<i32, u32>::ALIGN);
     }
 
     #[test]
     fn len_cap() {
         let mut mem = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32>::placement_default(mem.as_mut_slice()).unwrap();
+        let flat_vec = FlatVec::<i32, u32>::placement_default(mem.as_mut_slice()).unwrap();
         assert_eq!(flat_vec.capacity(), 3);
 
         assert_eq!(flat_vec.len(), 0);
@@ -220,8 +278,8 @@ mod tests {
     #[test]
     fn size() {
         let mut mem = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32>::placement_default(mem.as_mut_slice()).unwrap();
-        assert_eq!(FlatVec::<i32>::DATA_OFFSET, flat_vec.size());
+        let flat_vec = FlatVec::<i32, u32>::placement_default(mem.as_mut_slice()).unwrap();
+        assert_eq!(FlatVec::<i32, u32>::DATA_OFFSET, flat_vec.size());
 
         for i in 0.. {
             if flat_vec.push(i).is_err() {
@@ -237,9 +295,9 @@ mod tests {
         let mut mem_a = vec![0u8; 4 * 5];
         let mut mem_b = vec![0u8; 4 * 5];
         let mut mem_c = vec![0u8; 4 * 3];
-        let vec_a = FlatVec::<i32>::placement_new(&mut mem_a, &vec![1, 2, 3, 4]).unwrap();
-        let vec_b = FlatVec::<i32>::placement_new(&mut mem_b, &vec![1, 2, 3, 4]).unwrap();
-        let vec_c = FlatVec::<i32>::placement_new(&mut mem_c, &vec![1, 2]).unwrap();
+        let vec_a = FlatVec::<i32, u32>::placement_new(&mut mem_a, &vec![1, 2, 3, 4]).unwrap();
+        let vec_b = FlatVec::<i32, u32>::placement_new(&mut mem_b, &vec![1, 2, 3, 4]).unwrap();
+        let vec_c = FlatVec::<i32, u32>::placement_new(&mut mem_c, &vec![1, 2]).unwrap();
 
         assert_eq!(vec_a, vec_b);
         assert_ne!(vec_a, vec_c);
@@ -247,5 +305,19 @@ mod tests {
 
         vec_b[3] = 5;
         assert_ne!(vec_a, vec_b);
+    }
+
+    #[test]
+    fn primitive() {
+        let mut mem = vec![0u8; 2 + 3 * 4];
+        let flat_vec = FlatVec::<le::i32, le::u16>::placement_default(mem.as_mut_slice()).unwrap();
+
+        flat_vec.push(le::i32::from_native(0)).unwrap();
+        flat_vec.push(le::i32::from_native(1)).unwrap();
+        flat_vec.push(le::i32::from_native(2)).unwrap();
+        assert!(flat_vec.push(le::i32::from_native(3)).is_err());
+
+        assert_eq!(FlatVec::<le::i32, le::u16>::ALIGN, 1);
+        assert_eq!(align_of_val(flat_vec), 1);
     }
 }

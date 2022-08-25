@@ -1,5 +1,5 @@
 use crate::{Error, Flat, FlatInit};
-use core::mem::size_of;
+use core::mem;
 
 /// Macro for implementing [`Flat`] for primitive types..
 ///
@@ -13,7 +13,7 @@ macro_rules! impl_flat_prim {
         impl FlatInit for $ty {
             type Dyn = $ty;
             fn size_of(_: &$ty) -> usize {
-                size_of::<$ty>()
+                mem::size_of::<$ty>()
             }
 
             unsafe fn placement_new_unchecked<'a, 'b>(
@@ -46,19 +46,19 @@ macro_rules! impl_flat_prim {
 
 impl_flat_prim!(());
 
-impl_flat_prim!(bool);
-
 impl_flat_prim!(u8);
 impl_flat_prim!(u16);
 impl_flat_prim!(u32);
 impl_flat_prim!(u64);
 impl_flat_prim!(u128);
+impl_flat_prim!(usize);
 
 impl_flat_prim!(i8);
 impl_flat_prim!(i16);
 impl_flat_prim!(i32);
 impl_flat_prim!(i64);
 impl_flat_prim!(i128);
+impl_flat_prim!(isize);
 
 impl_flat_prim!(f32);
 impl_flat_prim!(f64);

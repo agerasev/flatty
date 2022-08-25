@@ -9,3 +9,4 @@ repository = "https://github.com/agerasev/flatty.git"
 license = "MIT/Apache-2.0"
 
 [dependencies]
+num-traits = { version = "0.2", default-features = false }

@@ -1,4 +1,4 @@
-use crate::{Error, Flat, FlatInit, FlatSized};
+use crate::{Error, Flat, FlatInit, FlatSized, Portable};
 use core::mem::size_of;
 
 impl<T: Flat + Sized, const N: usize> FlatInit for [T; N] {
@@ -39,3 +39,5 @@ impl<T: Flat + Sized, const N: usize> FlatInit for [T; N] {
 }
 
 unsafe impl<T: Flat + Sized, const N: usize> Flat for [T; N] {}
+
+unsafe impl<T: Portable + Flat + Sized, const N: usize> Portable for [T; N] {}

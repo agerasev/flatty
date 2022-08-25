@@ -2,9 +2,12 @@
 //!
 //! # Overview
 //!
-//! The crate provides basic flat types and a macro to create new flat types. Flat means that it occupies a single contiguous memory area.
+//! There are two main traits:
 //!
-//! Flat types have stable binary representation can be safely transferred between machines (of the same endianness) as is without packing/unpacking.
+//! + [`Flat`] - type that occupies a single contiguous memory area and could be accessed without packing/unpacking.
+//! + [`Portable`] - type that has stable memory representation and therefore it could be safely transfered between different machines (of different address width or even different endianness).  
+//!
+//! The crate provides basic flat types and a macro to create new flat types.
 //!
 //! Message is represented as native Rust `struct` or `enum`.
 //!

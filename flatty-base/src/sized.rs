@@ -2,7 +2,7 @@ use crate::{Flat, FlatBase, FlatUnsized};
 use core::mem::{align_of, size_of};
 
 /// Statically-sized flat type.
-pub trait FlatSized: FlatBase + Sized {
+pub trait FlatSized: Flat + Sized {
     /// Static size of the type.
     const SIZE: usize;
 }
