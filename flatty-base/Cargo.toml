@@ -3,6 +3,9 @@ name = "flatty-base"
 version = "0.1.0-alpha.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Alexey Gerasev <alexey.gerasev@gmail.com>"]
+description = "Flatty traits and primitives"
+repository = "https://github.com/agerasev/flatty.git"
+license = "MIT/Apache-2.0"
 
 [dependencies]
