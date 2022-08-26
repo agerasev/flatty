@@ -116,12 +116,17 @@ where
     }
 }
 
+#[cfg(feature = "std")]
+pub type FlatVecDyn<T> = std::vec::Vec<T>;
+#[cfg(not(feature = "std"))]
+pub type FlatVecDyn<T> = [T; 0];
+
 impl<T, L> FlatInit for FlatVec<T, L>
 where
     T: Flat + Sized,
     L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
 {
-    type Dyn = Vec<T::Dyn>;
+    type Dyn = FlatVecDyn<T::Dyn>;
     fn size_of(value: &Self::Dyn) -> usize {
         T::SIZE * value.len()
     }
@@ -244,11 +249,14 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
     use crate::portable::le;
-    use std::mem::{align_of_val, size_of_val};
+    use std::{
+        mem::{align_of_val, size_of_val},
+        vec,
+    };
 
     #[test]
     fn data_offset() {

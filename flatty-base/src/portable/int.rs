@@ -1,6 +1,7 @@
 use super::NativeCast;
 use crate::{Error, Flat, FlatInit, Portable};
 use core::{
+    cmp::{Ord, Ordering, PartialOrd},
     mem,
     ops::{Add, Div, Mul, Neg, Rem, Sub},
 };
@@ -173,6 +174,17 @@ macro_rules! derive_int {
             type Output = Self;
             fn rem(self, rhs: Self) -> Self {
                 Self::from_native(self.to_native() % rhs.to_native())
+            }
+        }
+
+        impl Ord for $self {
+            fn cmp(&self, other: &Self) -> Ordering {
+                self.to_native().cmp(&other.to_native())
+            }
+        }
+        impl PartialOrd for $self {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                self.to_native().partial_cmp(&other.to_native())
             }
         }
     };

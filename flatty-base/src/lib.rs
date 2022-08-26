@@ -1,3 +1,8 @@
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
+
 mod base;
 mod error;
 mod marker;
