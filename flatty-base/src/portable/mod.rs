@@ -13,4 +13,19 @@ pub trait NativeCast: Num + FromPrimitive + ToPrimitive + Copy {
     fn to_native(&self) -> Self::Native;
 }
 
-pub use int::{be, le, Integer};
+pub use float::Float;
+pub use int::Int;
+
+/// Little-endian types.
+pub mod le {
+    use super::*;
+    pub use float::le::*;
+    pub use int::le::*;
+}
+
+/// Big-endian types.
+pub mod be {
+    use super::*;
+    pub use float::be::*;
+    pub use int::be::*;
+}

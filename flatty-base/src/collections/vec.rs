@@ -247,7 +247,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::portable::{le, NativeCast};
+    use crate::portable::le;
     use std::mem::{align_of_val, size_of_val};
 
     #[test]
@@ -310,14 +310,14 @@ mod tests {
     #[test]
     fn primitive() {
         let mut mem = vec![0u8; 2 + 3 * 4];
-        let flat_vec = FlatVec::<le::i32, le::u16>::placement_default(mem.as_mut_slice()).unwrap();
+        let flat_vec = FlatVec::<le::I32, le::U16>::placement_default(mem.as_mut_slice()).unwrap();
 
-        flat_vec.push(le::i32::from_native(0)).unwrap();
-        flat_vec.push(le::i32::from_native(1)).unwrap();
-        flat_vec.push(le::i32::from_native(2)).unwrap();
-        assert!(flat_vec.push(le::i32::from_native(3)).is_err());
+        flat_vec.push(le::I32::from(0)).unwrap();
+        flat_vec.push(le::I32::from(1)).unwrap();
+        flat_vec.push(le::I32::from(2)).unwrap();
+        assert!(flat_vec.push(le::I32::from(3)).is_err());
 
-        assert_eq!(FlatVec::<le::i32, le::u16>::ALIGN, 1);
+        assert_eq!(FlatVec::<le::I32, le::U16>::ALIGN, 1);
         assert_eq!(align_of_val(flat_vec), 1);
     }
 }

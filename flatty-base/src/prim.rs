@@ -12,6 +12,7 @@ macro_rules! impl_flat_prim {
     ($ty:ty) => {
         impl FlatInit for $ty {
             type Dyn = $ty;
+
             fn size_of(_: &$ty) -> usize {
                 mem::size_of::<$ty>()
             }

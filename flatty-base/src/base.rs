@@ -29,6 +29,7 @@ pub trait FlatInit: FlatBase {
     ///
     /// May be cloned onto flat memory by using [`FlatInit::placement_new`].
     type Dyn: Sized;
+
     /// Size of corresponding flat type.
     fn size_of(value: &Self::Dyn) -> usize;
 
