@@ -5,7 +5,7 @@ use crate::parts::{
 };
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{self, parse_macro_input, DeriveInput};
+use syn::{self, parse_macro_input, DeriveInput, Path};
 
 pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     assert!(attr.is_empty());
@@ -49,6 +49,21 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
     let init_fn_checked = enum_::make_init_checked(&input);
     let pre_validate = enum_::make_pre_validate(&input);
     let post_validate = enum_::make_post_validate(&input);
+
+    let portable_impl = {
+        let path_stream = TokenStream::from(quote! {::flatty::macros::Portable});
+        let path = parse_macro_input!(path_stream as Path);
+        if attrs::derive::has(&input, "Portable") || attrs::derive::has_path(&input, &path) {
+            let where_clause = where_(generic::make_bounds(
+                &input,
+                quote! { ::flatty::Portable },
+                None,
+            ));
+            quote! { unsafe impl<#bindings> ::flatty::Portable for #ident<#params> #where_clause {} }
+        } else {
+            quote!()
+        }
+    };
 
     let expanded = quote! {
         #[allow(dead_code)]
@@ -149,6 +164,8 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         }
 
         unsafe impl<#bindings> ::flatty::Flat for #ident<#params> #where_clause {}
+
+        #portable_impl
     };
 
     TokenStream::from(expanded)

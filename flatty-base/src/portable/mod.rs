@@ -29,3 +29,6 @@ pub mod be {
     pub use float::be::*;
     pub use int::be::*;
 }
+
+unsafe impl Portable for u8 {}
+unsafe impl Portable for i8 {}

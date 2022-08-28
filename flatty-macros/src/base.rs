@@ -18,7 +18,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         },
     };
 
-    let derive = match info.sized {
+    let make_flat = match info.sized {
         true => quote! { #[derive(::flatty::macros::FlatSized)] },
         false => match &input.data {
             Data::Enum(_) => quote! { #[::flatty::macros::make_flat_unsized_enum] },
@@ -26,9 +26,14 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
             _ => panic!(),
         },
     };
+    let portable = match info.portable {
+        true => quote! { #[derive(::flatty::macros::Portable)] },
+        false => quote! {},
+    };
 
     let expanded = quote! {
-        #derive
+        #portable
+        #make_flat
         #[repr(C #enum_type)]
         #input
     };

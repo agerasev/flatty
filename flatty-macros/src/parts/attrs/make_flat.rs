@@ -9,6 +9,7 @@ use syn::{
 pub struct MakeFlatInfo {
     pub sized: bool,
     pub enum_type: Option<Ident>,
+    pub portable: bool,
 }
 
 impl Parse for MakeFlatInfo {
@@ -18,6 +19,7 @@ impl Parse for MakeFlatInfo {
         let mut info = MakeFlatInfo {
             sized: true,
             enum_type: None,
+            portable: false,
         };
 
         let mut params = items
@@ -34,32 +36,46 @@ impl Parse for MakeFlatInfo {
             })
             .collect::<Result<HashMap<_, _>, ParseError>>()?;
 
-        info.sized = match params.remove("sized") {
-            Some(lit) => {
-                if let Lit::Bool(lit_bool) = lit {
-                    Ok(lit_bool.value)
-                } else {
-                    Err(ParseError::new(
-                        Span::call_site(),
-                        "`sized` keyword requires bool value",
-                    ))
-                }
+        if let Some(lit) = params.remove("sized") {
+            if let Lit::Bool(lit_bool) = lit {
+                info.sized = lit_bool.value;
+            } else {
+                return Err(ParseError::new(
+                    Span::call_site(),
+                    "`sized` keyword requires bool value",
+                ));
             }
-            None => Ok(true),
-        }?;
-        info.enum_type = match params.remove("enum_type") {
-            Some(lit) => {
-                if let Lit::Str(lit_str) = lit {
-                    Ok(Some(Ident::new(&lit_str.value(), lit_str.span())))
-                } else {
-                    Err(ParseError::new(
-                        Span::call_site(),
-                        "`enum_type` keyword requires str value",
-                    ))
-                }
+        }
+        if let Some(lit) = params.remove("enum_type") {
+            if let Lit::Str(lit_str) = lit {
+                info.enum_type = Some(Ident::new(&lit_str.value(), lit_str.span()));
+            } else {
+                return Err(ParseError::new(
+                    Span::call_site(),
+                    "`enum_type` keyword requires str value",
+                ));
             }
-            None => Ok(None),
-        }?;
+        }
+        if let Some(lit) = params.remove("portable") {
+            if let Lit::Bool(lit_bool) = lit {
+                info.portable = lit_bool.value;
+            } else {
+                return Err(ParseError::new(
+                    Span::call_site(),
+                    "`portable` keyword requires bool value",
+                ));
+            }
+        }
+
+        if params.len() != 0 {
+            return Err(ParseError::new(
+                Span::call_site(),
+                format!(
+                    "Unknown macro arguments: {:?}",
+                    params.keys().collect::<Vec<_>>()
+                ),
+            ));
+        }
 
         Ok(info)
     }
