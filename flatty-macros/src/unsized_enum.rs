@@ -1,5 +1,5 @@
 use crate::parts::{
-    align_as, attrs, enum_,
+    align_as, attrs, dyn_, enum_,
     generic::{self, where_},
     init, layout,
 };
@@ -43,7 +43,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
 
     let (align_as_ident, align_as_contents) = align_as::make(&input);
 
-    let (init_ident, init_body) = init::make_type(&input);
+    let (dyn_ident, dyn_body) = dyn_::make(&input);
 
     let init_fn = init::make(&input);
     let init_fn_checked = enum_::make_init_checked(&input);
@@ -76,7 +76,7 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         #vis struct #ident<#bindings> {
             state: #state_ident,
             _align: [<Self as ::flatty::FlatUnsized>::AlignAs; 0],
-            _phantom: ::core::marker::PhantomData<#init_ident<#params>>,
+            _phantom: ::core::marker::PhantomData<#dyn_ident<#params>>,
             data: [u8],
         }
 
@@ -128,10 +128,10 @@ pub fn make(attr: TokenStream, stream: TokenStream) -> TokenStream {
         }
 
         #derive_default
-        #vis enum #init_ident<#bindings> #init_body
+        #vis enum #dyn_ident<#bindings> #dyn_body
 
         impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {
-            type Dyn = #init_ident<#params>;
+            type Dyn = #dyn_ident<#params>;
             #[allow(unused_variables)]
             fn size_of(value: &Self::Dyn) -> usize {
                 #size_of

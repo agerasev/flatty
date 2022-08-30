@@ -1,5 +1,5 @@
 use crate::{
-    parts::{init, layout, match_, validate},
+    parts::{dyn_, layout, match_, validate},
     utils::fields_iter::FieldsIter,
 };
 use proc_macro2::TokenStream as TokenStream2;
@@ -199,7 +199,7 @@ pub fn make_size(input: &DeriveInput) -> TokenStream2 {
 pub fn make_size_of(input: &DeriveInput) -> TokenStream2 {
     layout::make_size_gen(
         input,
-        &init::type_ident(input),
+        &dyn_::ident(input),
         quote! { value },
         |ty, value| quote! { <#ty as ::flatty::FlatInit>::size_of(&#value) },
     )
@@ -242,7 +242,7 @@ pub fn make_min_size(input: &DeriveInput) -> TokenStream2 {
 }
 
 pub fn make_init_checked(input: &DeriveInput) -> TokenStream2 {
-    let ident = init::type_ident(input);
+    let ident = dyn_::ident(input);
     let body = match &input.data {
         Data::Struct(_) | Data::Union(_) => unimplemented!(),
         Data::Enum(enum_data) => {

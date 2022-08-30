@@ -1,5 +1,5 @@
 use crate::parts::{
-    align_as, attrs,
+    align_as, attrs, dyn_,
     generic::{self, where_},
     init, layout, validate,
 };
@@ -36,8 +36,8 @@ pub fn make(_attr: TokenStream, stream: TokenStream) -> TokenStream {
     let (align_as_ident, align_as_contents) = align_as::make(&input);
     let ptr_metadata = layout::make_ptr_metadata(&input);
 
-    let (init_ident, init_body) = init::make_type(&input);
-    let init_fn = init::make(&input);
+    let (dyn_ident, dyn_body) = dyn_::make(&input);
+    let init = init::make(&input);
     let pre_validate = validate::make_pre(&input);
     let post_validate = validate::make_post(&input);
 
@@ -66,16 +66,16 @@ pub fn make(_attr: TokenStream, stream: TokenStream) -> TokenStream {
         }
 
         #derive_default
-        #vis struct #init_ident<#bindings> #init_body
+        #vis struct #dyn_ident<#bindings> #dyn_body
 
         impl<#bindings> ::flatty::FlatInit for #ident<#params> #where_clause {
-            type Dyn = #init_ident<#params>;
+            type Dyn = #dyn_ident<#params>;
             fn size_of(value: &Self::Dyn) -> usize {
                 #size_of
             }
 
             unsafe fn placement_new_unchecked<'__flatty_a, '__flatty_b>(mem: &'__flatty_a mut [u8], init: &'__flatty_b Self::Dyn) -> &'__flatty_a mut Self {
-                #init_fn
+                #init
             }
 
             fn pre_validate(mem: &[u8]) -> Result<(), ::flatty::Error> {

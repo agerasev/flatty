@@ -1,6 +1,6 @@
 [package]
 name = "flatty"
-version = "0.1.0-alpha.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 
 authors = ["Alexey Gerasev <alexey.gerasev@gmail.com>"]
@@ -17,5 +17,5 @@ default = ["std"]
 std = ["base/std"]
 
 [dependencies]
-base = { package = "flatty-base", path = "../flatty-base", version = "0.1.0-alpha.0", default-features = false }
-macros = { package = "flatty-macros", path = "../flatty-macros", version = "0.1.0-alpha.0" }
+base = { package = "flatty-base", path = "../flatty-base", version = "0.1.0-alpha.1", default-features = false }
+macros = { package = "flatty-macros", path = "../flatty-macros", version = "0.1.0-alpha.1" }
