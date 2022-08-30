@@ -1,29 +1,29 @@
-use crate::{Flat, FlatBase, FlatUnsized};
+use crate::{Flat, FlatBase};
 use core::mem::{align_of, size_of};
 
 /// Statically-sized flat type.
 pub trait FlatSized: Flat + Sized {
     /// Static size of the type.
-    const SIZE: usize;
+    const SIZE: usize = size_of::<Self>();
+}
+
+/// Dynamically-sized flat type.
+pub trait FlatUnsized: Flat {
+    /// Sized type that has the same alignment as [`Self`].
+    type AlignAs: Sized;
+
+    /// Metadata to store in a wide pointer to [`Self`].
+    fn ptr_metadata(mem: &[u8]) -> usize;
 }
 
 impl<T: Flat + Sized> FlatBase for T {
     const ALIGN: usize = align_of::<Self>();
 
     const MIN_SIZE: usize = Self::SIZE;
+
     fn size(&self) -> usize {
         Self::SIZE
     }
 }
 
-impl<T: Flat + Sized> FlatSized for T {
-    const SIZE: usize = size_of::<Self>();
-}
-
-impl<T: Flat + Sized> FlatUnsized for T {
-    type AlignAs = Self;
-
-    fn ptr_metadata(_: &[u8]) -> usize {
-        panic!("Getting ptr_metadata from sized type");
-    }
-}
+impl<T: Flat + Sized> FlatSized for T {}
