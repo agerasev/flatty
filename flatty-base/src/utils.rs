@@ -19,13 +19,11 @@ pub const fn min(a: usize, b: usize) -> usize {
 }
 
 /// Smallest number that is both greater or equal to `x` and a multiple of `m`.
-#[allow(dead_code)]
 pub const fn upper_multiple(x: usize, m: usize) -> usize {
     ((x + m - 1) / m) * m
 }
 
 /// Biggest number that is both lower or equal to `x` and a multiple of `m`.
-#[allow(dead_code)]
 pub const fn lower_multiple(x: usize, m: usize) -> usize {
     (x / m) * m
 }
@@ -37,7 +35,7 @@ pub const fn lower_multiple(x: usize, m: usize) -> usize {
 /// Slice contents must be initialized.
 //
 // TODO: Remove on `maybe_uninit_slice` stabilization.
-pub unsafe fn slice_assume_init_ref<T>(slice: &[MaybeUninit<T>]) -> &[T] {
+pub(crate) unsafe fn slice_assume_init_ref<T>(slice: &[MaybeUninit<T>]) -> &[T] {
     &*(slice as *const [MaybeUninit<T>] as *const [T])
 }
 
@@ -48,6 +46,6 @@ pub unsafe fn slice_assume_init_ref<T>(slice: &[MaybeUninit<T>]) -> &[T] {
 /// Slice contents must be initialized.
 //
 // TODO: Remove on `maybe_uninit_slice` stabilization.
-pub unsafe fn slice_assume_init_mut<T>(slice: &mut [MaybeUninit<T>]) -> &mut [T] {
+pub(crate) unsafe fn slice_assume_init_mut<T>(slice: &mut [MaybeUninit<T>]) -> &mut [T] {
     &mut *(slice as *mut [MaybeUninit<T>] as *mut [T])
 }

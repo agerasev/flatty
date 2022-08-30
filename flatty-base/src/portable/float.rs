@@ -1,8 +1,7 @@
 use super::NativeCast;
-use crate::{Error, Flat, FlatInit, Portable};
+use crate::{Error, Flat, FlatCast, Portable};
 use core::{
     cmp::{Ordering, PartialOrd},
-    mem,
     ops::{Add, Div, Mul, Neg, Rem, Sub},
 };
 use num_traits::{FromPrimitive, Num, NumCast, One, ToPrimitive, Zero};
@@ -28,48 +27,20 @@ impl<const BE: bool, const N: usize> Float<BE, N> {
     pub fn from_bytes(bytes: [u8; N]) -> Self {
         Self { bytes }
     }
-    pub fn to_bytes(&self) -> [u8; N] {
+    pub fn to_bytes(self) -> [u8; N] {
         self.bytes
     }
 }
 
-impl<const BE: bool, const N: usize> FlatInit for Float<BE, N>
-where
-    Self: NativeCast,
-{
-    type Dyn = <Self as NativeCast>::Native;
-
-    fn size_of(_: &Self::Dyn) -> usize {
-        mem::size_of::<Self>()
-    }
-
-    unsafe fn placement_new_unchecked<'a, 'b>(
-        mem: &'a mut [u8],
-        init: &'b Self::Dyn,
-    ) -> &'a mut Self {
-        let self_ = Self::reinterpret_mut_unchecked(mem);
-        *self_ = Self::from_native(*init);
-        self_
-    }
-
-    fn pre_validate(_: &[u8]) -> Result<(), Error> {
+impl<const BE: bool, const N: usize> FlatCast for Float<BE, N> {
+    unsafe fn validate(_ptr: *const Self) -> Result<(), Error> {
         Ok(())
-    }
-    fn post_validate(&self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    unsafe fn reinterpret_unchecked(mem: &[u8]) -> &Self {
-        &*(mem.as_ptr() as *const Self)
-    }
-    unsafe fn reinterpret_mut_unchecked(mem: &mut [u8]) -> &mut Self {
-        &mut *(mem.as_mut_ptr() as *mut Self)
     }
 }
 
-unsafe impl<const BE: bool, const N: usize> Portable for Float<BE, N> where Self: NativeCast {}
+unsafe impl<const BE: bool, const N: usize> Portable for Float<BE, N> {}
 
-unsafe impl<const BE: bool, const N: usize> Flat for Float<BE, N> where Self: NativeCast {}
+unsafe impl<const BE: bool, const N: usize> Flat for Float<BE, N> {}
 
 macro_rules! derive_float {
     ($self:ty, $native:ty, $from_bytes:ident, $to_bytes:ident$(,)?) => {
@@ -88,9 +59,9 @@ macro_rules! derive_float {
                 Self::from_native(n)
             }
         }
-        impl Into<$native> for $self {
-            fn into(self) -> $native {
-                self.to_native()
+        impl From<$self> for $native {
+            fn from(s: $self) -> Self {
+                s.to_native()
             }
         }
 
