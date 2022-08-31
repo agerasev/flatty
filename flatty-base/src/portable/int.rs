@@ -34,7 +34,7 @@ impl<const BE: bool, const N: usize, const S: bool> Int<BE, N, S> {
 }
 
 impl<const BE: bool, const N: usize, const S: bool> FlatCast for Int<BE, N, S> {
-    unsafe fn validate(_ptr: *const Self) -> Result<(), Error> {
+    unsafe fn validate_contents(_: &[u8]) -> Result<(), Error> {
         Ok(())
     }
 }

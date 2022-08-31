@@ -1,6 +1,6 @@
 use crate::{
-    utils::{max, slice_assume_init_mut, slice_assume_init_ref},
-    Error, ErrorKind, Flat, FlatBase, FlatCast, FlatDefault, FlatSized, FlatUnsized, Portable,
+    utils::max, Error, ErrorKind, Flat, FlatBase, FlatCast, FlatDefault, FlatSized, FlatUnsized,
+    Portable,
 };
 use core::{
     cmp::{Eq, PartialEq},
@@ -9,8 +9,29 @@ use core::{
     ops::{Deref, DerefMut},
     ptr::{slice_from_raw_parts, slice_from_raw_parts_mut},
 };
-use memoffset::raw_field;
 use num_traits::{FromPrimitive, ToPrimitive, Unsigned};
+
+/// Assume that slice of [`MaybeUninit`] is initialized.
+///
+/// # Safety
+///
+/// Slice contents must be initialized.
+//
+// TODO: Remove on `maybe_uninit_slice` stabilization.
+unsafe fn slice_assume_init_ref<T>(slice: &[MaybeUninit<T>]) -> &[T] {
+    &*(slice as *const [MaybeUninit<T>] as *const [T])
+}
+
+/// Assume that mutable slice of [`MaybeUninit`] is initialized.
+///
+/// # Safety
+///
+/// Slice contents must be initialized.
+//
+// TODO: Remove on `maybe_uninit_slice` stabilization.
+unsafe fn slice_assume_init_mut<T>(slice: &mut [MaybeUninit<T>]) -> &mut [T] {
+    &mut *(slice as *mut [MaybeUninit<T>] as *mut [T])
+}
 
 /// Growable flat vector of sized items.
 ///
@@ -151,10 +172,11 @@ where
 impl<T, L> FlatDefault for FlatVec<T, L>
 where
     T: Flat + Sized + Default,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+    L: Flat + Sized + Copy + Default + Unsigned + ToPrimitive + FromPrimitive,
 {
-    unsafe fn init_default(ptr: *mut Self) -> Result<(), Error> {
-        *(raw_field!(ptr, Self, len) as *mut L) = L::zero();
+    unsafe fn default_contents(bytes: &mut [u8]) -> Result<(), Error> {
+        L::default_contents(bytes)?; // To avoid dereferencing invalid state.
+        *L::ptr_from_mut_bytes(bytes) = L::zero();
         Ok(())
     }
 }
@@ -164,20 +186,19 @@ where
     T: Flat + Sized,
     L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
 {
-    unsafe fn validate(ptr: *const Self) -> Result<(), Error> {
-        let len = (*raw_field!(ptr, Self, len)).to_usize().unwrap();
-        let data = &*raw_field!(ptr, Self, data);
-        if len > data.len() {
+    unsafe fn validate_contents(bytes: &[u8]) -> Result<(), Error> {
+        L::validate_contents(bytes)?;
+        // Now it's safe to dereference `Self`, because data is `[MaybeUninit<T>]`.
+        let self_ = &*Self::ptr_from_bytes(bytes);
+        if self_.len() > self_.capacity() {
             return Err(Error {
-                kind: ErrorKind::InsufficientSize {
-                    required: Self::DATA_OFFSET + len * T::SIZE,
-                    actual: Self::DATA_OFFSET + data.len() * T::SIZE,
-                },
-                position: Self::DATA_OFFSET,
+                kind: ErrorKind::InsufficientSize,
+                pos: Self::DATA_OFFSET,
             });
         }
-        for i in 0..len {
-            T::validate(data.get_unchecked(i).as_ptr())?;
+        for x in self_.data.get_unchecked(..self_.len()) {
+            let x_bytes = &*slice_from_raw_parts(x.as_ptr() as *const u8, T::SIZE);
+            T::validate_contents(x_bytes)?;
         }
         Ok(())
     }
@@ -257,7 +278,7 @@ mod tests {
     #[test]
     fn data_offset() {
         let mut mem = vec![0u8; 2 + 3 * 4];
-        let flat_vec = FlatVec::<i32, u16>::placement_default(mem.as_mut_slice()).unwrap();
+        let flat_vec = FlatVec::<i32, u16>::default_in_bytes(mem.as_mut_slice()).unwrap();
 
         assert_eq!(align_of_val(flat_vec), FlatVec::<i32, u16>::ALIGN);
     }
@@ -265,7 +286,7 @@ mod tests {
     #[test]
     fn align() {
         let mut mem = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32, u32>::placement_default(mem.as_mut_slice()).unwrap();
+        let flat_vec = FlatVec::<i32, u32>::default_in_bytes(mem.as_mut_slice()).unwrap();
 
         assert_eq!(align_of_val(flat_vec), FlatVec::<i32, u32>::ALIGN);
     }
@@ -273,7 +294,7 @@ mod tests {
     #[test]
     fn len_cap() {
         let mut mem = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32, u32>::placement_default(mem.as_mut_slice()).unwrap();
+        let flat_vec = FlatVec::<i32, u32>::default_in_bytes(mem.as_mut_slice()).unwrap();
         assert_eq!(flat_vec.capacity(), 3);
         assert_eq!(flat_vec.len(), 0);
     }
@@ -281,7 +302,7 @@ mod tests {
     #[test]
     fn size() {
         let mut mem = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32, u32>::placement_default(mem.as_mut_slice()).unwrap();
+        let flat_vec = FlatVec::<i32, u32>::default_in_bytes(mem.as_mut_slice()).unwrap();
         assert_eq!(FlatVec::<i32, u32>::DATA_OFFSET, flat_vec.size());
 
         for i in 0.. {
@@ -296,7 +317,7 @@ mod tests {
     #[test]
     fn extend_from_slice() {
         let mut mem = vec![0u8; 4 * 6];
-        let vec = FlatVec::<i32, u32>::placement_default(&mut mem).unwrap();
+        let vec = FlatVec::<i32, u32>::default_in_bytes(&mut mem).unwrap();
         assert_eq!(vec.capacity(), 5);
         assert_eq!(vec.len(), 0);
         assert_eq!(vec.remaining(), 5);
@@ -315,15 +336,15 @@ mod tests {
     #[test]
     fn eq() {
         let mut mem_a = vec![0u8; 4 * 5];
-        let vec_a = FlatVec::<i32, u32>::placement_default(&mut mem_a).unwrap();
+        let vec_a = FlatVec::<i32, u32>::default_in_bytes(&mut mem_a).unwrap();
         assert_eq!(vec_a.extend_from_slice(&[1, 2, 3, 4]), 4);
 
         let mut mem_b = vec![0u8; 4 * 5];
-        let vec_b = FlatVec::<i32, u32>::placement_default(&mut mem_b).unwrap();
+        let vec_b = FlatVec::<i32, u32>::default_in_bytes(&mut mem_b).unwrap();
         assert_eq!(vec_b.extend_from_slice(&[1, 2, 3, 4]), 4);
 
         let mut mem_c = vec![0u8; 4 * 3];
-        let vec_c = FlatVec::<i32, u32>::placement_default(&mut mem_c).unwrap();
+        let vec_c = FlatVec::<i32, u32>::default_in_bytes(&mut mem_c).unwrap();
         assert_eq!(vec_c.extend_from_slice(&[1, 2]), 2);
 
         assert_eq!(vec_a, vec_b);
@@ -337,7 +358,7 @@ mod tests {
     #[test]
     fn primitive() {
         let mut mem = vec![0u8; 2 + 3 * 4];
-        let flat_vec = FlatVec::<le::I32, le::U16>::placement_default(mem.as_mut_slice()).unwrap();
+        let flat_vec = FlatVec::<le::I32, le::U16>::default_in_bytes(mem.as_mut_slice()).unwrap();
 
         flat_vec.push(le::I32::from(0)).unwrap();
         flat_vec.push(le::I32::from(1)).unwrap();

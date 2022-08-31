@@ -6,7 +6,7 @@ extern crate std;
 mod base;
 mod cast;
 mod default;
-mod error;
+pub mod error;
 mod marker;
 mod prim;
 mod sized;

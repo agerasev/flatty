@@ -33,7 +33,7 @@ impl<const BE: bool, const N: usize> Float<BE, N> {
 }
 
 impl<const BE: bool, const N: usize> FlatCast for Float<BE, N> {
-    unsafe fn validate(_ptr: *const Self) -> Result<(), Error> {
+    unsafe fn validate_contents(_: &[u8]) -> Result<(), Error> {
         Ok(())
     }
 }

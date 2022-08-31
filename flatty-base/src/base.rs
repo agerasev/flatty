@@ -21,16 +21,13 @@ pub trait FlatBase {
 pub(crate) fn check_align_and_min_size<T: FlatBase + ?Sized>(mem: &[u8]) -> Result<(), Error> {
     if mem.len() < T::MIN_SIZE {
         Err(Error {
-            kind: ErrorKind::InsufficientSize {
-                actual: mem.len(),
-                required: T::MIN_SIZE,
-            },
-            position: 0,
+            kind: ErrorKind::InsufficientSize,
+            pos: 0,
         })
     } else if mem.as_ptr().align_offset(T::ALIGN) != 0 {
         Err(Error {
-            kind: ErrorKind::BadAlign { required: T::ALIGN },
-            position: 0,
+            kind: ErrorKind::BadAlign,
+            pos: 0,
         })
     } else {
         Ok(())

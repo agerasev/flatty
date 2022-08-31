@@ -10,7 +10,7 @@ use crate::{Error, Flat, FlatCast};
 macro_rules! impl_flat_prim {
     ($ty:ty) => {
         impl FlatCast for $ty {
-            unsafe fn validate(_ptr: *const Self) -> Result<(), Error> {
+            unsafe fn validate_contents(_: &[u8]) -> Result<(), Error> {
                 Ok(())
             }
         }

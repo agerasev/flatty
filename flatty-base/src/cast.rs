@@ -3,14 +3,21 @@ use core::slice::{from_raw_parts, from_raw_parts_mut};
 
 /// Safe casting from and to bytes.
 pub trait FlatCast: FlatBase {
-    /// Checks that the pointer points to valid contents of the `Self`.
+    /// Check that `bytes` contents is valid for `Self`.
     ///
     /// # Safety
     ///
-    /// `ptr` have proper alignment and data it points to have sufficient minimal size.
+    /// `bytes` beginning must be aligned to [`FlatBase::ALIGN`] and its length must be greater or equal to [`FlatBase::MIN_SIZE`].
+    unsafe fn validate_contents(bytes: &[u8]) -> Result<(), Error>;
+
+    /// Check that `bytes` is a valid `Self` representation.
     ///
-    /// This method returned `Ok` must guaratee that data pointed by `ptr` is in valid initialized state and we could safely dereference `ptr`.
-    unsafe fn validate(ptr: *const Self) -> Result<(), Error>;
+    /// This method returned `Ok` must guaratee that `bytes` could be safely transmuted to `Self`.
+    fn validate_bytes(bytes: &[u8]) -> Result<(), Error> {
+        check_align_and_min_size::<Self>(bytes)?;
+        unsafe { Self::validate_contents(bytes) }?;
+        Ok(())
+    }
 
     /// Interpret a previously iniailized memory as an instance of `Self`.
     ///
@@ -18,24 +25,18 @@ pub trait FlatCast: FlatBase {
     ///
     /// + Slice start address isn't properly aligned for `Self`.
     /// + Slice has insufficient size to store `Self` in a state described by data.
-    /// + The [`Self::validate`] call returned an error.
+    /// + The [`Self::validate_bytes`] returned an error.
     fn from_bytes(bytes: &[u8]) -> Result<&Self, Error> {
-        check_align_and_min_size::<Self>(bytes)?;
+        Self::validate_bytes(bytes)?;
         let ptr = Self::ptr_from_bytes(bytes);
-        unsafe {
-            Self::validate(ptr)?;
-            Ok(&*ptr)
-        }
+        unsafe { Ok(&*ptr) }
     }
 
     /// The same as [`Self::from_bytes`] but provides a mutable reference.
     fn from_mut_bytes(bytes: &mut [u8]) -> Result<&mut Self, Error> {
-        check_align_and_min_size::<Self>(bytes)?;
+        Self::validate_bytes(bytes)?;
         let ptr = Self::ptr_from_mut_bytes(bytes);
-        unsafe {
-            Self::validate(ptr)?;
-            Ok(&mut *ptr)
-        }
+        unsafe { Ok(&mut *ptr) }
     }
 
     /// Binary representation of the `Self`.

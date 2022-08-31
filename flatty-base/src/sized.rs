@@ -21,7 +21,7 @@ pub unsafe trait FlatUnsized: Flat {
     type AlignAs: Sized;
 
     /// Metadata to store in a wide pointer to `Self`.
-    fn ptr_metadata(mem: &[u8]) -> usize;
+    fn ptr_metadata(bytes: &[u8]) -> usize;
 }
 
 impl<T: Flat + Sized> FlatBase for T {

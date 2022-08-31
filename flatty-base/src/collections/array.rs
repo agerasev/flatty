@@ -1,7 +1,7 @@
 use crate::{Error, Flat, FlatCast, Portable};
 
 impl<T: Flat + Sized, const N: usize> FlatCast for [T; N] {
-    unsafe fn validate(_ptr: *const Self) -> Result<(), Error> {
+    unsafe fn validate_contents(_: &[u8]) -> Result<(), Error> {
         Ok(())
     }
 }

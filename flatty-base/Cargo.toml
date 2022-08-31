@@ -13,5 +13,4 @@ default = ["std"]
 std = ["num-traits/std"]
 
 [dependencies]
-memoffset = "0.6"
 num-traits = { version = "0.2", default-features = false }
