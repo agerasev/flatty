@@ -1,4 +1,4 @@
-use crate::{Error, Flat, FlatCast};
+use crate::{mem::Muu, Error, Flat, FlatCast};
 
 /// Macro for implementing [`Flat`] for primitive types.
 ///
@@ -10,7 +10,7 @@ use crate::{Error, Flat, FlatCast};
 macro_rules! impl_flat_prim {
     ($ty:ty) => {
         impl FlatCast for $ty {
-            unsafe fn validate_contents(_: &[u8]) -> Result<(), Error> {
+            fn validate(_: &Muu<Self>) -> Result<(), Error> {
                 Ok(())
             }
         }

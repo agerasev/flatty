@@ -5,26 +5,34 @@ use core::mem::{align_of, size_of};
 ///
 /// # Safety
 ///
-/// Must not be implemented at the same time as [`FlatUnsized`].
-pub unsafe trait FlatSized: Flat + Sized {
+/// `SIZE` must match `Self` size.
+pub unsafe trait FlatSized: FlatBase + Sized {
     /// Static size of the type.
     const SIZE: usize = size_of::<Self>();
 }
 
 /// Dynamically-sized flat type.
 ///
+/// For now it must be implemented for all [`Flat`](`crate::Flat`) types because there is no mutually exclusive traits in Rust yet.
+///
 /// # Safety
 ///
-/// Must not be implemented at the same time as [`FlatSized`].
-pub unsafe trait FlatUnsized: Flat {
+/// `AlignAs` type must have the same align as `Self`.
+///
+/// `ptr_metadata` must provide such value, that will give [`size()`](`FlatBase::size`)` <= `[`size_of_val()`](`core::mem::size_of_val`)` <= bytes.len()`.
+pub unsafe trait FlatUnsized: FlatBase {
     /// Sized type that has the same alignment as `Self`.
     type AlignAs: Sized;
 
     /// Metadata to store in a wide pointer to `Self`.
-    fn ptr_metadata(bytes: &[u8]) -> usize;
+    ///
+    /// `None` is returned if type is `Sized`.
+    fn ptr_metadata(bytes: &[u8]) -> Option<usize>;
 }
 
-impl<T: Flat + Sized> FlatBase for T {
+unsafe impl<T: Flat + Sized> FlatSized for T {}
+
+unsafe impl<T: FlatSized> FlatBase for T {
     const ALIGN: usize = align_of::<Self>();
 
     const MIN_SIZE: usize = Self::SIZE;
@@ -41,4 +49,10 @@ impl<T: Flat + Sized> FlatBase for T {
     }
 }
 
-unsafe impl<T: Flat + Sized> FlatSized for T {}
+unsafe impl<T: FlatSized> FlatUnsized for T {
+    type AlignAs = T;
+
+    fn ptr_metadata(_: &[u8]) -> Option<usize> {
+        None
+    }
+}

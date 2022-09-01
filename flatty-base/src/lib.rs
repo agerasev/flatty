@@ -3,21 +3,24 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+mod array;
 mod base;
 mod cast;
 mod default;
-pub mod error;
 mod marker;
 mod prim;
 mod sized;
 
-/// Flat collections.
-pub mod collections;
+pub mod error;
+pub mod mem;
 /// Primitive portable types.
 pub mod portable;
 /// Utuility functions used by macros, so they must be publicly available.
+///
 /// *Please, don't use them by yourself because they aren't stable.*
 pub mod utils;
+/// Flat vector itself and its helper types.
+pub mod vec;
 
 /// Flat type.
 ///
@@ -30,20 +33,18 @@ pub mod utils;
 /// + `Self` has stable binary representation that will not change in future.
 ///   (But the representation could be differ across different platforms. If you need such a guarantee see [`Portable`].)
 /// + `Self` don't own any resources outside of it.
-/// + `Self` could be trivially copied as bytes. (We cannot require `Self: `[`Copy`] because it [`?Sized`].)
+/// + `Self` could be trivially copied as bytes. (We cannot require `Self: `[`Copy`] because it `?Sized`.)
 /// + All `Flat*` traits implemetation for `Self` will not cause an Undefined Behaviour.
-pub unsafe trait Flat: FlatBase + FlatCast {}
+pub unsafe trait Flat: FlatBase + FlatUnsized + FlatCast {}
 
 pub use base::FlatBase;
 pub use cast::FlatCast;
-pub use collections::vec::FlatVec;
 pub use default::FlatDefault;
 pub use error::{Error, ErrorKind};
 pub use portable::{be, le, NativeCast, Portable};
 pub use sized::{FlatSized, FlatUnsized};
+pub use vec::FlatVec;
 
 pub mod prelude {
-    pub use super::{
-        Flat, FlatBase, FlatCast, FlatDefault, FlatSized, FlatUnsized, NativeCast, Portable,
-    };
+    pub use super::{Flat, FlatCast, FlatDefault, FlatSized, FlatUnsized};
 }

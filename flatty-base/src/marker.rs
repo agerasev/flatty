@@ -1,8 +1,8 @@
-use crate::{Error, Flat, FlatCast, Portable};
+use crate::{mem::Muu, Error, Flat, FlatCast, Portable};
 use core::marker::PhantomData;
 
 impl<T> FlatCast for PhantomData<T> {
-    unsafe fn validate_contents(_: &[u8]) -> Result<(), Error> {
+    fn validate(_: &Muu<Self>) -> Result<(), Error> {
         Ok(())
     }
 }

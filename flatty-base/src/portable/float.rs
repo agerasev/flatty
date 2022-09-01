@@ -1,5 +1,5 @@
 use super::NativeCast;
-use crate::{Error, Flat, FlatCast, Portable};
+use crate::{mem::Muu, Error, Flat, FlatCast, Portable};
 use core::{
     cmp::{Ordering, PartialOrd},
     ops::{Add, Div, Mul, Neg, Rem, Sub},
@@ -33,14 +33,14 @@ impl<const BE: bool, const N: usize> Float<BE, N> {
 }
 
 impl<const BE: bool, const N: usize> FlatCast for Float<BE, N> {
-    unsafe fn validate_contents(_: &[u8]) -> Result<(), Error> {
+    fn validate(_: &Muu<Self>) -> Result<(), Error> {
         Ok(())
     }
 }
 
-unsafe impl<const BE: bool, const N: usize> Portable for Float<BE, N> {}
-
 unsafe impl<const BE: bool, const N: usize> Flat for Float<BE, N> {}
+
+unsafe impl<const BE: bool, const N: usize> Portable for Float<BE, N> {}
 
 macro_rules! derive_float {
     ($self:ty, $native:ty, $from_bytes:ident, $to_bytes:ident$(,)?) => {

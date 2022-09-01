@@ -1,5 +1,5 @@
 use super::NativeCast;
-use crate::{Error, Flat, FlatCast, Portable};
+use crate::{mem::Muu, Error, Flat, FlatCast, Portable};
 use core::{
     cmp::{Ord, Ordering, PartialOrd},
     ops::{Add, Div, Mul, Neg, Rem, Sub},
@@ -34,7 +34,7 @@ impl<const BE: bool, const N: usize, const S: bool> Int<BE, N, S> {
 }
 
 impl<const BE: bool, const N: usize, const S: bool> FlatCast for Int<BE, N, S> {
-    unsafe fn validate_contents(_: &[u8]) -> Result<(), Error> {
+    fn validate(_: &Muu<Self>) -> Result<(), Error> {
         Ok(())
     }
 }

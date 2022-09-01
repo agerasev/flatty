@@ -1,27 +1,22 @@
-use crate::{base::check_align_and_min_size, error::Error, Flat, FlatCast};
+use crate::{error::Error, mem::Muu, Flat};
 
-pub trait FlatDefault: FlatCast {
+pub trait FlatDefault: Flat {
     /// Initialize memory pointed by `ptr` into valid default state.
     ///
-    /// # Safety
-    ///
-    /// `bytes` beginning must be aligned to [`FlatBase::ALIGN`] and its length must be greater or equal to [`FlatBase::MIN_SIZE`].
-    ///
-    /// This method returned `Ok` must guaratee that `bytes` could be safely transmuted to `Self`.
-    unsafe fn default_contents(bytes: &mut [u8]) -> Result<(), Error>;
+    /// This method returned `Ok` must guaratee that `this` could be safely transmuted to `Self`.
+    fn init_default(this: &mut Muu<Self>) -> Result<(), Error>;
 
     /// Create a new instance of `Self` initializing raw memory into default state of `Self`.
-    fn default_in_bytes(bytes: &mut [u8]) -> Result<&mut Self, Error> {
-        check_align_and_min_size::<Self>(bytes)?;
-        unsafe { Self::default_contents(bytes) }?;
-        let ptr = Self::ptr_from_mut_bytes(bytes);
-        unsafe { Ok(&mut *ptr) }
+    fn placement_default(bytes: &mut [u8]) -> Result<&mut Self, Error> {
+        let this = Muu::from_mut_bytes(bytes)?;
+        Self::init_default(this)?;
+        unsafe { Ok(&mut *this.as_mut_ptr()) }
     }
 }
 
 impl<T: Flat + Default + Sized> FlatDefault for T {
-    unsafe fn default_contents(bytes: &mut [u8]) -> Result<(), Error> {
-        *Self::ptr_from_mut_bytes(bytes) = Self::default();
+    fn init_default(this: &mut Muu<Self>) -> Result<(), Error> {
+        unsafe { *this.as_mut_ptr() = Self::default() };
         Ok(())
     }
 }
