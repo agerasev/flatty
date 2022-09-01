@@ -1,5 +1,5 @@
 use core::mem::{align_of, size_of};
-use flatty::{offset_of, raw_field, utils, Error, ErrorKind, Flat, FlatBase, FlatCast, FlatSized};
+use flatty::{mem::Muu, prelude::*, Error, ErrorKind};
 
 //#[make_flat(enum_type = "u8")]
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -15,33 +15,49 @@ enum SizedEnum {
     D(u32),
 }
 
-type IndexType = u8;
-
 impl FlatCast for SizedEnum {
-    unsafe fn validate(ptr: *const Self) -> Result<(), flatty::Error> {
-        let index = *(ptr as *const IndexType);
-        let data = (ptr as *const u8).offset(utils::max(IndexType::SIZE, Self::ALIGN) as isize);
-        match index {
+    fn validate(this: &Muu<Self>) -> Result<(), Error> {
+        let index = unsafe { Muu::<u8>::from_bytes_unchecked(this.as_bytes().get_unchecked(0..)) };
+        u8::validate(index)?;
+        match unsafe { &*index.as_ptr() } {
             0 => Ok(()),
             1 => {
-                u32::validate(raw_field!(ptr, Self, c))
-                    .map_err(|e| e.offset(offset_of!(Self, c)))?;
-                <[u64; 4]>::validate(raw_field!(ptr, Self, d))
-                    .map_err(|e| e.offset(offset_of!(Self, d)))?;
+                u16::validate(unsafe {
+                    Muu::<u16>::from_bytes_unchecked(this.as_bytes().get_unchecked(4..))
+                })
+                .map_err(|e| e.offset(4))?;
+
+                u8::validate(unsafe {
+                    Muu::<u8>::from_bytes_unchecked(this.as_bytes().get_unchecked(6..))
+                })
+                .map_err(|e| e.offset(6))?;
+
                 Ok(())
             }
             2 => {
-                u8::validate(raw_field!(ptr, Self, a))
-                    .map_err(|e| e.offset(offset_of!(Self, a)))?;
-                u16::validate(raw_field!(ptr, Self, b))
-                    .map_err(|e| e.offset(offset_of!(Self, b)))?;
+                u8::validate(unsafe {
+                    Muu::<u8>::from_bytes_unchecked(this.as_bytes().get_unchecked(4..))
+                })
+                .map_err(|e| e.offset(4))?;
+
+                u16::validate(unsafe {
+                    Muu::<u16>::from_bytes_unchecked(this.as_bytes().get_unchecked(6..))
+                })
+                .map_err(|e| e.offset(6))?;
+
+                Ok(())
+            }
+            3 => {
+                u32::validate(unsafe {
+                    Muu::<u32>::from_bytes_unchecked(this.as_bytes().get_unchecked(4..))
+                })
+                .map_err(|e| e.offset(4))?;
+
                 Ok(())
             }
             _ => Err(Error {
-                kind: ErrorKind::InvalidEnumState {
-                    bad_state: index as usize,
-                },
-                position: 0,
+                kind: ErrorKind::InvalidEnumState,
+                pos: 0,
             }),
         }
     }
