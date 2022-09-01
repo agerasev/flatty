@@ -13,8 +13,6 @@ mod sized;
 
 pub mod error;
 pub mod mem;
-/// Primitive portable types.
-pub mod portable;
 /// Utuility functions used by macros, so they must be publicly available.
 ///
 /// *Please, don't use them by yourself because they aren't stable.*
@@ -41,10 +39,9 @@ pub use base::FlatBase;
 pub use cast::FlatCast;
 pub use default::FlatDefault;
 pub use error::{Error, ErrorKind};
-pub use portable::{be, le, NativeCast, Portable};
 pub use sized::{FlatSized, FlatUnsized};
 pub use vec::FlatVec;
 
 pub mod prelude {
-    pub use super::{Flat, FlatCast, FlatDefault, FlatSized, FlatUnsized};
+    pub use super::{Flat, FlatBase, FlatCast, FlatDefault, FlatSized, FlatUnsized};
 }

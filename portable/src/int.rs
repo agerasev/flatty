@@ -1,10 +1,13 @@
-use super::NativeCast;
-use crate::{mem::Muu, Error, Flat, FlatCast, Portable};
+use crate::{NativeCast, Portable};
+use base::{mem::Muu, Error, Flat, FlatCast};
 use core::{
     cmp::{Ord, Ordering, PartialOrd},
     ops::{Add, Div, Mul, Neg, Rem, Sub},
 };
 use num_traits::{FromPrimitive, Num, NumCast, One, Signed, ToPrimitive, Unsigned, Zero};
+
+unsafe impl Portable for u8 {}
+unsafe impl Portable for i8 {}
 
 /// Generic portable integer. Has alignment == 1.
 ///

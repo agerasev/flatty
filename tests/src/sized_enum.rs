@@ -1,8 +1,9 @@
 use core::mem::{align_of, size_of};
-use flatty::{make_flat, FlatBase, FlatInit, FlatSized};
+use flatty::{offset_of, raw_field, utils, Error, ErrorKind, Flat, FlatBase, FlatCast, FlatSized};
 
-#[make_flat(enum_type = "u8")]
+//#[make_flat(enum_type = "u8")]
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[repr(C, u8)]
 enum SizedEnum {
     #[default]
     A,
@@ -13,6 +14,40 @@ enum SizedEnum {
     },
     D(u32),
 }
+
+type IndexType = u8;
+
+impl FlatCast for SizedEnum {
+    unsafe fn validate(ptr: *const Self) -> Result<(), flatty::Error> {
+        let index = *(ptr as *const IndexType);
+        let data = (ptr as *const u8).offset(utils::max(IndexType::SIZE, Self::ALIGN) as isize);
+        match index {
+            0 => Ok(()),
+            1 => {
+                u32::validate(raw_field!(ptr, Self, c))
+                    .map_err(|e| e.offset(offset_of!(Self, c)))?;
+                <[u64; 4]>::validate(raw_field!(ptr, Self, d))
+                    .map_err(|e| e.offset(offset_of!(Self, d)))?;
+                Ok(())
+            }
+            2 => {
+                u8::validate(raw_field!(ptr, Self, a))
+                    .map_err(|e| e.offset(offset_of!(Self, a)))?;
+                u16::validate(raw_field!(ptr, Self, b))
+                    .map_err(|e| e.offset(offset_of!(Self, b)))?;
+                Ok(())
+            }
+            _ => Err(Error {
+                kind: ErrorKind::InvalidEnumState {
+                    bad_state: index as usize,
+                },
+                position: 0,
+            }),
+        }
+    }
+}
+
+unsafe impl Flat for SizedEnum {}
 
 #[test]
 fn init_a() {

@@ -2,7 +2,7 @@ use crate::{
     error::{Error, ErrorKind},
     mem::{slice_assume_init_mut, slice_assume_init_ref, Muu},
     utils::max,
-    Flat, FlatBase, FlatCast, FlatDefault, FlatSized, FlatUnsized, Portable,
+    Flat, FlatBase, FlatCast, FlatDefault, FlatSized, FlatUnsized,
 };
 use core::{
     cmp::{Eq, PartialEq},
@@ -193,13 +193,6 @@ where
 {
 }
 
-unsafe impl<T, L> Portable for FlatVec<T, L>
-where
-    T: Portable + Flat + Sized,
-    L: Portable + Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
-{
-}
-
 impl<T, L> Deref for FlatVec<T, L>
 where
     T: Flat + Sized,
@@ -251,7 +244,6 @@ where
 #[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
-    use crate::portable::le;
     use std::{
         mem::{align_of_val, size_of_val},
         vec,
@@ -335,20 +327,5 @@ mod tests {
 
         vec_b[3] = 5;
         assert_ne!(vec_a, vec_b);
-    }
-
-    #[test]
-    fn primitive() {
-        let mut bytes = vec![0u8; 2 + 3 * 4];
-        let flat_vec =
-            FlatVec::<le::I32, le::U16>::placement_default(bytes.as_mut_slice()).unwrap();
-
-        flat_vec.push(le::I32::from(0)).unwrap();
-        flat_vec.push(le::I32::from(1)).unwrap();
-        flat_vec.push(le::I32::from(2)).unwrap();
-        assert!(flat_vec.push(le::I32::from(3)).is_err());
-
-        assert_eq!(FlatVec::<le::I32, le::U16>::ALIGN, 1);
-        assert_eq!(align_of_val(flat_vec), 1);
     }
 }

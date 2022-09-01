@@ -1,7 +1,10 @@
 mod float;
+mod impl_;
 mod int;
+#[cfg(test)]
+mod tests;
 
-use crate::Flat;
+use base::Flat;
 use num_traits::{FromPrimitive, Num, ToPrimitive};
 
 /// Type that can be safely transefered between different machines.
@@ -35,5 +38,6 @@ pub mod be {
     pub use int::be::*;
 }
 
-unsafe impl Portable for u8 {}
-unsafe impl Portable for i8 {}
+pub mod prelude {
+    pub use super::{NativeCast, Portable};
+}

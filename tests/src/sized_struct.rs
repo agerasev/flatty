@@ -1,5 +1,5 @@
 use core::mem::{align_of, size_of};
-use flatty::{make_flat, FlatBase, FlatInit, FlatSized};
+use flatty::{Flat, FlatBase, FlatCast, FlatDefault, FlatSized};
 
 #[make_flat]
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -10,19 +10,16 @@ struct SizedStruct {
     d: [u64; 4],
 }
 
+unsafe impl Flat for SizedStruct {}
+
 #[test]
 fn init() {
     let mut m = vec![0u8; 16 + 8 * 4];
-    let ss = SizedStruct::placement_new(
-        m.as_mut_slice(),
-        &SizedStruct {
-            a: 200,
-            b: 40000,
-            c: 2000000000,
-            d: [1, 2, 3, 4],
-        },
-    )
-    .unwrap();
+    let ss = SizedStruct::placement_default(m.as_mut_slice()).unwrap();
+    ss.a = 200;
+    ss.b = 40000;
+    ss.c = 2000000000;
+    ss.d = [1, 2, 3, 4];
 
     assert_eq!(ss.a, 200);
     assert_eq!(ss.b, 40000);
@@ -50,7 +47,8 @@ fn interpret() {
             a
         },
     );
-    let ss = SizedStruct::reinterpret(m.as_slice()).unwrap();
+    println!("{:?}", m.as_slice());
+    let ss = SizedStruct::from_bytes(m.as_slice()).unwrap();
 
     assert_eq!(ss.a, 0x12);
     assert_eq!(ss.b, 0x1234);

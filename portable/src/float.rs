@@ -1,5 +1,5 @@
-use super::NativeCast;
-use crate::{mem::Muu, Error, Flat, FlatCast, Portable};
+use crate::{NativeCast, Portable};
+use base::{mem::Muu, Error, Flat, FlatCast};
 use core::{
     cmp::{Ordering, PartialOrd},
     ops::{Add, Div, Mul, Neg, Rem, Sub},

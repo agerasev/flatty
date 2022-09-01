@@ -1,8 +1,9 @@
 [workspace]
 
 members = [
-    "flatty-base",
-    #"flatty-macros",
-    #"flatty-tests",
-    #"flatty",
+    "base",
+    "portable",
+    #"macros",
+    #"tests",
+    "flatty",
 ]

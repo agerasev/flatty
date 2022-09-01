@@ -1,0 +1,17 @@
+[package]
+name = "flatty-portable"
+version = "0.1.0-alpha.1"
+edition = "2021"
+
+authors = ["Alexey Gerasev <alexey.gerasev@gmail.com>"]
+description = "Flatty portable trait and primitives"
+repository = "https://github.com/agerasev/flatty.git"
+license = "MIT/Apache-2.0"
+
+[features]
+default = ["std"]
+std = ["base/std", "num-traits/std"]
+
+[dependencies]
+base = { package = "flatty-base", path = "../base", version = "0.1.0-alpha.1", default-features = false }
+num-traits = { version = "0.2", default-features = false }

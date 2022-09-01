@@ -1,4 +1,4 @@
-use crate::{mem::Muu, Error, Flat, FlatCast, Portable};
+use crate::{mem::Muu, Error, Flat, FlatCast};
 use core::marker::PhantomData;
 
 impl<T> FlatCast for PhantomData<T> {
@@ -8,5 +8,3 @@ impl<T> FlatCast for PhantomData<T> {
 }
 
 unsafe impl<T> Flat for PhantomData<T> {}
-
-unsafe impl<T> Portable for PhantomData<T> {}

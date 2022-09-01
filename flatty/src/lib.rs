@@ -1,3 +1,4 @@
+/*
 //! Flat message buffers.
 //!
 //! # Overview
@@ -5,7 +6,7 @@
 //! There are two main traits:
 //!
 //! + [`Flat`] - type that occupies a single contiguous memory area and could be accessed without packing/unpacking.
-//! + [`Portable`] - type that has stable memory representation and therefore it could be safely transfered between different machines (of different address width or even different endianness).  
+//! + [`Portable`] - type that has stable memory representation and therefore it could be safely transfered between different machines (of different address width or even different endianness).
 //!
 //! The crate provides basic flat types and a macro to create new flat types.
 //!
@@ -74,6 +75,7 @@
 //! }
 //! ```
 //!
-
+*/
 pub use base::*;
-pub use macros::{self, make_flat};
+pub use portable::*;
+//pub use macros::{self, make_flat};
