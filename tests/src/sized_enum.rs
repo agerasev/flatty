@@ -1,5 +1,5 @@
 use core::mem::{align_of, size_of};
-use flatty::{mem::Muu, prelude::*, Error, ErrorKind};
+use flatty::{mem::Muu, prelude::*, utils::ceil_mul, Error, ErrorKind};
 
 //#[make_flat(enum_type = "u8")]
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -17,42 +17,44 @@ enum SizedEnum {
 
 impl FlatCast for SizedEnum {
     fn validate(this: &Muu<Self>) -> Result<(), Error> {
-        let index = unsafe { Muu::<u8>::from_bytes_unchecked(this.as_bytes().get_unchecked(0..)) };
-        u8::validate(index)?;
-        match unsafe { &*index.as_ptr() } {
+        let bytes = this.as_bytes();
+        let mut pos = 0;
+        let tag = unsafe { Muu::<u8>::from_bytes_unchecked(bytes) };
+        u8::validate(tag)?;
+        pos += ceil_mul(pos + u8::SIZE, Self::ALIGN);
+        match unsafe { *tag.as_ptr() } {
             0 => Ok(()),
             1 => {
                 u16::validate(unsafe {
-                    Muu::<u16>::from_bytes_unchecked(this.as_bytes().get_unchecked(4..))
+                    Muu::<u16>::from_bytes_unchecked(bytes.get_unchecked(pos..))
                 })
-                .map_err(|e| e.offset(4))?;
+                .map_err(|e| e.offset(pos))?;
+                pos += ceil_mul(pos + u16::SIZE, u8::ALIGN);
 
                 u8::validate(unsafe {
-                    Muu::<u8>::from_bytes_unchecked(this.as_bytes().get_unchecked(6..))
+                    Muu::<u8>::from_bytes_unchecked(bytes.get_unchecked(pos..))
                 })
-                .map_err(|e| e.offset(6))?;
-
+                .map_err(|e| e.offset(pos))?;
                 Ok(())
             }
             2 => {
                 u8::validate(unsafe {
-                    Muu::<u8>::from_bytes_unchecked(this.as_bytes().get_unchecked(4..))
+                    Muu::<u8>::from_bytes_unchecked(bytes.get_unchecked(pos..))
                 })
-                .map_err(|e| e.offset(4))?;
+                .map_err(|e| e.offset(pos))?;
+                pos += ceil_mul(pos + u8::SIZE, u16::ALIGN);
 
                 u16::validate(unsafe {
-                    Muu::<u16>::from_bytes_unchecked(this.as_bytes().get_unchecked(6..))
+                    Muu::<u16>::from_bytes_unchecked(bytes.get_unchecked(pos..))
                 })
-                .map_err(|e| e.offset(6))?;
-
+                .map_err(|e| e.offset(pos))?;
                 Ok(())
             }
             3 => {
                 u32::validate(unsafe {
-                    Muu::<u32>::from_bytes_unchecked(this.as_bytes().get_unchecked(4..))
+                    Muu::<u32>::from_bytes_unchecked(bytes.get_unchecked(pos..))
                 })
-                .map_err(|e| e.offset(4))?;
-
+                .map_err(|e| e.offset(pos))?;
                 Ok(())
             }
             _ => Err(Error {
@@ -81,7 +83,8 @@ fn init_a() {
 #[test]
 fn init_b() {
     let mut m = vec![0u8; 4 + 4];
-    let se = SizedEnum::placement_new(m.as_mut_slice(), &SizedEnum::B(0x1234, 0x56)).unwrap();
+    let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
+    *se = SizedEnum::B(0x1234, 0x56);
 
     if let SizedEnum::B(a, b) = se {
         assert_eq!(*a, 0x1234);
@@ -97,8 +100,8 @@ fn init_b() {
 #[test]
 fn init_c() {
     let mut m = vec![0u8; 4 + 4];
-    let se =
-        SizedEnum::placement_new(m.as_mut_slice(), &SizedEnum::C { a: 0xab, b: 0xcdef }).unwrap();
+    let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
+    *se = SizedEnum::C { a: 0xab, b: 0xcdef };
 
     if let SizedEnum::C { a, b } = se {
         assert_eq!(*a, 0xab);
@@ -115,7 +118,8 @@ fn init_c() {
 #[test]
 fn init_d() {
     let mut m = vec![0u8; 4 + 4];
-    let se = SizedEnum::placement_new(m.as_mut_slice(), &SizedEnum::D(0x12345678)).unwrap();
+    let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
+    *se = SizedEnum::D(0x12345678);
 
     if let SizedEnum::D(a) = se {
         assert_eq!(*a, 0x12345678);
@@ -130,7 +134,7 @@ fn init_d() {
 #[test]
 fn interpret_c() {
     let m = vec![2, 0, 0, 0, 0xab, 0, 0xef, 0xcd];
-    let s = SizedEnum::reinterpret(m.as_slice()).unwrap();
+    let s = SizedEnum::from_bytes(m.as_slice()).unwrap();
 
     if let SizedEnum::C { a, b } = s {
         assert_eq!(*a, 0xab);
