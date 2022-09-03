@@ -22,7 +22,7 @@ where
     C { x: T, _p: PhantomData<&'a U> },
     D(GenericSizedStruct<'a, S, T, U, N>),
 }
-
+/*
 #[make_flat(sized = false)]
 struct GenericUnsizedStruct<'a, T: Flat, U, const N: usize>
 where
@@ -43,3 +43,4 @@ where
     C { x: T, _p: PhantomData<&'a U> },
     D(GenericUnsizedStruct<'a, T, U, N>),
 }
+*/

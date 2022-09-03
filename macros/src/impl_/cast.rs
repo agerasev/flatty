@@ -87,9 +87,9 @@ fn make_validate(ctx: &Context, input: &DeriveInput) -> TokenStream {
 pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let self_ident = &input.ident;
 
-    let generics = &input.generics;
-    let generic_params = generic::make_params(generics);
-    let where_clause = generic::make_bounds(
+    let generic_params = &input.generics.params;
+    let generic_args = generic::make_args(&input.generics);
+    let where_clause = generic::make_where_clause(
         input,
         quote! { ::flatty::FlatCast + Sized },
         if ctx.info.sized {
@@ -102,7 +102,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let validate_method = make_validate(ctx, input);
 
     quote! {
-        impl<#generics> ::flatty::FlatCast for #self_ident<#generic_params>
+        impl<#generic_params> ::flatty::FlatCast for #self_ident<#generic_args>
         where
             #where_clause
         {

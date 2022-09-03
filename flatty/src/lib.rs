@@ -80,6 +80,8 @@ pub use base::*;
 pub use macros::make_flat;
 pub use portable;
 
+pub use portable::Portable;
+
 pub mod prelude {
     pub use base::prelude::*;
     pub use portable::prelude::*;

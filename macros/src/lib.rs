@@ -7,8 +7,9 @@ use context::Context;
 use info::Info;
 
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput};
+use syn::{parse_macro_input, Data, DeriveInput, Ident};
 
 /// Attribute macro that creates a flat type from `struct` or `enum` declaration.
 ///
@@ -34,26 +35,31 @@ use syn::{parse_macro_input, Data, DeriveInput};
 /// + `portable: bool`, optional, `false` by default. Whether structure should implement `Portable`.
 #[proc_macro_attribute]
 pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let ctx = Context {
+    let mut ctx = Context {
         info: parse_macro_input!(attr as Info),
     };
     let input = parse_macro_input!(item as DeriveInput);
 
-    TokenStream::from(match (&input.data, ctx.info.sized) {
-        (data @ (Data::Struct(_) | Data::Enum(_)), true) => {
-            let repr = match data {
-                Data::Struct(_) => {
-                    assert!(
-                        ctx.info.enum_type.is_none(),
-                        "`enum_type` is not allowed for `struct`",
-                    );
-                    quote! { #[repr(C)] }
-                }
-                Data::Enum(_) => match &ctx.info.enum_type {
-                    Some(ty) => quote! { #[repr(C, #ty)] },
-                    None => quote! { #[repr(C, u8)] },
-                },
-                Data::Union(_) => unreachable!(),
+    match &input.data {
+        Data::Struct(_) => {
+            assert!(
+                ctx.info.enum_type.is_none(),
+                "`enum_type` is not allowed for `struct`",
+            );
+        }
+        Data::Enum(_) => {
+            if ctx.info.enum_type.is_none() {
+                ctx.info.enum_type = Some(Ident::new("u8", Span::call_site()));
+            }
+        }
+        Data::Union(_) => unimplemented!(),
+    };
+
+    let specific = match (&input.data, ctx.info.sized) {
+        (Data::Struct(_) | Data::Enum(_), true) => {
+            let repr = match &ctx.info.enum_type {
+                Some(ty) => quote! { #[repr(C, #ty)] },
+                None => quote! { #[repr(C)] },
             };
             let derive_default = if ctx.info.default {
                 quote! { #[derive(Default)] }
@@ -61,16 +67,10 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                 quote! {}
             };
 
-            let cast_impl = impl_::cast(&ctx, &input);
-            let flat_impl = impl_::flat(&ctx, &input);
-
             quote! {
                 #derive_default
                 #repr
                 #input
-
-                #cast_impl
-                #flat_impl
             }
         }
         (Data::Struct(_), false) => {
@@ -83,5 +83,21 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {}
         }
         (Data::Union(_), _) => unimplemented!(),
+    };
+
+    let cast_impl = impl_::cast(&ctx, &input);
+    let flat_impl = impl_::flat(&ctx, &input);
+    let portable_impl = if ctx.info.portable {
+        impl_::portable(&ctx, &input)
+    } else {
+        quote! {}
+    };
+
+    TokenStream::from(quote! {
+        #specific
+
+        #cast_impl
+        #flat_impl
+        #portable_impl
     })
 }
