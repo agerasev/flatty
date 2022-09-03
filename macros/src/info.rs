@@ -6,6 +6,7 @@ use syn::{
     Ident, Lit, Meta, Token,
 };
 
+#[derive(Clone, Debug)]
 pub struct Info {
     pub sized: bool,
     pub enum_type: Option<Ident>,

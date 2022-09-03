@@ -1,5 +1,7 @@
 mod context;
+mod impl_;
 mod info;
+mod utils;
 
 use context::Context;
 use info::Info;
@@ -47,7 +49,7 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                     );
                     quote! { #[repr(C)] }
                 }
-                Data::Enum(_) => match ctx.info.enum_type {
+                Data::Enum(_) => match &ctx.info.enum_type {
                     Some(ty) => quote! { #[repr(C, #ty)] },
                     None => quote! { #[repr(C, u8)] },
                 },
@@ -58,10 +60,17 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
             } else {
                 quote! {}
             };
+
+            let cast_impl = impl_::cast(&ctx, &input);
+            let flat_impl = impl_::flat(&ctx, &input);
+
             quote! {
                 #derive_default
                 #repr
                 #input
+
+                #cast_impl
+                #flat_impl
             }
         }
         (Data::Struct(_), false) => {
@@ -73,21 +82,6 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
         (Data::Enum(_), false) => {
             quote! {}
         }
-        (Data::Union(_), _) => panic!("`union` is not supported"),
+        (Data::Union(_), _) => unimplemented!(),
     })
-
-    /*
-    let make_flat = match info.sized {
-        true => quote! { #[derive(::flatty::macros::FlatSized)] },
-        false => match &input.data {
-            Data::Enum(_) => quote! { #[::flatty::macros::make_flat_unsized_enum] },
-            Data::Struct(_) => quote! { #[::flatty::macros::make_flat_unsized_struct] },
-            _ => panic!(),
-        },
-    };
-    let portable = match info.portable {
-        true => quote! { #[derive(::flatty::macros::Portable)] },
-        false => quote! {},
-    };
-    */
 }

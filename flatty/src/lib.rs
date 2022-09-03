@@ -77,8 +77,8 @@
 //!
 */
 pub use base::*;
+pub use macros::make_flat;
 pub use portable;
-//pub use macros::{self, make_flat};
 
 pub mod prelude {
     pub use base::prelude::*;
