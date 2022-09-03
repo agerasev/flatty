@@ -10,8 +10,7 @@ license = "MIT/Apache-2.0"
 
 [features]
 default = ["std"]
-std = ["num-traits/std", "stavec/std"]
+std = ["stavec/std"]
 
 [dependencies]
-num-traits = { version = "0.2", default-features = false }
 stavec = { git = "https://github.com/agerasev/stavec.git", branch = "generic", default-features = false, features = ["repr-c"] }

@@ -2,9 +2,9 @@ use crate::{NativeCast, Portable};
 use base::{mem::Muu, Error, Flat, FlatCast};
 use core::{
     cmp::{Ordering, PartialOrd},
-    ops::{Add, Div, Mul, Neg, Rem, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
 };
-use num_traits::{FromPrimitive, Num, NumCast, One, ToPrimitive, Zero};
+use num_traits::{Bounded, FromPrimitive, Num, NumCast, One, ToPrimitive, Zero};
 
 /// Generic portable floating-point number. Has alignment == 1.
 ///
@@ -96,6 +96,15 @@ macro_rules! derive_float {
             }
         }
 
+        impl Bounded for $self {
+            fn min_value() -> Self {
+                Self::from_native(<$native>::MIN)
+            }
+            fn max_value() -> Self {
+                Self::from_native(<$native>::MAX)
+            }
+        }
+
         impl One for $self {
             fn one() -> Self {
                 Self::from_native(<$native>::one())
@@ -150,6 +159,32 @@ macro_rules! derive_float {
         impl PartialOrd for $self {
             fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
                 self.to_native().partial_cmp(&other.to_native())
+            }
+        }
+
+        impl AddAssign for $self {
+            fn add_assign(&mut self, rhs: Self) {
+                *self = self.add(rhs);
+            }
+        }
+        impl SubAssign for $self {
+            fn sub_assign(&mut self, rhs: Self) {
+                *self = self.sub(rhs);
+            }
+        }
+        impl MulAssign for $self {
+            fn mul_assign(&mut self, rhs: Self) {
+                *self = self.mul(rhs);
+            }
+        }
+        impl DivAssign for $self {
+            fn div_assign(&mut self, rhs: Self) {
+                *self = self.div(rhs);
+            }
+        }
+        impl RemAssign for $self {
+            fn rem_assign(&mut self, rhs: Self) {
+                *self = self.rem(rhs);
             }
         }
     };
