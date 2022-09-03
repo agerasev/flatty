@@ -1,45 +1,12 @@
-mod parts;
-mod utils;
+mod context;
+mod info;
 
-mod base;
-mod portable;
-mod sized;
-mod unsized_enum;
-mod unsized_struct;
+use context::Context;
+use info::Info;
 
 use proc_macro::TokenStream;
-
-/// Derive type from `FlatSized`.
-///
-/// *It is recommended to use [`make_flat()`] macro instead.*
-#[proc_macro_derive(FlatSized)]
-pub fn derive_flat_sized(stream: TokenStream) -> TokenStream {
-    sized::derive(stream)
-}
-
-/// Create an unsized struct.
-///
-/// *It is recommended to use [`make_flat()`] macro instead.*
-#[proc_macro_attribute]
-pub fn make_flat_unsized_struct(attr: TokenStream, stream: TokenStream) -> TokenStream {
-    unsized_struct::make(attr, stream)
-}
-
-/// Create an unsized enum.
-///
-/// *It is recommended to use [`make_flat()`] macro instead.*
-#[proc_macro_attribute]
-pub fn make_flat_unsized_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
-    unsized_enum::make(attr, item)
-}
-
-/// Derive type from `Portable`.
-///
-/// *It is recommended to use [`make_flat()`] macro instead.*
-#[proc_macro_derive(Portable)]
-pub fn derive_portable(stream: TokenStream) -> TokenStream {
-    portable::derive(stream)
-}
+use quote::quote;
+use syn::{parse_macro_input, Data, DeriveInput};
 
 /// Attribute macro that creates a flat type from `struct` or `enum` declaration.
 ///
@@ -65,5 +32,62 @@ pub fn derive_portable(stream: TokenStream) -> TokenStream {
 /// + `portable: bool`, optional, `false` by default. Whether structure should implement `Portable`.
 #[proc_macro_attribute]
 pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
-    base::make(attr, item)
+    let ctx = Context {
+        info: parse_macro_input!(attr as Info),
+    };
+    let input = parse_macro_input!(item as DeriveInput);
+
+    TokenStream::from(match (&input.data, ctx.info.sized) {
+        (data @ (Data::Struct(_) | Data::Enum(_)), true) => {
+            let repr = match data {
+                Data::Struct(_) => {
+                    assert!(
+                        ctx.info.enum_type.is_none(),
+                        "`enum_type` is not allowed for `struct`",
+                    );
+                    quote! { #[repr(C)] }
+                }
+                Data::Enum(_) => match ctx.info.enum_type {
+                    Some(ty) => quote! { #[repr(C, #ty)] },
+                    None => quote! { #[repr(C, u8)] },
+                },
+                Data::Union(_) => unreachable!(),
+            };
+            let derive_default = if ctx.info.default {
+                quote! { #[derive(Default)] }
+            } else {
+                quote! {}
+            };
+            quote! {
+                #derive_default
+                #repr
+                #input
+            }
+        }
+        (Data::Struct(_), false) => {
+            quote! {
+                #[repr(C)]
+                #input
+            }
+        }
+        (Data::Enum(_), false) => {
+            quote! {}
+        }
+        (Data::Union(_), _) => panic!("`union` is not supported"),
+    })
+
+    /*
+    let make_flat = match info.sized {
+        true => quote! { #[derive(::flatty::macros::FlatSized)] },
+        false => match &input.data {
+            Data::Enum(_) => quote! { #[::flatty::macros::make_flat_unsized_enum] },
+            Data::Struct(_) => quote! { #[::flatty::macros::make_flat_unsized_struct] },
+            _ => panic!(),
+        },
+    };
+    let portable = match info.portable {
+        true => quote! { #[derive(::flatty::macros::Portable)] },
+        false => quote! {},
+    };
+    */
 }

@@ -1,0 +1,17 @@
+[package]
+name = "flatty-macros"
+version = "0.1.0-alpha.1"
+edition = "2021"
+
+authors = ["Alexey Gerasev <alexey.gerasev@gmail.com>"]
+description = "Flatty procedural macros"
+repository = "https://github.com/agerasev/flatty.git"
+license = "MIT/Apache-2.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0"
+quote = "1.0"
+proc-macro2 = "1.0"

@@ -3,7 +3,7 @@
 members = [
     "base",
     "portable",
-    #"macros",
+    "macros",
     "tests",
     "flatty",
 ]
