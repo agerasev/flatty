@@ -1,111 +1,37 @@
 use crate::{
     error::{Error, ErrorKind},
-    mem::{slice_assume_init_mut, slice_assume_init_ref, Muu},
+    mem::Muu,
     utils::max,
     Flat, FlatBase, FlatCast, FlatDefault, FlatSized, FlatUnsized,
 };
 use core::{
-    cmp::{Eq, PartialEq},
-    fmt::{self, Debug, Formatter},
     mem::MaybeUninit,
-    ops::{Deref, DerefMut},
     ptr::{slice_from_raw_parts, slice_from_raw_parts_mut},
 };
-use num_traits::{FromPrimitive, ToPrimitive, Unsigned};
+use stavec::GenericVec;
+
+pub use stavec::traits::Length;
 
 /// Growable flat vector of sized items.
 ///
 /// It doesn't allocate memory on the heap but instead stores its contents in the same memory behind itself.
 ///
 /// Obviously, this type is DST.
-#[repr(C)]
-pub struct FlatVec<T, L = usize>
-where
-    T: Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
-{
-    len: L,
-    data: [MaybeUninit<T>],
-}
+pub type FlatVec<T, L = usize> = GenericVec<T, [MaybeUninit<T>], L>;
 
-impl<T, L> FlatVec<T, L>
+trait DataOffset<T, L>
 where
     T: Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+    L: Flat + Length,
 {
     const DATA_OFFSET: usize = max(L::SIZE, T::ALIGN);
+}
 
-    /// Maximum number of items could be stored in this vector.
-    ///
-    /// The capacity is determined by its reference metadata.
-    pub fn capacity(&self) -> usize {
-        self.data.len()
-    }
-    /// Number of items stored in the vactor.
-    pub fn len(&self) -> usize {
-        self.len.to_usize().unwrap()
-    }
-    /// Number of remaining free places in the vector.
-    pub fn remaining(&self) -> usize {
-        self.data.len() - self.len.to_usize().unwrap()
-    }
-    /// Whether the vector is empty.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-    /// Whether the vector is full.
-    pub fn is_full(&self) -> bool {
-        self.len() == self.capacity()
-    }
-
-    /// Put a new item to the end of the vector.
-    pub fn push(&mut self, x: T) -> Result<(), T> {
-        if !self.is_full() {
-            self.data[self.len()] = MaybeUninit::new(x);
-            self.len = self.len + L::one();
-            Ok(())
-        } else {
-            Err(x)
-        }
-    }
-    /// Take and return an item from the end of the vector.
-    pub fn pop(&mut self) -> Option<T> {
-        if !self.is_empty() {
-            self.len = self.len - L::one();
-            Some(unsafe { self.data[self.len()].assume_init_read() })
-        } else {
-            None
-        }
-    }
-
-    /// Return a slice of stored items.
-    pub fn as_slice(&self) -> &[T] {
-        let len = self.len();
-        unsafe { slice_assume_init_ref(&self.data[..len]) }
-    }
-    /// Return a mutable slice of stored items.
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
-        let len = self.len();
-        unsafe { slice_assume_init_mut(&mut self.data[..len]) }
-    }
-
-    /// Clones and appends elements in a slice to this vector until slice ends or vector capacity reached.
-    ///
-    /// Returns a number of elements being appended.
-    pub fn extend_from_slice(&mut self, other: &[T]) -> usize
-    where
-        T: Clone,
-    {
-        let mut counter = 0;
-        for x in other {
-            match self.push(x.clone()) {
-                Ok(()) => (),
-                Err(_) => break,
-            }
-            counter += 1;
-        }
-        counter
-    }
+impl<T, L> DataOffset<T, L> for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Length,
+{
 }
 
 /// Sized type that has same alignment as [`FlatVec<T, L>`](`FlatVec`).
@@ -113,12 +39,12 @@ where
 pub struct FlatVecAlignAs<T, L>(T, L)
 where
     T: Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive;
+    L: Flat + Length;
 
 unsafe impl<T, L> FlatBase for FlatVec<T, L>
 where
     T: Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+    L: Flat + Length,
 {
     const ALIGN: usize = max(L::ALIGN, T::ALIGN);
     const MIN_SIZE: usize = Self::DATA_OFFSET;
@@ -141,7 +67,7 @@ where
 unsafe impl<T, L> FlatUnsized for FlatVec<T, L>
 where
     T: Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+    L: Flat + Length,
 {
     type AlignAs = FlatVecAlignAs<T, L>;
 
@@ -153,7 +79,7 @@ where
 impl<T, L> FlatDefault for FlatVec<T, L>
 where
     T: Flat + Sized + Default,
-    L: Flat + Sized + Copy + Default + Unsigned + ToPrimitive + FromPrimitive,
+    L: Flat + Length + Default,
 {
     fn init_default(this: &mut Muu<Self>) -> Result<(), Error> {
         let len = unsafe { Muu::<L>::from_mut_bytes_unchecked(this.as_mut_bytes()) };
@@ -166,7 +92,7 @@ where
 impl<T, L> FlatCast for FlatVec<T, L>
 where
     T: Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+    L: Flat + Length,
 {
     fn validate(this: &Muu<Self>) -> Result<(), Error> {
         let len = unsafe { &Muu::<L>::from_bytes_unchecked(this.as_bytes()) };
@@ -179,7 +105,7 @@ where
                 pos: Self::DATA_OFFSET,
             });
         }
-        for x in unsafe { self_.data.get_unchecked(..self_.len()) } {
+        for x in unsafe { self_.data().get_unchecked(..self_.len()) } {
             T::validate(Muu::from_sized(x))?;
         }
         Ok(())
@@ -189,56 +115,8 @@ where
 unsafe impl<T, L> Flat for FlatVec<T, L>
 where
     T: Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
+    L: Flat + Length,
 {
-}
-
-impl<T, L> Deref for FlatVec<T, L>
-where
-    T: Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
-{
-    type Target = [T];
-    fn deref(&self) -> &[T] {
-        self.as_slice()
-    }
-}
-
-impl<T, L> DerefMut for FlatVec<T, L>
-where
-    T: Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
-{
-    fn deref_mut(&mut self) -> &mut [T] {
-        self.as_mut_slice()
-    }
-}
-
-impl<T, L> PartialEq for FlatVec<T, L>
-where
-    T: PartialEq + Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.len() == other.len() && self.iter().zip(other.iter()).all(|(x, y)| x == y)
-    }
-}
-
-impl<T, L> Eq for FlatVec<T, L>
-where
-    T: Eq + Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
-{
-}
-
-impl<T, L> Debug for FlatVec<T, L>
-where
-    T: Debug + Flat + Sized,
-    L: Flat + Sized + Copy + Unsigned + ToPrimitive + FromPrimitive,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.as_slice().fmt(f)
-    }
 }
 
 #[cfg(all(test, feature = "std"))]
