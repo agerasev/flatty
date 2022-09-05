@@ -4,7 +4,7 @@ use quote::quote;
 use std::iter::Iterator;
 use syn::{self, Data, DeriveInput, GenericParam, Generics};
 
-pub fn make_args(generics: &Generics) -> TokenStream {
+pub fn args(generics: &Generics) -> TokenStream {
     generics.params.iter().fold(quote! {}, |accum, param| {
         let param = match param {
             GenericParam::Type(type_param) => {
@@ -24,7 +24,7 @@ pub fn make_args(generics: &Generics) -> TokenStream {
     })
 }
 
-pub fn make_where_clause(
+pub fn where_clause(
     input: &DeriveInput,
     bound: TokenStream,
     last_bound: Option<TokenStream>,

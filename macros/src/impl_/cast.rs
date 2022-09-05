@@ -6,7 +6,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Index};
 
-fn make_validate(ctx: &Context, input: &DeriveInput) -> TokenStream {
+fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     fn collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
         let iter = fields.field_iter();
         let len = iter.len();
@@ -88,8 +88,8 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let self_ident = &input.ident;
 
     let generic_params = &input.generics.params;
-    let generic_args = generic::make_args(&input.generics);
-    let where_clause = generic::make_where_clause(
+    let generic_args = generic::args(&input.generics);
+    let where_clause = generic::where_clause(
         input,
         quote! { ::flatty::FlatCast + Sized },
         if ctx.info.sized {
@@ -99,7 +99,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         },
     );
 
-    let validate_method = make_validate(ctx, input);
+    let validate_method = validate_method(ctx, input);
 
     quote! {
         impl<#generic_params> ::flatty::FlatCast for #self_ident<#generic_args>

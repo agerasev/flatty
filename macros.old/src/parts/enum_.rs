@@ -187,24 +187,6 @@ pub fn make_as_mut(input: &DeriveInput) -> TokenStream2 {
     )
 }
 
-pub fn make_size(input: &DeriveInput) -> TokenStream2 {
-    layout::make_size_gen(
-        input,
-        &ref_ident(input),
-        quote! { self.as_ref() },
-        |_, value| quote! { #value.size() },
-    )
-}
-
-pub fn make_size_of(input: &DeriveInput) -> TokenStream2 {
-    layout::make_size_gen(
-        input,
-        &dyn_::ident(input),
-        quote! { value },
-        |ty, value| quote! { <#ty as ::flatty::FlatInit>::size_of(&#value) },
-    )
-}
-
 pub fn make_var_min_sizes(input: &DeriveInput) -> (usize, TokenStream2) {
     match &input.data {
         Data::Enum(enum_data) => {
