@@ -63,8 +63,9 @@ where
         (this.as_bytes().len() - Self::DATA_OFFSET) / T::SIZE
     }
 
-    fn bytes_len(this: &Self) -> usize {
-        Self::DATA_OFFSET + this.data().len() * T::SIZE
+    unsafe fn bytes_len(this: *const Self) -> usize {
+        // FIXME: UB due to maybe uninit pointer dereference.
+        Self::DATA_OFFSET + (&*(this as *const [u8])).len() * T::SIZE
     }
 
     impl_unsized_uninit_cast!();

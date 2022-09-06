@@ -1,7 +1,7 @@
 use super::tests::generate_tests;
 use flatty::{
     iter::{prelude::*, type_list, RefIter},
-    mem::Muu,
+    mem::MaybeUninitUnsized,
     prelude::*,
     utils::ceil_mul,
     Error, ErrorKind,
@@ -21,13 +21,13 @@ enum SizedEnum {
 }
 
 impl FlatCast for SizedEnum {
-    fn validate(this: &Muu<Self>) -> Result<(), Error> {
+    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
         let bytes = this.as_bytes();
-        let tag = unsafe { Muu::<u8>::from_bytes_unchecked(bytes) };
+        let tag = unsafe { MaybeUninitUnsized::<u8>::from_bytes_unchecked(bytes) };
         u8::validate(tag)?;
         let data_offset: usize = ceil_mul(u8::SIZE, Self::ALIGN);
         let bytes = unsafe { bytes.get_unchecked(data_offset..) };
-        match unsafe { *tag.as_ptr() } {
+        match unsafe { tag.assume_init_ref() } {
             0 => Ok(()),
             1 => unsafe { RefIter::new_unchecked(bytes, type_list!(u16, u8)) }
                 .validate_all()

@@ -1,7 +1,7 @@
 use super::tests::generate_tests;
 use flatty::{
     iter::{prelude::*, RefIter},
-    mem::Muu,
+    mem::MaybeUninitUnsized,
     prelude::*,
     type_list, Error,
 };
@@ -16,7 +16,7 @@ struct SizedStruct {
 }
 
 impl FlatCast for SizedStruct {
-    fn validate(this: &Muu<Self>) -> Result<(), Error> {
+    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
         unsafe { RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, u32, [u64; 4])) }
             .validate_all()
     }

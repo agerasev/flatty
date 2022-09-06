@@ -1,11 +1,12 @@
 use core::{
     mem::{align_of, align_of_val, size_of_val},
-    ptr::{slice_from_raw_parts, slice_from_raw_parts_mut},
+    ptr::addr_of,
 };
 use flatty::{
+    impl_unsized_uninit_cast,
     iter::{fold_min_size, prelude::*, type_list, MutIter, RefIter},
     make_flat,
-    mem::Muu,
+    mem::MaybeUninitUnsized,
     prelude::*,
     utils::ceil_mul,
     Error, FlatVec,
@@ -17,56 +18,55 @@ use flatty::{
 struct UnsizedStruct {
     a: u8,
     b: u16,
-    c: FlatVec<u64>,
+    c: FlatVec<u64, u32>,
 }
 
 #[repr(C)]
-struct AlignAs(u8, u16, <FlatVec<u64> as FlatUnsized>::AlignAs);
+struct AlignAs(u8, u16, <FlatVec<u64, u32> as FlatMaybeUnsized>::AlignAs);
 
 unsafe impl FlatBase for UnsizedStruct {
     const ALIGN: usize = align_of::<AlignAs>();
-    const MIN_SIZE: usize = fold_min_size!(0; u8, u16, FlatVec<u64>);
+    const MIN_SIZE: usize = fold_min_size!(0; u8, u16, FlatVec<u64, u32>);
 
     fn size(&self) -> usize {
-        let mut size = 0;
-
-        size = ceil_mul(size, u8::ALIGN) + u8::SIZE;
-        size = ceil_mul(size, u16::ALIGN) + u16::SIZE;
-        size = ceil_mul(size, FlatVec::<u64>::ALIGN) + self.c.size();
-
-        ceil_mul(size, Self::ALIGN)
-    }
-
-    fn ptr_from_bytes(bytes: &[u8]) -> *const Self {
-        let slice = slice_from_raw_parts(bytes.as_ptr(), Self::ptr_metadata(bytes).unwrap());
-        slice as *const [_] as *const Self
-    }
-    fn ptr_from_mut_bytes(bytes: &mut [u8]) -> *mut Self {
-        let slice =
-            slice_from_raw_parts_mut(bytes.as_mut_ptr(), Self::ptr_metadata(bytes).unwrap());
-        slice as *mut [_] as *mut Self
+        ceil_mul(
+            (Self::MIN_SIZE - FlatVec::<u64, u32>::MIN_SIZE) + self.c.size(),
+            Self::ALIGN,
+        )
     }
 }
 
-unsafe impl FlatUnsized for UnsizedStruct {
+unsafe impl FlatMaybeUnsized for UnsizedStruct {
     type AlignAs = AlignAs;
 
-    fn ptr_metadata(bytes: &[u8]) -> Option<usize> {
-        FlatVec::<u64>::ptr_metadata(&bytes[(Self::MIN_SIZE - FlatVec::<u64>::MIN_SIZE)..])
+    fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize {
+        // FIXME: UB due to maybe uninit pointer dereference.
+        FlatVec::<u64, u32>::ptr_metadata(unsafe {
+            MaybeUninitUnsized::<FlatVec<u64, u32>>::from_ptr(addr_of!((*this.as_ptr()).c))
+        })
     }
+    unsafe fn bytes_len(this: *const Self) -> usize {
+        // FIXME: UB due to maybe uninit pointer dereference.
+        (Self::MIN_SIZE - FlatVec::<u64, u32>::MIN_SIZE)
+            + FlatVec::<u64, u32>::bytes_len(addr_of!((*this).c))
+    }
+
+    impl_unsized_uninit_cast!();
 }
 
 impl FlatCast for UnsizedStruct {
-    fn validate(this: &Muu<Self>) -> Result<(), Error> {
-        unsafe { RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, FlatVec<u64>)) }
+    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
+        unsafe { RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, FlatVec<u64, u32>)) }
             .validate_all()
     }
 }
 
-impl FlatDefault for UnsizedStruct {
-    fn init_default(this: &mut Muu<Self>) -> Result<(), Error> {
-        unsafe { MutIter::new_unchecked(this.as_mut_bytes(), type_list!(u8, u16, FlatVec<u64>)) }
-            .init_default_all()
+unsafe impl FlatDefault for UnsizedStruct {
+    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<(), Error> {
+        unsafe {
+            MutIter::new_unchecked(this.as_mut_bytes(), type_list!(u8, u16, FlatVec<u64, u32>))
+        }
+        .init_default_all()
     }
 }
 
@@ -74,7 +74,7 @@ unsafe impl Flat for UnsizedStruct {}
 
 #[test]
 fn init() {
-    let mut mem = vec![0u8; 16 + 8 * 4];
+    let mut mem = vec![0u8; 16 + 4 * 8];
     let us = UnsizedStruct::placement_default(mem.as_mut_slice()).unwrap();
     us.a = 200;
     us.b = 40000;
@@ -100,7 +100,7 @@ fn init() {
 
 #[test]
 fn default() {
-    let mut mem = vec![0u8; 16 + 8 * 4];
+    let mut mem = vec![0u8; 16 + 4 * 8];
     let us = UnsizedStruct::placement_default(mem.as_mut_slice()).unwrap();
 
     assert_eq!(us.size(), 16);
@@ -111,7 +111,7 @@ fn default() {
 
 #[test]
 fn layout() {
-    let mut mem = vec![0u8; 16 + 8 * 4];
+    let mut mem = vec![0u8; 16 + 4 * 8];
     let us = UnsizedStruct::placement_default(mem.as_mut_slice()).unwrap();
     us.a = 0;
     us.b = 0;
@@ -128,8 +128,8 @@ fn layout() {
 
 #[test]
 fn eq() {
-    let mut mem_ab = vec![0u8; 16 + 8 * 4];
-    let mut mem_c = vec![0u8; 16 + 8 * 3];
+    let mut mem_ab = vec![0u8; 16 + 4 * 8];
+    let mut mem_c = vec![0u8; 16 + 3 * 8];
     {
         let us = UnsizedStruct::placement_default(&mut mem_ab).unwrap();
         us.a = 1;
