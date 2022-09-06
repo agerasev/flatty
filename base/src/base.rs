@@ -1,3 +1,5 @@
+use crate::mem::MaybeUninitUnsized;
+
 /// Basic flat type properties.
 ///
 /// # Safety
@@ -11,10 +13,77 @@ pub unsafe trait FlatBase {
 
     /// Size of an instance of the type.
     fn size(&self) -> usize;
-
-    /// Make a pointer to `Self` from bytes without any checks.
-    fn ptr_from_bytes(bytes: &[u8]) -> *const Self;
-
-    /// Make a mutable pointer to `Self` from bytes without any checks.
-    fn ptr_from_mut_bytes(bytes: &mut [u8]) -> *mut Self;
 }
+
+/// Dynamically-sized flat type. Like `?Sized` but for `Flat`.
+///
+/// For now it must be implemented for all [`Flat`](`crate::Flat`) types because there is no mutually exclusive traits in Rust yet.
+///
+/// # Safety
+///
+/// `AlignAs` type must have the same align as `Self`.
+///
+/// `ptr_metadata` must provide such value, that will give [`size()`](`FlatBase::size`)` <= `[`size_of_val()`](`core::mem::size_of_val`)` <= bytes.len()`.
+pub unsafe trait FlatMaybeUnsized: FlatBase {
+    /// Sized type that has the same alignment as `Self`.
+    type AlignAs: Sized;
+
+    /// Metadata to store in a wide pointer to `Self`.
+    ///
+    /// Panics if type is `Sized`.
+    fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize;
+    /// Length of underlying memory occupied by `this`.
+    fn bytes_len(this: &Self) -> usize;
+
+    /// # Safety
+    ///
+    /// `this` must be initialized.
+    unsafe fn from_uninit_unchecked(this: &MaybeUninitUnsized<Self>) -> &Self;
+    /// # Safety
+    ///
+    /// `this` must be initialized.
+    unsafe fn from_uninit_mut_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self;
+
+    fn to_uninit(&self) -> &MaybeUninitUnsized<Self>;
+    /// # Safety
+    ///
+    /// Modification of return value must not make `self` invalid.
+    unsafe fn to_uninit_mut(&mut self) -> &mut MaybeUninitUnsized<Self>;
+}
+
+#[macro_export]
+macro_rules! impl_unsized_uninit_cast {
+    () => {
+        unsafe fn from_uninit_unchecked(this: &MaybeUninitUnsized<Self>) -> &Self {
+            let slice = ::core::ptr::slice_from_raw_parts(
+                this.as_bytes().as_ptr(),
+                Self::ptr_metadata(this),
+            );
+            &*(slice as *const [_] as *const Self)
+        }
+        unsafe fn from_uninit_mut_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self {
+            let slice = ::core::ptr::slice_from_raw_parts_mut(
+                this.as_bytes_mut().as_mut_ptr(),
+                Self::ptr_metadata(this),
+            );
+            &mut *(slice as *mut [_] as *mut Self)
+        }
+
+        fn to_uninit(&self) -> &MaybeUninitUnsized<Self> {
+            unsafe {
+                MaybeUninitUnsized::from_bytes_unchecked(::core::slice::from_raw_parts(
+                    self as *const _ as *const u8,
+                    Self::bytes_len(self),
+                ))
+            }
+        }
+        unsafe fn to_uninit_mut(&mut self) -> &mut MaybeUninitUnsized<Self> {
+            MaybeUninitUnsized::from_bytes_mut_unchecked(::core::slice::from_raw_parts_mut(
+                self as *mut _ as *mut u8,
+                Self::bytes_len(self),
+            ))
+        }
+    };
+}
+
+pub use impl_unsized_uninit_cast;

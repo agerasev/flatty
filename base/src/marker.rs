@@ -1,8 +1,8 @@
-use crate::{mem::Muu, Error, Flat, FlatCast};
+use crate::{mem::MaybeUninitUnsized, Error, Flat, FlatCast};
 use core::marker::PhantomData;
 
 impl<T> FlatCast for PhantomData<T> {
-    fn validate(_: &Muu<Self>) -> Result<(), Error> {
+    fn validate(_: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
         Ok(())
     }
 }

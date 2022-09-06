@@ -1,4 +1,4 @@
-use crate::{mem::Muu, prelude::*, utils::ceil_mul, Error};
+use crate::{mem::MaybeUninitUnsized, prelude::*, utils::ceil_mul, Error};
 use core::marker::PhantomData;
 
 pub trait TypeIter {
@@ -82,8 +82,8 @@ impl<'a, I: TypeIter> RefIter<'a, I> {
         self.iter.pos()
     }
 
-    pub fn value(&self) -> &Muu<I::Item> {
-        unsafe { Muu::from_bytes_unchecked(self.data.get_unchecked(self.pos()..)) }
+    pub fn value(&self) -> &MaybeUninitUnsized<I::Item> {
+        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data.get_unchecked(self.pos()..)) }
     }
 }
 impl<'a, T: Flat + Sized, I: TypeIter> RefIter<'a, TwoOrMoreTypes<T, I>> {
@@ -114,12 +114,12 @@ impl<'a, I: TypeIter> MutIter<'a, I> {
         self.iter.pos()
     }
 
-    pub fn value(&self) -> &Muu<I::Item> {
-        unsafe { Muu::from_bytes_unchecked(self.data.get_unchecked(self.pos()..)) }
+    pub fn value(&self) -> &MaybeUninitUnsized<I::Item> {
+        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data.get_unchecked(self.pos()..)) }
     }
-    pub fn value_mut(&mut self) -> &mut Muu<I::Item> {
+    pub fn value_mut(&mut self) -> &mut MaybeUninitUnsized<I::Item> {
         let pos = self.pos();
-        unsafe { Muu::from_mut_bytes_unchecked(self.data.get_unchecked_mut(pos..)) }
+        unsafe { MaybeUninitUnsized::from_bytes_mut_unchecked(self.data.get_unchecked_mut(pos..)) }
     }
 }
 impl<'a, T: Flat + Sized, I: TypeIter> MutIter<'a, TwoOrMoreTypes<T, I>> {
@@ -183,12 +183,12 @@ where
 }
 impl<'a, T: FlatDefault + ?Sized> FoldSizeIter for RefIter<'a, SingleType<T>> {
     unsafe fn fold_size(self, _: usize) -> usize {
-        (*self.value().as_ptr()).size()
+        self.value().assume_init().size()
     }
 }
 
 pub mod prelude {
-    pub use super::{InitDefaultIter, TypeIter, ValidateIter};
+    pub use super::{FoldSizeIter, InitDefaultIter, TypeIter, ValidateIter};
 }
 
 #[macro_export]

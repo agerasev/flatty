@@ -1,33 +1,17 @@
-use crate::{Flat, FlatBase};
-use core::mem::{align_of, size_of};
+use crate::{mem::MaybeUninitUnsized, Flat, FlatBase, FlatMaybeUnsized};
+use core::{
+    mem::{align_of, size_of},
+    slice::{from_raw_parts, from_raw_parts_mut},
+};
 
 /// Statically-sized flat type.
 ///
 /// # Safety
 ///
 /// `SIZE` must match `Self` size.
-pub unsafe trait FlatSized: FlatBase + Sized {
+pub unsafe trait FlatSized: FlatBase + FlatMaybeUnsized + Sized {
     /// Static size of the type.
     const SIZE: usize = size_of::<Self>();
-}
-
-/// Dynamically-sized flat type.
-///
-/// For now it must be implemented for all [`Flat`](`crate::Flat`) types because there is no mutually exclusive traits in Rust yet.
-///
-/// # Safety
-///
-/// `AlignAs` type must have the same align as `Self`.
-///
-/// `ptr_metadata` must provide such value, that will give [`size()`](`FlatBase::size`)` <= `[`size_of_val()`](`core::mem::size_of_val`)` <= bytes.len()`.
-pub unsafe trait FlatUnsized: FlatBase {
-    /// Sized type that has the same alignment as `Self`.
-    type AlignAs: Sized;
-
-    /// Metadata to store in a wide pointer to `Self`.
-    ///
-    /// `None` is returned if type is `Sized`.
-    fn ptr_metadata(bytes: &[u8]) -> Option<usize>;
 }
 
 unsafe impl<T: Flat + Sized> FlatSized for T {}
@@ -40,19 +24,37 @@ unsafe impl<T: FlatSized> FlatBase for T {
     fn size(&self) -> usize {
         Self::SIZE
     }
-
-    fn ptr_from_bytes(bytes: &[u8]) -> *const Self {
-        bytes.as_ptr() as *const Self
-    }
-    fn ptr_from_mut_bytes(bytes: &mut [u8]) -> *mut Self {
-        bytes.as_mut_ptr() as *mut Self
-    }
 }
 
-unsafe impl<T: FlatSized> FlatUnsized for T {
+unsafe impl<T: FlatSized> FlatMaybeUnsized for T {
     type AlignAs = T;
 
-    fn ptr_metadata(_: &[u8]) -> Option<usize> {
-        None
+    fn ptr_metadata(_this: &MaybeUninitUnsized<Self>) -> usize {
+        panic!("Sized type ptr has no metadata");
+    }
+    fn bytes_len(_this: &Self) -> usize {
+        Self::SIZE
+    }
+
+    unsafe fn from_uninit_unchecked(this: &MaybeUninitUnsized<Self>) -> &Self {
+        &*(this.as_bytes().as_ptr() as *const Self)
+    }
+    unsafe fn from_uninit_mut_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self {
+        &mut *(this.as_bytes_mut().as_mut_ptr() as *mut Self)
+    }
+
+    fn to_uninit(&self) -> &MaybeUninitUnsized<Self> {
+        unsafe {
+            MaybeUninitUnsized::from_bytes_unchecked(from_raw_parts(
+                self as *const _ as *const u8,
+                Self::SIZE,
+            ))
+        }
+    }
+    unsafe fn to_uninit_mut(&mut self) -> &mut MaybeUninitUnsized<Self> {
+        MaybeUninitUnsized::from_bytes_mut_unchecked(from_raw_parts_mut(
+            self as *mut _ as *mut u8,
+            Self::SIZE,
+        ))
     }
 }

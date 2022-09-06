@@ -1,13 +1,11 @@
 use crate::{
+    base::impl_unsized_uninit_cast,
     error::{Error, ErrorKind},
-    mem::Muu,
+    mem::MaybeUninitUnsized,
     utils::max,
-    Flat, FlatBase, FlatCast, FlatDefault, FlatSized, FlatUnsized,
+    Flat, FlatBase, FlatCast, FlatDefault, FlatMaybeUnsized, FlatSized,
 };
-use core::{
-    mem::MaybeUninit,
-    ptr::{slice_from_raw_parts, slice_from_raw_parts_mut},
-};
+use core::mem::MaybeUninit;
 use stavec::GenericVec;
 
 pub use stavec::traits::Length;
@@ -52,39 +50,35 @@ where
     fn size(&self) -> usize {
         Self::DATA_OFFSET + T::SIZE * self.len()
     }
-
-    fn ptr_from_bytes(bytes: &[u8]) -> *const Self {
-        let slice = slice_from_raw_parts(bytes.as_ptr(), Self::ptr_metadata(bytes).unwrap());
-        slice as *const [_] as *const Self
-    }
-    fn ptr_from_mut_bytes(bytes: &mut [u8]) -> *mut Self {
-        let slice =
-            slice_from_raw_parts_mut(bytes.as_mut_ptr(), Self::ptr_metadata(bytes).unwrap());
-        slice as *mut [_] as *mut Self
-    }
 }
 
-unsafe impl<T, L> FlatUnsized for FlatVec<T, L>
+unsafe impl<T, L> FlatMaybeUnsized for FlatVec<T, L>
 where
     T: Flat + Sized,
     L: Flat + Length,
 {
     type AlignAs = FlatVecAlignAs<T, L>;
 
-    fn ptr_metadata(bytes: &[u8]) -> Option<usize> {
-        Some((bytes.len() - Self::DATA_OFFSET) / T::SIZE)
+    fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize {
+        (this.as_bytes().len() - Self::DATA_OFFSET) / T::SIZE
     }
+
+    fn bytes_len(this: &Self) -> usize {
+        Self::DATA_OFFSET + this.data().len() * T::SIZE
+    }
+
+    impl_unsized_uninit_cast!();
 }
 
-impl<T, L> FlatDefault for FlatVec<T, L>
+unsafe impl<T, L> FlatDefault for FlatVec<T, L>
 where
     T: Flat + Sized + Default,
     L: Flat + Length + Default,
 {
-    fn init_default(this: &mut Muu<Self>) -> Result<(), Error> {
-        let len = unsafe { Muu::<L>::from_mut_bytes_unchecked(this.as_mut_bytes()) };
+    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<(), Error> {
+        let len = unsafe { MaybeUninitUnsized::<L>::from_bytes_mut_unchecked(this.as_bytes_mut()) };
         L::init_default(len)?; // To avoid dereferencing invalid state.
-        unsafe { *len.as_mut_ptr() = L::zero() };
+        unsafe { *len.assume_init_mut() = L::zero() };
         Ok(())
     }
 }
@@ -94,11 +88,11 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    fn validate(this: &Muu<Self>) -> Result<(), Error> {
-        let len = unsafe { &Muu::<L>::from_bytes_unchecked(this.as_bytes()) };
+    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
+        let len = unsafe { &MaybeUninitUnsized::<L>::from_bytes_unchecked(this.as_bytes()) };
         L::validate(len)?;
         // Now it's safe to dereference `Self`, because data is `[MaybeUninit<T>]`.
-        let self_ = unsafe { &*this.as_ptr() };
+        let self_ = unsafe { this.assume_init() };
         if self_.len() > self_.capacity() {
             return Err(Error {
                 kind: ErrorKind::InsufficientSize,
@@ -106,7 +100,7 @@ where
             });
         }
         for x in unsafe { self_.data().get_unchecked(..self_.len()) } {
-            T::validate(Muu::from_sized(x))?;
+            T::validate(MaybeUninitUnsized::from_sized(x))?;
         }
         Ok(())
     }

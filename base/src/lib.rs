@@ -13,6 +13,7 @@ mod sized;
 
 pub mod error;
 pub mod iter;
+//pub mod iter;
 pub mod mem;
 /// Utuility functions used by macros, so they must be publicly available.
 ///
@@ -34,15 +35,15 @@ pub mod vec;
 /// + `Self` don't own any resources outside of it.
 /// + `Self` could be trivially copied as bytes. (We cannot require `Self: `[`Copy`] because it `?Sized`.)
 /// + All `Flat*` traits implemetation for `Self` will not cause an Undefined Behaviour.
-pub unsafe trait Flat: FlatBase + FlatUnsized + FlatCast {}
+pub unsafe trait Flat: FlatBase + FlatMaybeUnsized + FlatCast {}
 
-pub use base::FlatBase;
+pub use base::{FlatBase, FlatMaybeUnsized};
 pub use cast::FlatCast;
 pub use default::FlatDefault;
 pub use error::{Error, ErrorKind};
-pub use sized::{FlatSized, FlatUnsized};
+pub use sized::FlatSized;
 pub use vec::FlatVec;
 
 pub mod prelude {
-    pub use super::{Flat, FlatBase, FlatCast, FlatDefault, FlatSized, FlatUnsized};
+    pub use super::{Flat, FlatBase, FlatCast, FlatDefault, FlatMaybeUnsized, FlatSized};
 }
