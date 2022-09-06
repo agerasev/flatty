@@ -1,5 +1,11 @@
 use super::tests::generate_tests;
-use flatty::{mem::Muu, prelude::*, utils::ceil_mul, Error, ErrorKind};
+use flatty::{
+    iter::{prelude::*, type_list, RefIter},
+    mem::Muu,
+    prelude::*,
+    utils::ceil_mul,
+    Error, ErrorKind,
+};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 #[repr(C, u8)]
@@ -17,45 +23,21 @@ enum SizedEnum {
 impl FlatCast for SizedEnum {
     fn validate(this: &Muu<Self>) -> Result<(), Error> {
         let bytes = this.as_bytes();
-        let mut pos = 0;
         let tag = unsafe { Muu::<u8>::from_bytes_unchecked(bytes) };
         u8::validate(tag)?;
-        pos += ceil_mul(pos + u8::SIZE, Self::ALIGN);
+        let data_offset: usize = ceil_mul(u8::SIZE, Self::ALIGN);
+        let bytes = unsafe { bytes.get_unchecked(data_offset..) };
         match unsafe { *tag.as_ptr() } {
             0 => Ok(()),
-            1 => {
-                u16::validate(unsafe {
-                    Muu::<u16>::from_bytes_unchecked(bytes.get_unchecked(pos..))
-                })
-                .map_err(|e| e.offset(pos))?;
-                pos += ceil_mul(pos + u16::SIZE, u8::ALIGN);
-
-                u8::validate(unsafe {
-                    Muu::<u8>::from_bytes_unchecked(bytes.get_unchecked(pos..))
-                })
-                .map_err(|e| e.offset(pos))?;
-                Ok(())
-            }
-            2 => {
-                u8::validate(unsafe {
-                    Muu::<u8>::from_bytes_unchecked(bytes.get_unchecked(pos..))
-                })
-                .map_err(|e| e.offset(pos))?;
-                pos += ceil_mul(pos + u8::SIZE, u16::ALIGN);
-
-                u16::validate(unsafe {
-                    Muu::<u16>::from_bytes_unchecked(bytes.get_unchecked(pos..))
-                })
-                .map_err(|e| e.offset(pos))?;
-                Ok(())
-            }
-            3 => {
-                u32::validate(unsafe {
-                    Muu::<u32>::from_bytes_unchecked(bytes.get_unchecked(pos..))
-                })
-                .map_err(|e| e.offset(pos))?;
-                Ok(())
-            }
+            1 => unsafe { RefIter::new_unchecked(bytes, type_list!(u16, u8)) }
+                .validate_all()
+                .map_err(|e| e.offset(data_offset)),
+            2 => unsafe { RefIter::new_unchecked(bytes, type_list!(u8, u16)) }
+                .validate_all()
+                .map_err(|e| e.offset(data_offset)),
+            3 => unsafe { RefIter::new_unchecked(bytes, type_list!(u32)) }
+                .validate_all()
+                .map_err(|e| e.offset(data_offset)),
             _ => Err(Error {
                 kind: ErrorKind::InvalidEnumState,
                 pos: 0,

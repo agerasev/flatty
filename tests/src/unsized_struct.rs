@@ -1,12 +1,13 @@
 use core::{
-    mem::{align_of_val, size_of_val},
+    mem::{align_of, align_of_val, size_of_val},
     ptr::{slice_from_raw_parts, slice_from_raw_parts_mut},
 };
 use flatty::{
+    iter::{fold_min_size, prelude::*, type_list, MutIter, RefIter},
     make_flat,
     mem::Muu,
     prelude::*,
-    utils::{ceil_mul, max},
+    utils::ceil_mul,
     Error, FlatVec,
 };
 
@@ -23,14 +24,8 @@ struct UnsizedStruct {
 struct AlignAs(u8, u16, <FlatVec<u64> as FlatUnsized>::AlignAs);
 
 unsafe impl FlatBase for UnsizedStruct {
-    const ALIGN: usize = max(max(u8::ALIGN, u16::ALIGN), FlatVec::<u64>::ALIGN);
-    const MIN_SIZE: usize = ceil_mul(
-        ceil_mul(
-            ceil_mul(u8::SIZE, u16::ALIGN) + u16::SIZE,
-            FlatVec::<u64>::ALIGN,
-        ) + FlatVec::<u64>::MIN_SIZE,
-        Self::ALIGN,
-    );
+    const ALIGN: usize = align_of::<AlignAs>();
+    const MIN_SIZE: usize = fold_min_size!(0; u8, u16, FlatVec<u64>);
 
     fn size(&self) -> usize {
         let mut size = 0;
@@ -63,49 +58,15 @@ unsafe impl FlatUnsized for UnsizedStruct {
 
 impl FlatCast for UnsizedStruct {
     fn validate(this: &Muu<Self>) -> Result<(), Error> {
-        let mut pos = 0;
-        let bytes = this.as_bytes();
-
-        u8::validate(unsafe { Muu::<u8>::from_bytes_unchecked(bytes.get_unchecked(pos..)) })
-            .map_err(|e| e.offset(pos))?;
-        pos = ceil_mul(pos + u8::SIZE, u16::ALIGN);
-
-        u16::validate(unsafe { Muu::<u16>::from_bytes_unchecked(bytes.get_unchecked(pos..)) })
-            .map_err(|e| e.offset(pos))?;
-        pos = ceil_mul(pos + u16::SIZE, FlatVec::<u64>::ALIGN);
-
-        FlatVec::<u64>::validate(unsafe {
-            Muu::<FlatVec<u64>>::from_bytes_unchecked(bytes.get_unchecked(pos..))
-        })
-        .map_err(|e| e.offset(pos))?;
-
-        Ok(())
+        unsafe { RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, FlatVec<u64>)) }
+            .validate_all()
     }
 }
 
 impl FlatDefault for UnsizedStruct {
     fn init_default(this: &mut Muu<Self>) -> Result<(), Error> {
-        let mut pos = 0;
-        let bytes = this.as_mut_bytes();
-
-        u8::init_default(unsafe {
-            Muu::<u8>::from_mut_bytes_unchecked(bytes.get_unchecked_mut(pos..))
-        })
-        .map_err(|e| e.offset(pos))?;
-        pos = ceil_mul(pos + u8::SIZE, u16::ALIGN);
-
-        u16::init_default(unsafe {
-            Muu::<u16>::from_mut_bytes_unchecked(bytes.get_unchecked_mut(pos..))
-        })
-        .map_err(|e| e.offset(pos))?;
-        pos = ceil_mul(pos + u16::SIZE, FlatVec::<u64>::ALIGN);
-
-        FlatVec::<u64>::init_default(unsafe {
-            Muu::<FlatVec<u64>>::from_mut_bytes_unchecked(bytes.get_unchecked_mut(pos..))
-        })
-        .map_err(|e| e.offset(pos))?;
-
-        Ok(())
+        unsafe { MutIter::new_unchecked(this.as_mut_bytes(), type_list!(u8, u16, FlatVec<u64>)) }
+            .init_default_all()
     }
 }
 

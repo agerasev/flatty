@@ -12,6 +12,7 @@ mod prim;
 mod sized;
 
 pub mod error;
+pub mod iter;
 pub mod mem;
 /// Utuility functions used by macros, so they must be publicly available.
 ///
