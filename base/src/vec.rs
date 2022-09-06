@@ -76,7 +76,7 @@ where
     L: Flat + Length + Default,
 {
     fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<(), Error> {
-        let len = unsafe { MaybeUninitUnsized::<L>::from_bytes_mut_unchecked(this.as_bytes_mut()) };
+        let len = unsafe { MaybeUninitUnsized::<L>::from_mut_bytes_unchecked(this.as_mut_bytes()) };
         L::init_default(len)?; // To avoid dereferencing invalid state.
         unsafe { *len.assume_init_mut() = L::zero() };
         Ok(())
@@ -92,7 +92,7 @@ where
         let len = unsafe { &MaybeUninitUnsized::<L>::from_bytes_unchecked(this.as_bytes()) };
         L::validate(len)?;
         // Now it's safe to dereference `Self`, because data is `[MaybeUninit<T>]`.
-        let self_ = unsafe { this.assume_init() };
+        let self_ = unsafe { this.assume_init_ref() };
         if self_.len() > self_.capacity() {
             return Err(Error {
                 kind: ErrorKind::InsufficientSize,

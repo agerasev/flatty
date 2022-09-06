@@ -40,34 +40,34 @@ impl<T: FlatMaybeUnsized + ?Sized> MaybeUninitUnsized<T> {
     /// # Safety
     ///
     /// Bytes must be aligned to `T::ALIGN` and have length greater or equal to `T::MIN_SIZE`.
-    pub unsafe fn from_bytes_mut_unchecked(bytes: &mut [u8]) -> &mut Self {
+    pub unsafe fn from_mut_bytes_unchecked(bytes: &mut [u8]) -> &mut Self {
         &mut *(bytes as *mut [u8] as *mut MaybeUninitUnsized<T>)
     }
     pub fn from_bytes(bytes: &[u8]) -> Result<&Self, Error> {
         check_align_and_min_size::<T>(bytes)?;
         Ok(unsafe { Self::from_bytes_unchecked(bytes) })
     }
-    pub fn from_bytes_mut(bytes: &mut [u8]) -> Result<&mut Self, Error> {
+    pub fn from_mut_bytes(bytes: &mut [u8]) -> Result<&mut Self, Error> {
         check_align_and_min_size::<T>(bytes)?;
-        Ok(unsafe { Self::from_bytes_mut_unchecked(bytes) })
+        Ok(unsafe { Self::from_mut_bytes_unchecked(bytes) })
     }
     /// # Safety
     ///
     /// `self` must be initialized.
-    pub unsafe fn assume_init(&self) -> &T {
+    pub unsafe fn assume_init_ref(&self) -> &T {
         T::from_uninit_unchecked(self)
     }
     /// # Safety
     ///
     /// `self` must be initialized.
     pub unsafe fn assume_init_mut(&mut self) -> &mut T {
-        T::from_uninit_mut_unchecked(self)
+        T::from_mut_uninit_unchecked(self)
     }
 
     pub fn as_bytes(&self) -> &[u8] {
         &self.bytes
     }
-    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
         &mut self.bytes
     }
 }
@@ -79,6 +79,6 @@ impl<T: FlatSized> MaybeUninitUnsized<T> {
     }
     pub fn from_mut_sized(mu: &mut MaybeUninit<T>) -> &mut Self {
         let bytes = unsafe { from_raw_parts_mut(mu.as_mut_ptr() as *mut u8, T::SIZE) };
-        unsafe { Self::from_bytes_mut_unchecked(bytes) }
+        unsafe { Self::from_mut_bytes_unchecked(bytes) }
     }
 }

@@ -39,8 +39,8 @@ unsafe impl<T: FlatSized> FlatMaybeUnsized for T {
     unsafe fn from_uninit_unchecked(this: &MaybeUninitUnsized<Self>) -> &Self {
         &*(this.as_bytes().as_ptr() as *const Self)
     }
-    unsafe fn from_uninit_mut_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self {
-        &mut *(this.as_bytes_mut().as_mut_ptr() as *mut Self)
+    unsafe fn from_mut_uninit_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self {
+        &mut *(this.as_mut_bytes().as_mut_ptr() as *mut Self)
     }
 
     fn to_uninit(&self) -> &MaybeUninitUnsized<Self> {
@@ -51,8 +51,8 @@ unsafe impl<T: FlatSized> FlatMaybeUnsized for T {
             ))
         }
     }
-    unsafe fn to_uninit_mut(&mut self) -> &mut MaybeUninitUnsized<Self> {
-        MaybeUninitUnsized::from_bytes_mut_unchecked(from_raw_parts_mut(
+    unsafe fn to_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self> {
+        MaybeUninitUnsized::from_mut_bytes_unchecked(from_raw_parts_mut(
             self as *mut _ as *mut u8,
             Self::SIZE,
         ))

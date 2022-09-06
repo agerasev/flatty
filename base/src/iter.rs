@@ -119,7 +119,7 @@ impl<'a, I: TypeIter> MutIter<'a, I> {
     }
     pub fn value_mut(&mut self) -> &mut MaybeUninitUnsized<I::Item> {
         let pos = self.pos();
-        unsafe { MaybeUninitUnsized::from_bytes_mut_unchecked(self.data.get_unchecked_mut(pos..)) }
+        unsafe { MaybeUninitUnsized::from_mut_bytes_unchecked(self.data.get_unchecked_mut(pos..)) }
     }
 }
 impl<'a, T: Flat + Sized, I: TypeIter> MutIter<'a, TwoOrMoreTypes<T, I>> {
@@ -183,7 +183,7 @@ where
 }
 impl<'a, T: FlatDefault + ?Sized> FoldSizeIter for RefIter<'a, SingleType<T>> {
     unsafe fn fold_size(self, _: usize) -> usize {
-        self.value().assume_init().size()
+        self.value().assume_init_ref().size()
     }
 }
 

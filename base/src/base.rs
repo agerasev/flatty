@@ -42,13 +42,13 @@ pub unsafe trait FlatMaybeUnsized: FlatBase {
     /// # Safety
     ///
     /// `this` must be initialized.
-    unsafe fn from_uninit_mut_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self;
+    unsafe fn from_mut_uninit_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self;
 
     fn to_uninit(&self) -> &MaybeUninitUnsized<Self>;
     /// # Safety
     ///
     /// Modification of return value must not make `self` invalid.
-    unsafe fn to_uninit_mut(&mut self) -> &mut MaybeUninitUnsized<Self>;
+    unsafe fn to_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self>;
 }
 
 #[macro_export]
@@ -61,9 +61,9 @@ macro_rules! impl_unsized_uninit_cast {
             );
             &*(slice as *const [_] as *const Self)
         }
-        unsafe fn from_uninit_mut_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self {
+        unsafe fn from_mut_uninit_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self {
             let slice = ::core::ptr::slice_from_raw_parts_mut(
-                this.as_bytes_mut().as_mut_ptr(),
+                this.as_mut_bytes().as_mut_ptr(),
                 Self::ptr_metadata(this),
             );
             &mut *(slice as *mut [_] as *mut Self)
@@ -77,8 +77,8 @@ macro_rules! impl_unsized_uninit_cast {
                 ))
             }
         }
-        unsafe fn to_uninit_mut(&mut self) -> &mut MaybeUninitUnsized<Self> {
-            MaybeUninitUnsized::from_bytes_mut_unchecked(::core::slice::from_raw_parts_mut(
+        unsafe fn to_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self> {
+            MaybeUninitUnsized::from_mut_bytes_unchecked(::core::slice::from_raw_parts_mut(
                 self as *mut _ as *mut u8,
                 Self::bytes_len(self),
             ))

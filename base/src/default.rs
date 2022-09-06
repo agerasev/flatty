@@ -11,7 +11,7 @@ pub unsafe trait FlatDefault: Flat {
 
     /// Create a new instance of `Self` initializing raw memory into default state of `Self`.
     fn placement_default(bytes: &mut [u8]) -> Result<&mut Self, Error> {
-        let this = MaybeUninitUnsized::from_bytes_mut(bytes)?;
+        let this = MaybeUninitUnsized::from_mut_bytes(bytes)?;
         Self::init_default(this)?;
         Ok(unsafe { this.assume_init_mut() })
     }
