@@ -87,7 +87,7 @@ impl<'a, I: TypeIter> RefIter<'a, I> {
         self.iter.pos()
     }
     pub fn value(&self) -> &MaybeUninitUnsized<I::Item> {
-        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data.get_unchecked(self.pos()..)) }
+        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data) }
     }
 }
 impl<'a, T: Flat + Sized, I: TypeIter> RefIter<'a, TwoOrMoreTypes<T, I>> {
@@ -131,13 +131,6 @@ impl<'a, I: TypeIter> MutIter<'a, I> {
     }
     pub fn pos(&self) -> usize {
         self.iter.pos()
-    }
-    pub fn value(&self) -> &MaybeUninitUnsized<I::Item> {
-        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data.get_unchecked(self.pos()..)) }
-    }
-    pub fn value_mut(&mut self) -> &mut MaybeUninitUnsized<I::Item> {
-        let pos = self.pos();
-        unsafe { MaybeUninitUnsized::from_mut_bytes_unchecked(self.data.get_unchecked_mut(pos..)) }
     }
 }
 impl<'a, T: Flat + Sized, I: TypeIter> MutIter<'a, TwoOrMoreTypes<T, I>> {
@@ -200,7 +193,6 @@ where
 }
 impl<'a, T: FlatDefault + ?Sized + 'static> InitDefaultIter for MutIter<'a, SingleType<T>> {
     fn init_default_all(self) -> Result<(), Error> {
-        self.assert_last();
         let pos = self.pos();
         T::init_default(self.finalize()).map_err(|e| e.offset(pos))
     }
@@ -223,8 +215,7 @@ where
 }
 impl<'a, T: FlatDefault + ?Sized> FoldSizeIter for RefIter<'a, SingleType<T>> {
     unsafe fn fold_size(self, size: usize) -> usize {
-        self.assert_last();
-        ceil_mul(size, T::ALIGN) + self.value().assume_init_ref().size()
+        ceil_mul(size, T::ALIGN) + self.finalize().assume_init_ref().size()
     }
 }
 

@@ -95,7 +95,8 @@ impl UnsizedEnum {
     pub fn tag(&self) -> UnsizedEnumTag {
         self.tag
     }
-    pub fn set_tag(&mut self, tag: UnsizedEnumTag) -> Result<(), Error> {
+    pub fn set_default(&mut self, tag: UnsizedEnumTag) -> Result<(), Error> {
+        self.tag = tag;
         unsafe { Self::init_default_data_by_tag(tag, &mut self.data) }
     }
     unsafe fn init_default_data_by_tag(tag: UnsizedEnumTag, bytes: &mut [u8]) -> Result<(), Error> {
@@ -250,7 +251,7 @@ fn init_a() {
 fn init_b() {
     let mut mem = vec![0u8; 6];
     let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-    ue.set_tag(UnsizedEnumTag::B).unwrap();
+    ue.set_default(UnsizedEnumTag::B).unwrap();
     if let UnsizedEnumMut::B(b0, b1) = ue.as_mut() {
         *b0 = 0xab;
         *b1 = 0xcdef;
@@ -276,7 +277,7 @@ fn init_b() {
 fn init_c() {
     let mut mem = vec![0u8; 12];
     let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-    ue.set_tag(UnsizedEnumTag::C).unwrap();
+    ue.set_default(UnsizedEnumTag::C).unwrap();
     if let UnsizedEnumMut::C { a, b } = ue.as_mut() {
         *a = 0xab;
         b.extend_from_slice(&[0x12, 0x34, 0x56, 0x78]);
@@ -315,21 +316,16 @@ fn init_err() {
 fn layout() {
     let mut mem = vec![0u8; 6 + 8 * 2 + 1];
     let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-    ue.set_tag(UnsizedEnumTag::C).unwrap();
-    if let UnsizedEnumMut::C { a, .. } = ue.as_mut() {
+    ue.set_default(UnsizedEnumTag::C).unwrap();
+    if let UnsizedEnumMut::C { a, b } = ue.as_mut() {
         *a = 0xab;
-    } else {
-        unreachable!();
-    }
-
-    if let UnsizedEnumMut::C { b, .. } = ue.as_mut() {
         for i in 0.. {
             if b.push(i).is_err() {
                 break;
             }
         }
     } else {
-        panic!();
+        unreachable!();
     }
 
     assert_eq!(UnsizedEnum::DATA_OFFSET, 2);

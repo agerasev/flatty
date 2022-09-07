@@ -40,7 +40,6 @@ macro_rules! generate_tests {
                         a
                     },
                 );
-                println!("{:?}", m.as_slice());
                 let ss = SizedStruct::from_bytes(m.as_slice()).unwrap();
 
                 assert_eq!(ss.a, 0x12);
