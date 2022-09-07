@@ -32,23 +32,28 @@ unsafe impl<T: FlatSized> FlatMaybeUnsized for T {
     fn ptr_metadata(_this: &MaybeUninitUnsized<Self>) -> usize {
         panic!("Sized type ptr has no metadata");
     }
-    unsafe fn bytes_len(_this: *const Self) -> usize {
+    fn bytes_len(_this: &Self) -> usize {
         Self::SIZE
     }
 
-    fn ptr_from_uninit(this: &MaybeUninitUnsized<Self>) -> *const Self {
-        this.as_bytes().as_ptr() as *const Self
+    unsafe fn from_uninit_unchecked(this: &MaybeUninitUnsized<Self>) -> &Self {
+        &*(this.as_bytes().as_ptr() as *const Self)
     }
-    fn ptr_from_mut_uninit(this: &mut MaybeUninitUnsized<Self>) -> *mut Self {
-        this.as_mut_bytes().as_mut_ptr() as *mut Self
+    unsafe fn from_mut_uninit_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self {
+        &mut *(this.as_mut_bytes().as_mut_ptr() as *mut Self)
     }
 
-    unsafe fn ptr_to_uninit<'a>(this: *const Self) -> &'a MaybeUninitUnsized<Self> {
-        MaybeUninitUnsized::from_bytes_unchecked(from_raw_parts(this as *const u8, Self::SIZE))
+    fn to_uninit(&self) -> &MaybeUninitUnsized<Self> {
+        unsafe {
+            MaybeUninitUnsized::from_bytes_unchecked(from_raw_parts(
+                self as *const _ as *const u8,
+                Self::SIZE,
+            ))
+        }
     }
-    unsafe fn ptr_to_mut_uninit<'a>(this: *mut Self) -> &'a mut MaybeUninitUnsized<Self> {
+    unsafe fn to_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self> {
         MaybeUninitUnsized::from_mut_bytes_unchecked(from_raw_parts_mut(
-            this as *mut u8,
+            self as *mut _ as *mut u8,
             Self::SIZE,
         ))
     }

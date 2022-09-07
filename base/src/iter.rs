@@ -202,19 +202,19 @@ macro_rules! type_list {
 }
 
 #[macro_export]
-macro_rules! fold_min_size {
+macro_rules! fold_size {
     ($accum:expr; $first_type:ty, $($types:ty),+ $(,)?) => {
-        $crate::iter::fold_min_size!(
+        $crate::iter::fold_size!(
             $crate::utils::ceil_mul($accum, <$first_type as $crate::FlatBase>::ALIGN) + <$first_type as $crate::FlatSized>::SIZE;
             $( $types ),*
         )
     };
     ($accum:expr; $type:ty $(,)?) => {
-        $crate::utils::ceil_mul($accum, <$type as $crate::FlatBase>::ALIGN) + <$type as $crate::FlatBase>::MIN_SIZE
+        $crate::utils::ceil_mul($accum, <$type as $crate::FlatBase>::ALIGN) + <$type as $crate::FlatSized>::SIZE
     };
 }
 
-pub use {fold_min_size, type_list};
+pub use {fold_size, type_list};
 
 #[cfg(test)]
 mod tests {

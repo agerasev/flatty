@@ -53,19 +53,6 @@ impl<T: FlatMaybeUnsized + ?Sized> MaybeUninitUnsized<T> {
     }
     /// # Safety
     ///
-    /// `this` must point to existing data which is aligned and of sufficient size.
-    pub unsafe fn from_ptr<'a>(this: *const T) -> &'a Self {
-        T::ptr_to_uninit(this)
-    }
-    /// # Safety
-    ///
-    /// `this` must point to existing data which is aligned and of sufficient size.
-    pub unsafe fn from_mut_ptr<'a>(this: *mut T) -> &'a mut Self {
-        T::ptr_to_mut_uninit(this)
-    }
-
-    /// # Safety
-    ///
     /// `self` must be initialized.
     pub unsafe fn assume_init_ref(&self) -> &T {
         T::from_uninit_unchecked(self)
@@ -76,12 +63,7 @@ impl<T: FlatMaybeUnsized + ?Sized> MaybeUninitUnsized<T> {
     pub unsafe fn assume_init_mut(&mut self) -> &mut T {
         T::from_mut_uninit_unchecked(self)
     }
-    pub fn as_ptr(&self) -> *const T {
-        T::ptr_from_uninit(self)
-    }
-    pub fn as_mut_ptr(&mut self) -> *mut T {
-        T::ptr_from_mut_uninit(self)
-    }
+
     pub fn as_bytes(&self) -> &[u8] {
         &self.bytes
     }

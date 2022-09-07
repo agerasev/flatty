@@ -33,82 +33,54 @@ pub unsafe trait FlatMaybeUnsized: FlatBase {
     /// Panics if type is `Sized`.
     fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize;
     /// Length of underlying memory occupied by `this`.
-    ///
-    /// # Safety
-    ///
-    /// `this` must point to existing data which is aligned and of sufficient size.
-    unsafe fn bytes_len(this: *const Self) -> usize;
+    fn bytes_len(this: &Self) -> usize;
 
     /// # Safety
     ///
     /// `this` must be initialized.
-    fn ptr_from_uninit(this: &MaybeUninitUnsized<Self>) -> *const Self;
+    unsafe fn from_uninit_unchecked(this: &MaybeUninitUnsized<Self>) -> &Self;
     /// # Safety
     ///
     /// `this` must be initialized.
-    fn ptr_from_mut_uninit(this: &mut MaybeUninitUnsized<Self>) -> *mut Self;
+    unsafe fn from_mut_uninit_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self;
 
-    /// # Safety
-    ///
-    /// `this` must point to existing data which is aligned and of sufficient size.
-    unsafe fn ptr_to_uninit<'a>(this: *const Self) -> &'a MaybeUninitUnsized<Self>;
-    /// # Safety
-    ///
-    /// `this` must point to existing data which is aligned and of sufficient size.
-    unsafe fn ptr_to_mut_uninit<'a>(this: *mut Self) -> &'a mut MaybeUninitUnsized<Self>;
-
-    /// # Safety
-    ///
-    /// `this` must be initialized.
-    unsafe fn from_uninit_unchecked(this: &MaybeUninitUnsized<Self>) -> &Self {
-        &*Self::ptr_from_uninit(this)
-    }
-    /// # Safety
-    ///
-    /// `this` must be initialized.
-    unsafe fn from_mut_uninit_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self {
-        &mut *Self::ptr_from_mut_uninit(this)
-    }
-
-    fn to_uninit(&self) -> &MaybeUninitUnsized<Self> {
-        unsafe { Self::ptr_to_uninit(self as *const Self) }
-    }
+    fn to_uninit(&self) -> &MaybeUninitUnsized<Self>;
     /// # Safety
     ///
     /// Modification of return value must not make `self` invalid.
-    unsafe fn to_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self> {
-        Self::ptr_to_mut_uninit(self as *mut Self)
-    }
+    unsafe fn to_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self>;
 }
 
 #[macro_export]
 macro_rules! impl_unsized_uninit_cast {
     () => {
-        fn ptr_from_uninit(this: &MaybeUninitUnsized<Self>) -> *const Self {
+        unsafe fn from_uninit_unchecked(this: &MaybeUninitUnsized<Self>) -> &Self {
             let slice = ::core::ptr::slice_from_raw_parts(
                 this.as_bytes().as_ptr(),
                 Self::ptr_metadata(this),
             );
-            slice as *const [_] as *const Self
+            &*(slice as *const [_] as *const Self)
         }
-        fn ptr_from_mut_uninit(this: &mut MaybeUninitUnsized<Self>) -> *mut Self {
+        unsafe fn from_mut_uninit_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self {
             let slice = ::core::ptr::slice_from_raw_parts_mut(
                 this.as_mut_bytes().as_mut_ptr(),
                 Self::ptr_metadata(this),
             );
-            slice as *mut [_] as *mut Self
+            &mut *(slice as *mut [_] as *mut Self)
         }
 
-        unsafe fn ptr_to_uninit<'a>(this: *const Self) -> &'a MaybeUninitUnsized<Self> {
-            MaybeUninitUnsized::from_bytes_unchecked(::core::slice::from_raw_parts(
-                this as *const u8,
-                Self::bytes_len(this),
-            ))
+        fn to_uninit(&self) -> &MaybeUninitUnsized<Self> {
+            unsafe {
+                MaybeUninitUnsized::from_bytes_unchecked(::core::slice::from_raw_parts(
+                    self as *const _ as *const u8,
+                    Self::bytes_len(self),
+                ))
+            }
         }
-        unsafe fn ptr_to_mut_uninit<'a>(this: *mut Self) -> &'a mut MaybeUninitUnsized<Self> {
+        unsafe fn to_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self> {
             MaybeUninitUnsized::from_mut_bytes_unchecked(::core::slice::from_raw_parts_mut(
-                this as *mut u8,
-                Self::bytes_len(this),
+                self as *mut _ as *mut u8,
+                Self::bytes_len(self),
             ))
         }
     };

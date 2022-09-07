@@ -1,10 +1,7 @@
-use core::{
-    mem::{align_of, align_of_val, size_of_val},
-    ptr::addr_of,
-};
+use core::mem::{align_of, align_of_val, size_of_val};
 use flatty::{
     impl_unsized_uninit_cast,
-    iter::{fold_min_size, prelude::*, type_list, MutIter, RefIter},
+    iter::{fold_size, prelude::*, type_list, MutIter, RefIter},
     make_flat,
     mem::MaybeUninitUnsized,
     prelude::*,
@@ -24,15 +21,19 @@ struct UnsizedStruct {
 #[repr(C)]
 struct AlignAs(u8, u16, <FlatVec<u64, u32> as FlatMaybeUnsized>::AlignAs);
 
+impl UnsizedStruct {
+    const LAST_FIELD_OFFSET: usize = ceil_mul(fold_size!(0; u8, u16), FlatVec::<u64, u32>::ALIGN);
+}
+
 unsafe impl FlatBase for UnsizedStruct {
     const ALIGN: usize = align_of::<AlignAs>();
-    const MIN_SIZE: usize = fold_min_size!(0; u8, u16, FlatVec<u64, u32>);
+    const MIN_SIZE: usize = ceil_mul(
+        Self::LAST_FIELD_OFFSET + FlatVec::<u64, u32>::MIN_SIZE,
+        Self::ALIGN,
+    );
 
     fn size(&self) -> usize {
-        ceil_mul(
-            (Self::MIN_SIZE - FlatVec::<u64, u32>::MIN_SIZE) + self.c.size(),
-            Self::ALIGN,
-        )
+        ceil_mul(Self::LAST_FIELD_OFFSET + self.c.size(), Self::ALIGN)
     }
 }
 
@@ -40,15 +41,14 @@ unsafe impl FlatMaybeUnsized for UnsizedStruct {
     type AlignAs = AlignAs;
 
     fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize {
-        // FIXME: UB due to maybe uninit pointer dereference.
         FlatVec::<u64, u32>::ptr_metadata(unsafe {
-            MaybeUninitUnsized::<FlatVec<u64, u32>>::from_ptr(addr_of!((*this.as_ptr()).c))
+            MaybeUninitUnsized::<FlatVec<u64, u32>>::from_bytes_unchecked(
+                &this.as_bytes()[Self::LAST_FIELD_OFFSET..],
+            )
         })
     }
-    unsafe fn bytes_len(this: *const Self) -> usize {
-        // FIXME: UB due to maybe uninit pointer dereference.
-        (Self::MIN_SIZE - FlatVec::<u64, u32>::MIN_SIZE)
-            + FlatVec::<u64, u32>::bytes_len(addr_of!((*this).c))
+    fn bytes_len(this: &Self) -> usize {
+        Self::LAST_FIELD_OFFSET + FlatVec::<u64, u32>::bytes_len(&this.c)
     }
 
     impl_unsized_uninit_cast!();
