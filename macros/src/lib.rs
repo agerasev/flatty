@@ -3,7 +3,7 @@ mod impl_;
 mod info;
 mod utils;
 
-use context::Context;
+use context::{AssocIdents, Context};
 use info::Info;
 
 use proc_macro::TokenStream;
@@ -37,6 +37,7 @@ use syn::{parse_macro_input, Data, DeriveInput, Ident};
 pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut ctx = Context {
         info: parse_macro_input!(attr as Info),
+        idents: AssocIdents::default(),
     };
     let input = parse_macro_input!(item as DeriveInput);
 
@@ -51,9 +52,30 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
             if ctx.info.enum_type.is_none() {
                 ctx.info.enum_type = Some(Ident::new("u8", Span::call_site()));
             }
+
+            ctx.idents.tag = Some(Ident::new(
+                &format!("{}Tag", input.ident),
+                input.ident.span(),
+            ));
+            if !ctx.info.sized {
+                ctx.idents.ref_ = Some(Ident::new(
+                    &format!("{}Ref", input.ident),
+                    input.ident.span(),
+                ));
+                ctx.idents.mut_ = Some(Ident::new(
+                    &format!("{}Mut", input.ident),
+                    input.ident.span(),
+                ));
+            }
         }
         Data::Union(_) => unimplemented!(),
     };
+    if !ctx.info.sized {
+        ctx.idents.align_as = Some(Ident::new(
+            &format!("{}AlignAs", input.ident),
+            input.ident.span(),
+        ));
+    }
 
     let specific = match (&input.data, ctx.info.sized) {
         (Data::Struct(_) | Data::Enum(_), true) => {
@@ -89,6 +111,7 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
         (Data::Union(_), _) => unimplemented!(),
     };
 
+    let self_impl = impl_::self_(&ctx, &input);
     let cast_impl = impl_::cast(&ctx, &input);
     let flat_impl = impl_::flat(&ctx, &input);
     let portable_impl = if ctx.info.portable {
@@ -99,7 +122,7 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         #specific
-
+        #self_impl
         #cast_impl
         #flat_impl
         #portable_impl

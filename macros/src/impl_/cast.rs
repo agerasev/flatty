@@ -4,82 +4,64 @@ use crate::{
 };
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Index};
+use syn::{Data, DeriveInput};
 
 fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
-    fn collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
+    fn collect_fields<I: FieldIter>(fields: &I, bytes: TokenStream) -> TokenStream {
         let iter = fields.field_iter();
-        let len = iter.len();
-        iter.enumerate().fold(quote! {}, |accum, (i, field)| {
+        if iter.len() == 0 {
+            return quote! {
+                Ok(())
+            };
+        }
+        let type_list = iter.fold(quote! {}, |accum, field| {
             let ty = &field.ty;
 
-            let next_pos = if i + 1 < len {
-                quote! { pos += <#ty as FlatSized>::SIZE; }
-            } else {
-                quote! {}
-            };
-
-            quote! {
-                #accum
-
-                pos = ceil_mul(pos, <#ty as FlatBase>::ALIGN);
-
-                <#ty as FlatCast>::validate(unsafe {
-                    Muu::<#ty>::from_bytes_unchecked(bytes.get_unchecked(pos..))
-                }).map_err(|e| e.offset(pos))?;
-
-                #next_pos
-            }
-        })
+            quote! { #accum #ty, }
+        });
+        quote! {
+            unsafe { RefIter::new_unchecked(#bytes, type_list!(#type_list)) }
+                .validate_all()
+        }
     }
 
     let body = match &input.data {
-        Data::Struct(struct_data) => collect_fields(&struct_data.fields),
+        Data::Struct(struct_data) => {
+            collect_fields(&struct_data.fields, quote! { this.as_bytes() })
+        }
         Data::Enum(enum_data) => {
-            let enum_ty = ctx.info.enum_type.as_ref().unwrap();
-            let varaints =
-                enum_data
-                    .variants
-                    .iter()
-                    .enumerate()
-                    .fold(quote! {}, |accum, (i, variant)| {
-                        let index = Index::from(i);
-                        let items = collect_fields(&variant.fields);
-                        quote! {
-                            #accum
-                            #index => { #items }
-                        }
-                    });
+            let tag_type = ctx.idents.tag.as_ref().unwrap();
+            let validate_tag = quote! {
+                let tag = unsafe { MaybeUninitUnsized::<#tag_type>::from_bytes_unchecked(this.as_bytes()) };
+                <#tag_type as ::flatty::FlatCast>::validate(tag)?;
+                *unsafe{ tag.assume_init_ref() }
+            };
+            let varaints = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
+                let items = collect_fields(&variant.fields, quote! { data });
+                let var_name = &variant.ident;
+                quote! {
+                    #accum
+                    #tag_type::#var_name => { #items }
+                }
+            });
 
             quote! {
                 use ::flatty::{Error, ErrorKind};
 
-                let tag = unsafe { Muu::<#enum_ty>::from_bytes_unchecked(bytes) };
-                <#enum_ty as FlatCast>::validate(tag)?;
-                pos += ceil_mul(pos + <#enum_ty as FlatSized>::SIZE, <Self as FlatBase>::ALIGN);
+                let tag = { #validate_tag };
+                let data = unsafe { this.as_bytes().get_unchecked(Self::DATA_OFFSET..) };
 
-                match unsafe { *tag.as_ptr() } {
+                match tag {
                     #varaints
-
-                    _ => return Err(Error {
-                        kind: ErrorKind::InvalidEnumState,
-                        pos: 0,
-                    }),
-                };
+                }.map_err(|e| e.offset(Self::DATA_OFFSET))
             }
         }
         Data::Union(_union_data) => unimplemented!(),
     };
     quote! {
-        fn validate(this: &::flatty::mem::Muu<Self>) -> Result<(), ::flatty::Error> {
-            use ::flatty::{mem::Muu, prelude::*, utils::ceil_mul};
-
-            let mut pos: usize = 0;
-            let bytes = this.as_bytes();
-
+        fn validate(this: &::flatty::mem::MaybeUninitUnsized<Self>) -> Result<(), ::flatty::Error> {
+            use ::flatty::{prelude::*, mem::MaybeUninitUnsized, iter::{prelude::*, RefIter, type_list}};
             #body
-
-            Ok(())
         }
     }
 }

@@ -2,7 +2,7 @@ use super::tests::generate_tests;
 use flatty::make_flat;
 
 #[make_flat(enum_type = "u8")]
-#[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum SizedEnum {
     #[default]
     A,

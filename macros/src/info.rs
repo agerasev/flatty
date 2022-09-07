@@ -26,10 +26,7 @@ fn parse_lit_ident(lit: &Lit) -> Result<Ident, ParseError> {
     if let Lit::Str(lit_str) = lit {
         Ok(Ident::new(&lit_str.value(), lit_str.span()))
     } else {
-        Err(ParseError::new(
-            lit.span(),
-            "`enum_type` keyword requires str value",
-        ))
+        Err(ParseError::new(lit.span(), "str value required"))
     }
 }
 
@@ -70,7 +67,7 @@ impl Parse for Info {
             default: if let Some(lit) = params.remove("default") {
                 parse_lit_bool(lit)?
             } else {
-                false
+                true
             },
         };
 
