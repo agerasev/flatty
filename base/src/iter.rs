@@ -62,6 +62,11 @@ impl<T: Flat + Sized, I: TypeIter> PosIter<TwoOrMoreTypes<T, I>> {
         }
     }
 }
+impl<T: Flat + ?Sized> PosIter<SingleType<T>> {
+    pub fn assert_last(&self) {
+        // Nothing to do here, this is a static assert.
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct RefIter<'a, I: TypeIter> {
@@ -81,17 +86,31 @@ impl<'a, I: TypeIter> RefIter<'a, I> {
     pub fn pos(&self) -> usize {
         self.iter.pos()
     }
-
     pub fn value(&self) -> &MaybeUninitUnsized<I::Item> {
         unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data.get_unchecked(self.pos()..)) }
     }
 }
 impl<'a, T: Flat + Sized, I: TypeIter> RefIter<'a, TwoOrMoreTypes<T, I>> {
-    pub fn next(self) -> RefIter<'a, I> {
-        RefIter {
-            data: self.data,
-            iter: self.iter.next(),
-        }
+    pub fn next(self) -> (RefIter<'a, I>, &'a MaybeUninitUnsized<T>) {
+        let prev_pos = self.iter.pos();
+        let iter = self.iter.next();
+        let next_pos = iter.pos();
+        let (prev_data, next_data) = self.data.split_at(next_pos - prev_pos);
+        (
+            RefIter {
+                data: next_data,
+                iter,
+            },
+            unsafe { MaybeUninitUnsized::from_bytes_unchecked(prev_data) },
+        )
+    }
+}
+impl<'a, T: Flat + ?Sized> RefIter<'a, SingleType<T>> {
+    pub fn assert_last(&self) {
+        self.iter.assert_last()
+    }
+    pub fn finalize(self) -> &'a MaybeUninitUnsized<T> {
+        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data) }
     }
 }
 
@@ -113,7 +132,6 @@ impl<'a, I: TypeIter> MutIter<'a, I> {
     pub fn pos(&self) -> usize {
         self.iter.pos()
     }
-
     pub fn value(&self) -> &MaybeUninitUnsized<I::Item> {
         unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data.get_unchecked(self.pos()..)) }
     }
@@ -123,28 +141,44 @@ impl<'a, I: TypeIter> MutIter<'a, I> {
     }
 }
 impl<'a, T: Flat + Sized, I: TypeIter> MutIter<'a, TwoOrMoreTypes<T, I>> {
-    pub fn next(self) -> MutIter<'a, I> {
-        MutIter {
-            data: self.data,
-            iter: self.iter.next(),
-        }
+    pub fn next(self) -> (MutIter<'a, I>, &'a mut MaybeUninitUnsized<T>) {
+        let prev_pos = self.iter.pos();
+        let iter = self.iter.next();
+        let next_pos = iter.pos();
+        let (prev_data, next_data) = self.data.split_at_mut(next_pos - prev_pos);
+        (
+            MutIter {
+                data: next_data,
+                iter,
+            },
+            unsafe { MaybeUninitUnsized::from_mut_bytes_unchecked(prev_data) },
+        )
+    }
+}
+impl<'a, T: Flat + ?Sized> MutIter<'a, SingleType<T>> {
+    pub fn assert_last(&self) {
+        self.iter.assert_last()
+    }
+    pub fn finalize(self) -> &'a mut MaybeUninitUnsized<T> {
+        unsafe { MaybeUninitUnsized::from_mut_bytes_unchecked(self.data) }
     }
 }
 
 pub trait ValidateIter {
     fn validate_all(self) -> Result<(), Error>;
 }
-impl<'a, T: Flat + Sized, I: TypeIter> ValidateIter for RefIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: Flat + Sized + 'a, I: TypeIter> ValidateIter for RefIter<'a, TwoOrMoreTypes<T, I>>
 where
     RefIter<'a, I>: ValidateIter,
 {
     fn validate_all(self) -> Result<(), Error> {
         T::validate(self.value()).map_err(|e| e.offset(self.pos()))?;
-        self.next().validate_all()
+        self.next().0.validate_all()
     }
 }
 impl<'a, T: Flat + ?Sized> ValidateIter for RefIter<'a, SingleType<T>> {
     fn validate_all(self) -> Result<(), Error> {
+        self.assert_last();
         T::validate(self.value()).map_err(|e| e.offset(self.pos()))
     }
 }
@@ -152,18 +186,23 @@ impl<'a, T: Flat + ?Sized> ValidateIter for RefIter<'a, SingleType<T>> {
 pub trait InitDefaultIter {
     fn init_default_all(self) -> Result<(), Error>;
 }
-impl<'a, T: FlatDefault + Sized, I: TypeIter> InitDefaultIter for MutIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: FlatDefault + Sized + 'static, I: TypeIter + 'static> InitDefaultIter
+    for MutIter<'a, TwoOrMoreTypes<T, I>>
 where
     MutIter<'a, I>: InitDefaultIter,
 {
-    fn init_default_all(mut self) -> Result<(), Error> {
-        T::init_default(self.value_mut()).map_err(|e| e.offset(self.pos()))?;
-        self.next().init_default_all()
+    fn init_default_all(self) -> Result<(), Error> {
+        let pos = self.pos();
+        let (next, data) = self.next();
+        T::init_default(data).map_err(|e| e.offset(pos))?;
+        next.init_default_all()
     }
 }
-impl<'a, T: FlatDefault + ?Sized> InitDefaultIter for MutIter<'a, SingleType<T>> {
-    fn init_default_all(mut self) -> Result<(), Error> {
-        T::init_default(self.value_mut()).map_err(|e| e.offset(self.pos()))
+impl<'a, T: FlatDefault + ?Sized + 'static> InitDefaultIter for MutIter<'a, SingleType<T>> {
+    fn init_default_all(self) -> Result<(), Error> {
+        self.assert_last();
+        let pos = self.pos();
+        T::init_default(self.finalize()).map_err(|e| e.offset(pos))
     }
 }
 
@@ -173,17 +212,19 @@ pub trait FoldSizeIter {
     /// Internal data must be valid.
     unsafe fn fold_size(self, size: usize) -> usize;
 }
-impl<'a, T: FlatDefault + Sized, I: TypeIter> FoldSizeIter for RefIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: FlatDefault + Sized + 'a, I: TypeIter> FoldSizeIter
+    for RefIter<'a, TwoOrMoreTypes<T, I>>
 where
     RefIter<'a, I>: FoldSizeIter,
 {
     unsafe fn fold_size(self, size: usize) -> usize {
-        self.next().fold_size(ceil_mul(size, T::ALIGN) + T::SIZE)
+        self.next().0.fold_size(ceil_mul(size, T::ALIGN) + T::SIZE)
     }
 }
 impl<'a, T: FlatDefault + ?Sized> FoldSizeIter for RefIter<'a, SingleType<T>> {
-    unsafe fn fold_size(self, _: usize) -> usize {
-        self.value().assume_init_ref().size()
+    unsafe fn fold_size(self, size: usize) -> usize {
+        self.assert_last();
+        ceil_mul(size, T::ALIGN) + self.value().assume_init_ref().size()
     }
 }
 
@@ -228,5 +269,6 @@ mod tests {
         assert_eq!(iter.pos(), 2);
         let iter = iter.next();
         assert_eq!(iter.pos(), 4);
+        iter.assert_last();
     }
 }

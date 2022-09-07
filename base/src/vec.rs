@@ -2,7 +2,7 @@ use crate::{
     base::impl_unsized_uninit_cast,
     error::{Error, ErrorKind},
     mem::MaybeUninitUnsized,
-    utils::max,
+    utils::{floor_mul, max},
     Flat, FlatBase, FlatCast, FlatDefault, FlatMaybeUnsized, FlatSized,
 };
 use core::mem::MaybeUninit;
@@ -60,7 +60,7 @@ where
     type AlignAs = FlatVecAlignAs<T, L>;
 
     fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize {
-        (this.as_bytes().len() - Self::DATA_OFFSET) / T::SIZE
+        floor_mul(this.as_bytes().len() - Self::DATA_OFFSET, Self::ALIGN) / T::SIZE
     }
 
     fn bytes_len(this: &Self) -> usize {

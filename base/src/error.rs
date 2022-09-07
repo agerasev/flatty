@@ -1,11 +1,11 @@
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error {
     pub kind: ErrorKind,
     pub pos: usize,
 }
 
 /// Error that can occur while working with flat types.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ErrorKind {
     /// The byte slice has insufficient size to be interpreted as required type.
     InsufficientSize,
