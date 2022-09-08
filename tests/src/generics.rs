@@ -41,15 +41,22 @@ where
     b: PhantomData<&'a U>,
     c: FlatVec<T>,
 }
-/*
+
 #[make_flat(sized = false)]
 enum GenericUnsizedEnum<'a, S: Flat, T: Flat, U, const N: usize>
 where
     U: 'a,
+    [T; N]: Default,
+    S: Default,
+    T: Default,
 {
     A(S, T),
     B([T; N], FlatVec<T>),
-    C { x: T, _p: PhantomData<&'a U> },
+    C {
+        x: T,
+        _p: PhantomData<&'a U>,
+    },
     D(GenericUnsizedStruct<'a, T, U, N>),
+    #[default]
+    E,
 }
-*/

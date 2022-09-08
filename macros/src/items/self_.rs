@@ -26,6 +26,17 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
             extras = quote! {
                 #extras
                 #tag_impl
+            };
+
+            if !ctx.info.sized {
+                let tag_type = ctx.idents.tag.as_ref().unwrap();
+                items = quote! {
+                    #items
+
+                    pub fn tag(&self) -> #tag_type {
+                        self.tag
+                    }
+                };
             }
         }
         Data::Struct(data) => {
@@ -52,7 +63,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Union(..) => unimplemented!(),
     }
     if !ctx.info.sized {
-        let align_as_impl = align_as::impl_(ctx, input);
+        let align_as_impl = align_as::struct_(ctx, input);
         extras = quote! {
             #extras
             #align_as_impl

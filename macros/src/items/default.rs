@@ -25,31 +25,18 @@ fn init_default_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Struct(struct_data) => {
             collect_fields(&struct_data.fields, quote! { this.as_mut_bytes() })
         }
-        Data::Enum(enum_data) => {
+        Data::Enum(_enum_data) => {
             let tag_type = ctx.idents.tag.as_ref().unwrap();
-            let validate_tag = quote! {
-                let tag = unsafe { MaybeUninitUnsized::<#tag_type>::from_bytes_unchecked(this.as_bytes()) };
-                <#tag_type as ::flatty::FlatDefault>::validate(tag)?;
-                *unsafe{ tag.assume_init_ref() }
-            };
-            let varaints = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
-                let items = collect_fields(&variant.fields, quote! { data });
-                let var_name = &variant.ident;
-                quote! {
-                    #accum
-                    #tag_type::#var_name => { #items }
-                }
-            });
-
             quote! {
-                use ::flatty::{Error, ErrorKind};
-
-                let tag = { #validate_tag };
-                let data = unsafe { this.as_bytes().get_unchecked(Self::DATA_OFFSET..) };
-
-                match tag {
-                    #varaints
-                }.map_err(|e| e.offset(Self::DATA_OFFSET))
+                let bytes = this.as_mut_bytes();
+                let tag = unsafe { MaybeUninitUnsized::<#tag_type>::from_mut_bytes_unchecked(bytes) };
+                <#tag_type as ::flatty::FlatDefault>::init_default(tag)?;
+                unsafe {
+                    Self::init_default_data_by_tag(
+                        *tag.assume_init_ref(),
+                        bytes.get_unchecked_mut(Self::DATA_OFFSET..),
+                    )
+                }
             }
         }
         Data::Union(_union_data) => unimplemented!(),
@@ -132,7 +119,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         let init_default_data_by_tag_method = enum_init_default_data_by_tag_method(ctx, input);
 
         quote! {
-            unsafe impl<#generic_params> #self_ident<#generic_args>
+            impl<#generic_params> #self_ident<#generic_args>
             #where_clause
             {
                 #set_default_method

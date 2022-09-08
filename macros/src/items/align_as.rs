@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput};
 
-pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
+pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     pub fn collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
         fields.iter().fold(quote! {}, |a, f| {
             let ty = &f.ty;
@@ -17,7 +17,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
             let enum_type = ctx.info.enum_type.as_ref().unwrap();
             data.variants
                 .iter()
-                .fold(quote! { #enum_type }, |accum, variant| {
+                .fold(quote! { #enum_type, }, |accum, variant| {
                     let var_type_list = collect_fields(&variant.fields);
                     quote! { #accum #var_type_list }
                 })

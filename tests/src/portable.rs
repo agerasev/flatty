@@ -7,7 +7,16 @@ struct PortableStruct {
     c: le::U32,
     d: [le::U64; 4],
 }
-/*
+
+#[allow(dead_code)]
+#[make_flat(portable = true)]
+enum PortableEnum {
+    #[default]
+    A,
+    B(le::F32, PortableStruct),
+    C(PortableStruct),
+}
+
 #[make_flat(sized = false, portable = true)]
 struct PortableUnsizedStruct {
     a: le::U16,
@@ -15,9 +24,9 @@ struct PortableUnsizedStruct {
 }
 
 #[make_flat(sized = false, portable = true)]
-enum PortableEnum {
+enum PortableUnsizedEnum {
+    #[default]
     A,
     B(le::F32, PortableStruct),
     C(PortableUnsizedStruct),
 }
-*/

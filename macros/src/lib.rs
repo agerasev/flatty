@@ -1,6 +1,6 @@
 mod context;
-mod impl_;
 mod info;
+mod items;
 mod utils;
 
 use context::{AssocIdents, Context};
@@ -92,13 +92,13 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 #derive_default
                 #repr
-                #input
+                    #input
             }
         }
         (Data::Struct(_), false) => {
-            let base_impl = impl_::base(&ctx, &input);
-            let maybe_unsized_impl = impl_::maybe_unsized(&ctx, &input);
-            let default_impl = impl_::default(&ctx, &input);
+            let base_impl = items::base::impl_(&ctx, &input);
+            let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
+            let default_impl = items::default::impl_(&ctx, &input);
 
             quote! {
                 #[repr(C)]
@@ -110,13 +110,18 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
         (Data::Enum(_), false) => {
-            let struct_ = impl_::unsized_enum(&ctx, &input);
-            let base_impl = impl_::base(&ctx, &input);
-            let maybe_unsized_impl = impl_::maybe_unsized(&ctx, &input);
-            let default_impl = impl_::default(&ctx, &input);
+            let struct_ = items::unsized_enum::struct_(&ctx, &input);
+            let ref_ = items::unsized_enum::ref_(&ctx, &input);
+            let mut_ = items::unsized_enum::mut_(&ctx, &input);
+
+            let base_impl = items::base::impl_(&ctx, &input);
+            let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
+            let default_impl = items::default::impl_(&ctx, &input);
 
             quote! {
                 #struct_
+                #ref_
+                #mut_
 
                 #base_impl
                 #maybe_unsized_impl
@@ -126,11 +131,11 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
         (Data::Union(_), _) => unimplemented!(),
     };
 
-    let self_impl = impl_::self_(&ctx, &input);
-    let cast_impl = impl_::cast(&ctx, &input);
-    let flat_impl = impl_::flat(&ctx, &input);
+    let self_impl = items::self_::impl_(&ctx, &input);
+    let cast_impl = items::cast::impl_(&ctx, &input);
+    let flat_impl = items::flat::impl_(&ctx, &input);
     let portable_impl = if ctx.info.portable {
-        impl_::portable(&ctx, &input)
+        items::portable::impl_(&ctx, &input)
     } else {
         quote! {}
     };

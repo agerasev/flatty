@@ -15,8 +15,13 @@ pub fn align_const(ctx: &Context, input: &DeriveInput) -> TokenStream {
 
 pub fn min_size_const(_ctx: &Context, input: &DeriveInput) -> TokenStream {
     pub fn collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
-        let type_list = type_list(fields.iter());
-        quote! { ::flatty::iter::fold_min_size!(0; #type_list) }
+        let iter = fields.iter();
+        if iter.len() > 0 {
+            let type_list = type_list(iter);
+            quote! { ::flatty::iter::fold_min_size!(0; #type_list) }
+        } else {
+            quote! { 0 }
+        }
     }
 
     let value = match &input.data {
@@ -66,12 +71,15 @@ fn size_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
             let variants = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
                 let tag_type = ctx.idents.tag.as_ref().unwrap();
                 let var_name = &variant.ident;
-                let type_list = type_list(variant.fields.iter());
+                let value = if !variant.fields.is_empty() {
+                    let type_list = type_list(variant.fields.iter());
+                    quote! { unsafe { RefIter::new_unchecked(&self.data, type_list!(#type_list)).fold_size(0) } }
+                } else {
+                    quote! { 0 }
+                };
                 quote! {
                     #accum
-                    #tag_type::#var_name => unsafe {
-                        RefIter::new_unchecked(&self.data, type_list!(#type_list)).fold_size(0)
-                    }
+                    #tag_type::#var_name => { #value }
                 }
             });
             quote! {
