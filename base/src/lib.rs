@@ -8,6 +8,7 @@ mod base;
 mod cast;
 mod default;
 mod marker;
+mod maybe_unsized;
 mod prim;
 mod sized;
 
@@ -37,10 +38,11 @@ pub mod vec;
 /// + All `Flat*` traits implemetation for `Self` will not cause an Undefined Behaviour.
 pub unsafe trait Flat: FlatBase + FlatMaybeUnsized + FlatCast {}
 
-pub use base::{FlatBase, FlatMaybeUnsized};
+pub use base::FlatBase;
 pub use cast::FlatCast;
 pub use default::FlatDefault;
 pub use error::{Error, ErrorKind};
+pub use maybe_unsized::FlatMaybeUnsized;
 pub use sized::FlatSized;
 pub use vec::FlatVec;
 

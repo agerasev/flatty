@@ -1,6 +1,6 @@
 use crate::{
-    base::impl_unsized_uninit_cast,
     error::{Error, ErrorKind},
+    impl_unsized_uninit_cast,
     mem::MaybeUninitUnsized,
     utils::{floor_mul, max},
     Flat, FlatBase, FlatCast, FlatDefault, FlatMaybeUnsized, FlatSized,

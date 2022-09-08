@@ -30,15 +30,22 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         }
         Data::Struct(data) => {
             if !data.fields.is_empty() && !ctx.info.sized {
-                let len = data.fields.len();
-                let type_list = type_list(data.fields.iter().take(len - 1));
-                let last_ty = data.fields.iter().last().unwrap();
+                let value = if data.fields.len() > 1 {
+                    let len = data.fields.len();
+                    let type_list = type_list(data.fields.iter().take(len - 1));
+                    let last_ty = &data.fields.iter().last().unwrap().ty;
+                    quote! {
+                        ::flatty::utils::ceil_mul(
+                            ::flatty::iter::fold_size!(0; #type_list),
+                            <#last_ty as ::flatty::FlatBase>::ALIGN,
+                        )
+                    }
+                } else {
+                    quote! { 0 }
+                };
                 items = quote! {
                     #items
-                    const LAST_FIELD_OFFSET: usize = ::flatty::utils::ceil_mul(
-                        ::flatty::iter::fold_size!(0; #type_list),
-                        <#last_ty as ::flatty::FlatBase>::ALIGN,
-                    );
+                    const LAST_FIELD_OFFSET: usize = #value;
                 }
             }
         }

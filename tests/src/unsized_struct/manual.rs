@@ -2,7 +2,7 @@ use super::tests::generate_tests;
 use core::mem::align_of;
 use flatty::{
     impl_unsized_uninit_cast,
-    iter::{fold_size, prelude::*, type_list, MutIter, RefIter},
+    iter::{fold_min_size, fold_size, prelude::*, type_list, MutIter, RefIter},
     mem::MaybeUninitUnsized,
     prelude::*,
     utils::ceil_mul,
@@ -26,10 +26,7 @@ impl UnsizedStruct {
 
 unsafe impl FlatBase for UnsizedStruct {
     const ALIGN: usize = align_of::<AlignAs>();
-    const MIN_SIZE: usize = ceil_mul(
-        Self::LAST_FIELD_OFFSET + FlatVec::<u64, u32>::MIN_SIZE,
-        Self::ALIGN,
-    );
+    const MIN_SIZE: usize = ceil_mul(fold_min_size!(0; u8, u16, FlatVec<u64, u32>), Self::ALIGN);
 
     fn size(&self) -> usize {
         ceil_mul(Self::LAST_FIELD_OFFSET + self.c.size(), Self::ALIGN)

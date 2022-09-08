@@ -249,7 +249,7 @@ macro_rules! fold_size {
 #[macro_export]
 macro_rules! fold_min_size {
     ($accum:expr; $first_type:ty, $($types:ty),+ $(,)?) => {
-        $crate::iter::fold_size!(
+        $crate::iter::fold_min_size!(
             $crate::utils::ceil_mul($accum, <$first_type as $crate::FlatBase>::ALIGN) + <$first_type as $crate::FlatSized>::SIZE;
             $( $types ),*
         )
