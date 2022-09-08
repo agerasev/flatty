@@ -1,4 +1,4 @@
-use flatty::{make_flat, Error, FlatBase, FlatInit};
+use flatty::{make_flat, prelude::*, ErrorKind};
 
 #[make_flat(sized = false, enum_type = "u8")]
 #[derive(Default, Debug, PartialEq, Eq)]
@@ -30,9 +30,14 @@ fn init_a() {
 #[test]
 fn init_b() {
     let mut mem = vec![0u8; 6];
-    let use_ =
-        UnsizedSizedEnum::placement_new(mem.as_mut_slice(), &UnsizedSizedEnumDyn::B(0xab, 0xcdef))
-            .unwrap();
+    let use_ = UnsizedSizedEnum::placement_default(mem.as_mut_slice()).unwrap();
+    use_.set_default(UnsizedSizedEnumTag::B).unwrap();
+    if let UnsizedSizedEnumMut::B(b0, b1) = use_.as_mut() {
+        *b0 = 0xab;
+        *b1 = 0xcdef;
+    } else {
+        unreachable!();
+    }
     assert_eq!(use_.size(), 6);
 
     match use_.as_ref() {
@@ -51,15 +56,15 @@ fn init_b() {
 #[test]
 fn init_c() {
     let mut mem = vec![0u8; 10];
-    let use_ = UnsizedSizedEnum::placement_new(
-        mem.as_mut_slice(),
-        &UnsizedSizedEnumDyn::C {
-            a: 0xab,
-            b: 0xcdef,
-            c: [0x12, 0x34, 0x56, 0x78],
-        },
-    )
-    .unwrap();
+    let use_ = UnsizedSizedEnum::placement_default(mem.as_mut_slice()).unwrap();
+    use_.set_default(UnsizedSizedEnumTag::C).unwrap();
+    if let UnsizedSizedEnumMut::C { a, b, c } = use_.as_mut() {
+        *a = 0xab;
+        *b = 0xcdef;
+        *c = [0x12, 0x34, 0x56, 0x78];
+    } else {
+        unreachable!();
+    }
     assert_eq!(use_.size(), 10);
 
     match use_.as_mut() {
@@ -80,6 +85,6 @@ fn init_c() {
 #[test]
 fn init_err() {
     let mut mem = vec![0u8; 1];
-    let res = UnsizedSizedEnum::placement_new(mem.as_mut_slice(), &UnsizedSizedEnumDyn::A);
-    assert_eq!(res.err().unwrap(), Error::InsufficientSize);
+    let res = UnsizedSizedEnum::placement_default(mem.as_mut_slice());
+    assert_eq!(res.err().unwrap().kind, ErrorKind::InsufficientSize);
 }
