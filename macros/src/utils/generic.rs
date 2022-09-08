@@ -44,7 +44,7 @@ pub fn where_clause(
         bound: &TokenStream,
         last_bound: Option<&TokenStream>,
     ) -> TokenStream {
-        let iter = fields.field_iter();
+        let iter = fields.iter();
         let len = iter.len();
         iter.enumerate().fold(quote! {}, |accum, (index, field)| {
             let ty = &field.ty;

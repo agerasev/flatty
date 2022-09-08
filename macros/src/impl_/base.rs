@@ -1,167 +1,92 @@
 use crate::{
-    utils::{generic, match_, FieldIter},
+    utils::{generic, type_list, FieldIter},
     Context,
 };
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::{Data, DeriveInput, Ident, Index, Type};
+use quote::{quote, ToTokens};
+use syn::{Data, DeriveInput, Index};
 
-pub fn align_const(ctx: &Context, input: &DeriveInput) -> TokenStream {
-    fn collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
-        fields.field_iter().fold(quote! { 1 }, |accum, field| {
-            let ty = &field.ty;
-            quote! {
-                ::flatty::utils::max(#accum, <#ty as ::flatty::FlatBase>::ALIGN)
-            }
-        })
-    }
-
-    let value = match &input.data {
-        Data::Struct(struct_data) => collect_fields(&struct_data.fields),
-        Data::Enum(enum_data) => {
-            let enum_ty = ctx.info.enum_type.as_ref().unwrap();
-            enum_data.variants.iter().fold(
-                quote! { <#enum_ty as ::flatty::FlatBase>::ALIGN },
-                |accum, variant| {
-                    let variant_align = collect_fields(&variant.fields);
-                    quote! { ::flatty::utils::max(#accum, #variant_align) }
-                },
-            )
-        }
-        Data::Union(union_data) => collect_fields(&union_data.fields),
-    };
-
-    quote! { const ALIGN: usize = #value; }
+pub fn align_const(ctx: &Context, _input: &DeriveInput) -> TokenStream {
+    let align_as_type = ctx.idents.align_as.as_ref().unwrap();
+    quote! { const ALIGN: usize = ::core::mem::align_of::<#align_as_type>(); }
 }
 
-pub fn min_size_const(ctx: &Context, input: &DeriveInput) -> TokenStream {
+pub fn min_size_const(_ctx: &Context, input: &DeriveInput) -> TokenStream {
     pub fn collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
-        let iter = fields.field_iter();
-        let len = iter.len();
-        iter.enumerate().fold(quote! { 0 }, |accum, (i, field)| {
-            let ty = &field.ty;
-            let size = if i + 1 < len {
-                quote! { <#ty as ::flatty::FlatSized>::SIZE }
-            } else {
-                quote! { <#ty as ::flatty::FlatBase>::MIN_SIZE }
-            };
-            quote! {
-                ::flatty::utils::ceil_mul(#accum, <#ty as ::flatty::FlatBase>::ALIGN) + #size
-            }
-        })
+        let type_list = type_list(fields.iter());
+        quote! { ::flatty::iter::fold_min_size!(0; #type_list) }
     }
 
     let value = match &input.data {
         Data::Struct(struct_data) => collect_fields(&struct_data.fields),
         Data::Enum(enum_data) => {
-            let enum_ty = ctx.info.enum_type.as_ref().unwrap();
-            let contents = enum_data
-                .variants
-                .iter()
-                .fold(quote! { 0 }, |accum, variant| {
-                    let variant_min_size = collect_fields(&variant.fields);
-                    quote! { ::flatty::utils::min(#accum, #variant_min_size) }
-                });
+            let contents = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
+                let var_min_size = collect_fields(&variant.fields);
+                if accum.is_empty() {
+                    quote! { #var_min_size }
+                } else {
+                    quote! { ::flatty::utils::min(#accum, #var_min_size) }
+                }
+            });
             quote! {
                 ::flatty::utils::ceil_mul(
-                    ::flatty::utils::ceil_mul(
-                        <#enum_ty as ::flatty::FlatSized>::SIZE,
-                        <Self as ::flatty::FlatBase>::ALIGN,
-                    ) + #contents,
+                    Self::DATA_OFFSET + #contents,
                     <Self as ::flatty::FlatBase>::ALIGN,
                 )
             }
         }
-        Data::Union(union_data) => collect_fields(&union_data.fields),
+        Data::Union(..) => unimplemented!(),
     };
 
     quote! { const MIN_SIZE: usize = #value; }
 }
 
 fn size_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
-    fn collect_fields<I: FieldIter, F>(fields: &I, map_ident: F) -> TokenStream
-    where
-        F: Fn(&Type, &TokenStream) -> TokenStream,
-    {
-        let iter = fields.field_iter();
-        let len = iter.len();
-        iter.enumerate().fold(quote! {}, |accum, (i, field)| {
-            let ty = &field.ty;
-            let index = Index::from(i);
-            let ident = match &field.ident {
-                Some(ident) => quote! { #ident },
-                None => quote! { #index },
-            };
-            let add_size = if i + 1 < len {
-                quote! { offset += <#ty as ::flatty::FlatSized>::SIZE; }
-            } else {
-                let mapped_ident = map_ident(ty, &ident);
-                quote! { offset += #mapped_ident; }
-            };
-            quote! {
-                #accum
-                offset = ::flatty::utils::ceil_mul(offset, <#ty as ::flatty::FlatBase>::ALIGN);
-                #add_size
-            }
-        })
-    }
-
-    pub fn template<F>(input: &DeriveInput, ident: &Ident, value: TokenStream) -> TokenStream
-    where
-        F: Fn(&Type, &TokenStream) -> TokenStream,
-    {
-        let body = match &input.data {
-            Data::Struct(struct_data) => collect_fields(&struct_data.fields, |ty, fid| {
-                quote! { #value.#fid.size() }
-            }),
-            Data::Enum(enum_data) => {
-                let enum_body = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
-                    let var = &variant.ident;
-                    let bs = match_::bindings(&variant.fields);
-                    let (pattern, wrapper, prefix) = (bs.pattern, bs.wrapper, bs.prefix);
-                    let code = collect_fields(&variant.fields, |ty, fid| {
-                        quote! { #prefix #fid.size() }
-                    });
-                    quote! {
-                        #accum
-                        #ident::#var #pattern => {
-                            #wrapper
-                            #code
-                        },
-                    }
+    let value = match &input.data {
+        Data::Struct(struct_data) => {
+            let last = struct_data
+                .fields
+                .iter()
+                .enumerate()
+                .last()
+                .map(|(i, f)| match &f.ident {
+                    Some(ident) => ident.to_token_stream(),
+                    None => Index::from(i).to_token_stream(),
                 });
+            match last {
+                Some(last) => {
+                    quote! { Self::LAST_FIELD_OFFSET + self.#last.size() }
+                }
+                None => quote! { 0 },
+            }
+        }
+        Data::Enum(enum_data) => {
+            let variants = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
+                let tag_type = ctx.idents.tag.as_ref().unwrap();
+                let var_name = &variant.ident;
+                let type_list = type_list(variant.fields.iter());
                 quote! {
-                    offset += Self::DATA_OFFSET;
-                    match (#value) {
-                        #enum_body
+                    #accum
+                    #tag_type::#var_name => unsafe {
+                        RefIter::new_unchecked(&self.data, type_list!(#type_list)).fold_size(0)
+                    }
+                }
+            });
+            quote! {
+                {
+                    use ::flatty::iter::{prelude::*, RefIter, type_list};
+                    Self::DATA_OFFSET + match self.tag {
+                        #variants
                     }
                 }
             }
-            Data::Union(_) => quote! { panic!("Union size cannot be determined alone"); },
-        };
-        quote! {
-            let mut offset: usize = 0;
-            #body
-            offset = ::flatty::utils::ceil_mul(offset, <Self as ::flatty::FlatBase>::ALIGN);
-            offset
         }
-    }
-
-    let body = match &input.data {
-        Data::Struct(struct_data) => template(input, &input.ident, quote! { self }),
-        Data::Enum(enum_data) => template(input, &ref_ident(input), quote! { self.as_ref() }),
         Data::Union(_union_data) => unimplemented!(),
     };
     quote! {
-        fn size(this: &::flatty::mem::Muu<Self>) -> Result<(), ::flatty::Error> {
-            use ::flatty::{mem::Muu, prelude::*, utils::ceil_mul};
-
-            let mut pos: usize = 0;
-            let bytes = this.as_bytes();
-
-            #body
-
-            Ok(())
+        fn size(&self) -> usize {
+            use ::flatty::{prelude::*, utils::ceil_mul};
+            ceil_mul(#value, Self::ALIGN)
         }
     }
 }
@@ -185,14 +110,17 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
 
     let align_const = align_const(ctx, input);
     let min_size_const = min_size_const(ctx, input);
+    let size_method = size_method(ctx, input);
 
     quote! {
-        impl<#generic_params> ::flatty::FlatCast for #self_ident<#generic_args>
+        unsafe impl<#generic_params> ::flatty::FlatBase for #self_ident<#generic_args>
         where
             #where_clause
         {
             #align_const
             #min_size_const
+
+            #size_method
         }
     }
 }

@@ -246,7 +246,20 @@ macro_rules! fold_size {
     };
 }
 
-pub use {fold_size, type_list};
+#[macro_export]
+macro_rules! fold_min_size {
+    ($accum:expr; $first_type:ty, $($types:ty),+ $(,)?) => {
+        $crate::iter::fold_size!(
+            $crate::utils::ceil_mul($accum, <$first_type as $crate::FlatBase>::ALIGN) + <$first_type as $crate::FlatSized>::SIZE;
+            $( $types ),*
+        )
+    };
+    ($accum:expr; $type:ty $(,)?) => {
+        $crate::utils::ceil_mul($accum, <$type as $crate::FlatBase>::ALIGN) + <$type as $crate::FlatBase>::MIN_SIZE
+    };
+}
+
+pub use {fold_min_size, fold_size, type_list};
 
 #[cfg(test)]
 mod tests {

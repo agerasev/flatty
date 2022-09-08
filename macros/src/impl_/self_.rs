@@ -1,5 +1,5 @@
-use super::tag::impl_ as tag_impl;
-use crate::{utils::generic, Context};
+use super::{align_as, tag};
+use crate::{utils::generic, utils::type_list, Context};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput};
@@ -14,17 +14,41 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let mut items = quote! {};
     let mut extras = quote! {};
 
-    if let Data::Enum(..) = &input.data {
-        let enum_type = ctx.info.enum_type.as_ref().unwrap();
-        items = quote! {
-            #items
-            const DATA_OFFSET: usize = ::flatty::utils::ceil_mul(<#enum_type as ::flatty::FlatSized>::SIZE, <Self as ::flatty::FlatBase>::ALIGN);
-        };
+    match &input.data {
+        Data::Enum(..) => {
+            let enum_type = ctx.info.enum_type.as_ref().unwrap();
+            items = quote! {
+                #items
+                const DATA_OFFSET: usize = ::flatty::utils::ceil_mul(<#enum_type as ::flatty::FlatSized>::SIZE, <Self as ::flatty::FlatBase>::ALIGN);
+            };
 
-        let tag_impl = tag_impl(ctx, input, ctx.info.sized);
+            let tag_impl = tag::impl_(ctx, input, ctx.info.sized);
+            extras = quote! {
+                #extras
+                #tag_impl
+            }
+        }
+        Data::Struct(data) => {
+            if !data.fields.is_empty() && !ctx.info.sized {
+                let len = data.fields.len();
+                let type_list = type_list(data.fields.iter().take(len - 1));
+                let last_ty = data.fields.iter().last().unwrap();
+                items = quote! {
+                    #items
+                    const LAST_FIELD_OFFSET: usize = ::flatty::utils::ceil_mul(
+                        ::flatty::iter::fold_size!(0; #type_list),
+                        <#last_ty as ::flatty::FlatBase>::ALIGN,
+                    );
+                }
+            }
+        }
+        Data::Union(..) => unimplemented!(),
+    }
+    if !ctx.info.sized {
+        let align_as_impl = align_as::impl_(ctx, input);
         extras = quote! {
             #extras
-            #tag_impl
+            #align_as_impl
         }
     }
 

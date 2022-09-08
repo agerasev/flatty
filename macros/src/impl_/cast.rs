@@ -1,5 +1,5 @@
 use crate::{
-    utils::{generic, FieldIter},
+    utils::{generic, type_list, FieldIter},
     Context,
 };
 use proc_macro2::TokenStream;
@@ -8,17 +8,13 @@ use syn::{Data, DeriveInput};
 
 fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     fn collect_fields<I: FieldIter>(fields: &I, bytes: TokenStream) -> TokenStream {
-        let iter = fields.field_iter();
+        let iter = fields.iter();
         if iter.len() == 0 {
             return quote! {
                 Ok(())
             };
         }
-        let type_list = iter.fold(quote! {}, |accum, field| {
-            let ty = &field.ty;
-
-            quote! { #accum #ty, }
-        });
+        let type_list = type_list(iter);
         quote! {
             unsafe { RefIter::new_unchecked(#bytes, type_list!(#type_list)) }
                 .validate_all()

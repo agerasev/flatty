@@ -96,13 +96,13 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
         (Data::Struct(_), false) => {
-            //let base_impl = impl_::base(&ctx, &input);
+            let base_impl = impl_::base(&ctx, &input);
 
             quote! {
                 #[repr(C)]
                 #input
 
-                //#base_impl
+                #base_impl
             }
         }
         (Data::Enum(_), false) => {
