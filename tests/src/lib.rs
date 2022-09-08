@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-//mod generics;
+mod generics;
 //mod portable;
 mod sized_enum;
 mod sized_struct;

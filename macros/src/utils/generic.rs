@@ -71,5 +71,5 @@ pub fn where_clause(
         Data::Union(union_data) => collect_fields(&union_data.fields, &bound, last_bound.as_ref()),
     };
 
-    quote! { #existing #generated }
+    quote! { where #existing #generated }
 }

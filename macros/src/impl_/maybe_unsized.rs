@@ -1,4 +1,4 @@
-use crate::{utils::generic, Context};
+use crate::{impl_::align_as, utils::generic, Context};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Data, DeriveInput, Index};
@@ -74,14 +74,14 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         },
     );
 
-    let align_as_type = ctx.idents.align_as.as_ref().unwrap();
+    let align_as_ident = ctx.idents.align_as.as_ref().unwrap();
+    let align_as_type = quote! { #align_as_ident<#generic_args> };
     let ptr_metadata_method = ptr_metadata_method(ctx, input);
     let bytes_len_method = bytes_len_method(ctx, input);
 
     quote! {
         unsafe impl<#generic_params> ::flatty::FlatMaybeUnsized for #self_ident<#generic_args>
-        where
-            #where_clause
+        #where_clause
         {
             type AlignAs = #align_as_type;
 

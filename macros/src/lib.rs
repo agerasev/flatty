@@ -95,7 +95,7 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #input
             }
         }
-        (Data::Struct(_) | Data::Enum(_), false) => {
+        (Data::Struct(_), false) => {
             let base_impl = impl_::base(&ctx, &input);
             let maybe_unsized_impl = impl_::maybe_unsized(&ctx, &input);
             let default_impl = impl_::default(&ctx, &input);
@@ -103,6 +103,20 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 #[repr(C)]
                 #input
+
+                #base_impl
+                #maybe_unsized_impl
+                #default_impl
+            }
+        }
+        (Data::Enum(_), false) => {
+            let struct_ = impl_::unsized_enum(&ctx, &input);
+            let base_impl = impl_::base(&ctx, &input);
+            let maybe_unsized_impl = impl_::maybe_unsized(&ctx, &input);
+            let default_impl = impl_::default(&ctx, &input);
+
+            quote! {
+                #struct_
 
                 #base_impl
                 #maybe_unsized_impl

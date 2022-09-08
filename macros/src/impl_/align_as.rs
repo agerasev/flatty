@@ -28,11 +28,14 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let vis = &input.vis;
     let align_as_type = ctx.idents.align_as.as_ref().unwrap();
 
+    let generic_params = &input.generics.params;
+    let where_clause = &input.generics.where_clause;
+
     quote! {
         #[allow(dead_code)]
         #[repr(C)]
-        #vis struct #align_as_type(
+        #vis struct #align_as_type<#generic_params>(
             #type_list
-        );
+        ) #where_clause;
     }
 }

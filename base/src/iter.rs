@@ -179,7 +179,7 @@ impl<'a, T: Flat + ?Sized> ValidateIter for RefIter<'a, SingleType<T>> {
 pub trait InitDefaultIter {
     fn init_default_all(self) -> Result<(), Error>;
 }
-impl<'a, T: FlatDefault + Sized + 'static, I: TypeIter + 'static> InitDefaultIter
+impl<'a, T: FlatDefault + Sized + 'a, I: TypeIter + 'a> InitDefaultIter
     for MutIter<'a, TwoOrMoreTypes<T, I>>
 where
     MutIter<'a, I>: InitDefaultIter,
@@ -191,7 +191,7 @@ where
         next.init_default_all()
     }
 }
-impl<'a, T: FlatDefault + ?Sized + 'static> InitDefaultIter for MutIter<'a, SingleType<T>> {
+impl<'a, T: FlatDefault + ?Sized + 'a> InitDefaultIter for MutIter<'a, SingleType<T>> {
     fn init_default_all(self) -> Result<(), Error> {
         let pos = self.pos();
         T::init_default(self.finalize()).map_err(|e| e.offset(pos))

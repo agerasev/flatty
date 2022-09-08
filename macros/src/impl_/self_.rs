@@ -61,8 +61,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
 
     quote! {
         impl<#generic_params> #self_ident<#generic_args>
-        where
-            #where_clause
+        #where_clause
         {
             #items
         }

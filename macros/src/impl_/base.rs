@@ -6,8 +6,10 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{Data, DeriveInput, Index};
 
-pub fn align_const(ctx: &Context, _input: &DeriveInput) -> TokenStream {
-    let align_as_type = ctx.idents.align_as.as_ref().unwrap();
+pub fn align_const(ctx: &Context, input: &DeriveInput) -> TokenStream {
+    let generic_args = generic::args(&input.generics);
+    let align_as_ident = ctx.idents.align_as.as_ref().unwrap();
+    let align_as_type = quote! { #align_as_ident<#generic_args> };
     quote! { const ALIGN: usize = ::core::mem::align_of::<#align_as_type>(); }
 }
 
@@ -114,8 +116,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
 
     quote! {
         unsafe impl<#generic_params> ::flatty::FlatBase for #self_ident<#generic_args>
-        where
-            #where_clause
+        #where_clause
         {
             #align_const
             #min_size_const

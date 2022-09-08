@@ -16,8 +16,7 @@ pub fn impl_(_ctx: &Context, input: &DeriveInput) -> TokenStream {
 
     quote! {
         unsafe impl<#generic_params> ::flatty::Flat for #self_ident<#generic_args>
-        where
-            #where_clause
+        #where_clause
         {
         }
     }
