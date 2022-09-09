@@ -77,61 +77,92 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
         ));
     }
 
-    let specific = match (&input.data, ctx.info.sized) {
-        (Data::Struct(_) | Data::Enum(_), true) => {
-            let repr = match &ctx.info.enum_type {
-                Some(ty) => quote! { #[repr(C, #ty)] },
-                None => quote! { #[repr(C)] },
-            };
-            let derive_default = if ctx.info.default {
-                quote! { #[derive(Default)] }
-            } else {
-                quote! {}
-            };
+    let specific = match &input.data {
+        Data::Struct(_) => {
+            if ctx.info.sized {
+                let derive_default = if ctx.info.default {
+                    quote! { #[derive(Default)] }
+                } else {
+                    quote! {}
+                };
 
-            quote! {
-                #derive_default
-                #repr
+                quote! {
+                    #derive_default
+                    #[repr(C)]
                     #input
+                }
+            } else {
+                let align_as_struct = items::align_as::struct_(&ctx, &input);
+
+                let base_impl = items::base::impl_(&ctx, &input);
+                let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
+                let default_impl = items::default::impl_(&ctx, &input);
+
+                quote! {
+                    #[repr(C)]
+                    #input
+
+                    #align_as_struct
+
+                    #base_impl
+                    #maybe_unsized_impl
+                    #default_impl
+                }
             }
         }
-        (Data::Struct(_), false) => {
-            let base_impl = items::base::impl_(&ctx, &input);
-            let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
-            let default_impl = items::default::impl_(&ctx, &input);
+        Data::Enum(_) => {
+            let tag_struct = items::tag::struct_(&ctx, &input, ctx.info.sized);
+            if ctx.info.sized {
+                let enum_type = ctx.info.enum_type.as_ref().unwrap();
+                let derive_default = if ctx.info.default {
+                    quote! { #[derive(Default)] }
+                } else {
+                    quote! {}
+                };
 
-            quote! {
-                #[repr(C)]
-                #input
+                quote! {
+                    #derive_default
+                    #[repr(C, #enum_type)]
+                    #input
 
-                #base_impl
-                #maybe_unsized_impl
-                #default_impl
+                    #tag_struct
+                }
+            } else {
+                let struct_ = items::unsized_enum::struct_(&ctx, &input);
+                let align_as_struct = items::align_as::struct_(&ctx, &input);
+                let ref_struct = items::unsized_enum::ref_struct(&ctx, &input);
+                let mut_struct = items::unsized_enum::mut_struct(&ctx, &input);
+
+                let tag_impl = items::tag::impl_(&ctx, &input);
+                let ref_impl = items::unsized_enum::ref_impl(&ctx, &input);
+                let mut_impl = items::unsized_enum::mut_impl(&ctx, &input);
+
+                let base_impl = items::base::impl_(&ctx, &input);
+                let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
+                let default_impl = items::default::impl_(&ctx, &input);
+
+                quote! {
+                    #struct_
+
+                    #align_as_struct
+                    #tag_struct
+                    #ref_struct
+                    #mut_struct
+
+                    #tag_impl
+                    #ref_impl
+                    #mut_impl
+
+                    #base_impl
+                    #maybe_unsized_impl
+                    #default_impl
+                }
             }
         }
-        (Data::Enum(_), false) => {
-            let struct_ = items::unsized_enum::struct_(&ctx, &input);
-            let ref_ = items::unsized_enum::ref_(&ctx, &input);
-            let mut_ = items::unsized_enum::mut_(&ctx, &input);
-
-            let base_impl = items::base::impl_(&ctx, &input);
-            let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
-            let default_impl = items::default::impl_(&ctx, &input);
-
-            quote! {
-                #struct_
-                #ref_
-                #mut_
-
-                #base_impl
-                #maybe_unsized_impl
-                #default_impl
-            }
-        }
-        (Data::Union(_), _) => unimplemented!(),
+        Data::Union(_) => unimplemented!(),
     };
 
-    let self_impl = items::self_::impl_(&ctx, &input);
+    let base_self_impl = items::base::self_impl(&ctx, &input);
     let cast_impl = items::cast::impl_(&ctx, &input);
     let flat_impl = items::flat::impl_(&ctx, &input);
     let portable_impl = if ctx.info.portable {
@@ -142,7 +173,8 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         #specific
-        #self_impl
+
+        #base_self_impl
         #cast_impl
         #flat_impl
         #portable_impl

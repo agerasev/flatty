@@ -3,7 +3,7 @@ macro_rules! generate_tests {
         mod tests {
             use super::{UnsizedEnum, UnsizedEnumMut, UnsizedEnumRef, UnsizedEnumTag};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{prelude::*, ErrorKind};
+            use flatty::{prelude::*, Error, ErrorKind};
 
             #[test]
             fn init_a() {
@@ -78,10 +78,53 @@ macro_rules! generate_tests {
             }
 
             #[test]
+            fn tag() {
+                let mut mem = vec![0u8; 6];
+                let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
+                assert_eq!(ue.tag(), UnsizedEnumTag::A);
+                ue.set_default(UnsizedEnumTag::B).unwrap();
+                assert_eq!(ue.tag(), UnsizedEnumTag::B);
+            }
+
+            #[test]
             fn init_err() {
                 let mut mem = vec![0u8; 1];
                 let res = UnsizedEnum::placement_default(mem.as_mut_slice());
-                assert_eq!(res.err().unwrap().kind, ErrorKind::InsufficientSize);
+                assert_eq!(
+                    res.err().unwrap(),
+                    Error {
+                        kind: ErrorKind::InsufficientSize,
+                        pos: 0
+                    }
+                );
+            }
+
+            #[test]
+            fn set_err() {
+                let mut mem = vec![0u8; 2];
+                let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
+                assert_eq!(ue.tag(), UnsizedEnumTag::A);
+                let res = ue.set_default(UnsizedEnumTag::B);
+                assert_eq!(
+                    res.err().unwrap(),
+                    Error {
+                        kind: ErrorKind::InsufficientSize,
+                        pos: 2
+                    }
+                );
+            }
+
+            #[test]
+            fn bad_tag() {
+                let mut mem = vec![4u8, 0u8];
+                let res = UnsizedEnum::from_bytes(mem.as_mut_slice());
+                assert_eq!(
+                    res.err().unwrap(),
+                    Error {
+                        kind: ErrorKind::InvalidEnumState,
+                        pos: 0
+                    }
+                );
             }
 
             #[test]

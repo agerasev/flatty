@@ -55,11 +55,13 @@ fn enum_set_default_method(ctx: &Context, _input: &DeriveInput) -> TokenStream {
         pub fn set_default(&mut self, tag: #tag_type) -> Result<(), ::flatty::Error> {
             self.tag = tag;
             unsafe { Self::init_default_data_by_tag(tag, &mut self.data) }
+                .map_err(|e| e.offset(Self::DATA_OFFSET))
         }
     }
 }
 
 fn enum_init_default_data_by_tag_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
+    let enum_type = ctx.info.enum_type.as_ref().unwrap();
     let tag_type = ctx.idents.tag.as_ref().unwrap();
     let match_body = if let Data::Enum(data) = &input.data {
         data.variants.iter().fold(quote! {}, |accum, var| {
@@ -80,7 +82,13 @@ fn enum_init_default_data_by_tag_method(ctx: &Context, input: &DeriveInput) -> T
     };
     quote! {
         unsafe fn init_default_data_by_tag(tag: #tag_type, bytes: &mut [u8]) -> Result<(), ::flatty::Error> {
-            use ::flatty::iter::{prelude::*, MutIter, type_list};
+            use ::flatty::{iter::{prelude::*, MutIter, type_list}, Error, ErrorKind};
+            if bytes.len() < Self::DATA_MIN_SIZES[tag as #enum_type as usize] {
+                return Err(Error {
+                    kind: ErrorKind::InsufficientSize,
+                    pos: 0,
+                });
+            }
             match tag {
                 #match_body
             }

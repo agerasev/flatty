@@ -17,7 +17,7 @@ struct UnsizedEnum {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
 enum UnsizedEnumTag {
     #[default]
     A = 0,
@@ -88,8 +88,15 @@ impl UnsizedEnum {
     pub fn set_default(&mut self, tag: UnsizedEnumTag) -> Result<(), Error> {
         self.tag = tag;
         unsafe { Self::init_default_data_by_tag(tag, &mut self.data) }
+            .map_err(|e| e.offset(Self::DATA_OFFSET))
     }
     unsafe fn init_default_data_by_tag(tag: UnsizedEnumTag, bytes: &mut [u8]) -> Result<(), Error> {
+        if bytes.len() < Self::DATA_MIN_SIZES[tag as u8 as usize] {
+            return Err(Error {
+                kind: ErrorKind::InsufficientSize,
+                pos: 0,
+            });
+        }
         match tag {
             UnsizedEnumTag::A => Ok(()),
             UnsizedEnumTag::B => {

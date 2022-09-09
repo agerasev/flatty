@@ -176,9 +176,12 @@ fn gen_ref_impl(
     }
 }
 
-pub fn ref_(ctx: &Context, input: &DeriveInput) -> TokenStream {
-    let struct_ = gen_ref_struct(ctx, input, false, ctx.idents.ref_.as_ref().unwrap());
-    let impl_ = gen_ref_impl(
+pub fn ref_struct(ctx: &Context, input: &DeriveInput) -> TokenStream {
+    gen_ref_struct(ctx, input, false, ctx.idents.ref_.as_ref().unwrap())
+}
+
+pub fn ref_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
+    gen_ref_impl(
         ctx,
         input,
         false,
@@ -186,16 +189,15 @@ pub fn ref_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         quote! { as_ref },
         quote! { assume_init_ref },
         quote! { RefIter },
-    );
-    quote! {
-        #struct_
-        #impl_
-    }
+    )
 }
 
-pub fn mut_(ctx: &Context, input: &DeriveInput) -> TokenStream {
-    let struct_ = gen_ref_struct(ctx, input, true, ctx.idents.mut_.as_ref().unwrap());
-    let impl_ = gen_ref_impl(
+pub fn mut_struct(ctx: &Context, input: &DeriveInput) -> TokenStream {
+    gen_ref_struct(ctx, input, true, ctx.idents.mut_.as_ref().unwrap())
+}
+
+pub fn mut_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
+    gen_ref_impl(
         ctx,
         input,
         true,
@@ -203,9 +205,5 @@ pub fn mut_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         quote! { as_mut },
         quote! { assume_init_mut },
         quote! { MutIter },
-    );
-    quote! {
-        #struct_
-        #impl_
-    }
+    )
 }

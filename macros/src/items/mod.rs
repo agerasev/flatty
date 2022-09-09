@@ -5,6 +5,5 @@ pub mod default;
 pub mod flat;
 pub mod maybe_unsized;
 pub mod portable;
-pub mod self_;
 pub mod tag;
 pub mod unsized_enum;

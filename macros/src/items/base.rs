@@ -13,37 +13,41 @@ pub fn align_const(ctx: &Context, input: &DeriveInput) -> TokenStream {
     quote! { const ALIGN: usize = ::core::mem::align_of::<#align_as_type>(); }
 }
 
-pub fn min_size_const(_ctx: &Context, input: &DeriveInput) -> TokenStream {
-    pub fn collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
-        let iter = fields.iter();
-        if iter.len() > 0 {
-            let type_list = type_list(iter);
-            quote! { ::flatty::iter::fold_min_size!(0; #type_list) }
-        } else {
-            quote! { 0 }
-        }
+pub fn min_size_collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
+    let iter = fields.iter();
+    if iter.len() > 0 {
+        let type_list = type_list(iter);
+        quote! { ::flatty::iter::fold_min_size!(0; #type_list) }
+    } else {
+        quote! { 0 }
     }
+}
 
-    let value = match &input.data {
-        Data::Struct(struct_data) => collect_fields(&struct_data.fields),
-        Data::Enum(enum_data) => {
-            let contents = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
-                let var_min_size = collect_fields(&variant.fields);
-                if accum.is_empty() {
-                    quote! { #var_min_size }
-                } else {
-                    quote! { ::flatty::utils::min(#accum, #var_min_size) }
+pub fn min_size_const(_ctx: &Context, input: &DeriveInput) -> TokenStream {
+    let value =
+        match &input.data {
+            Data::Struct(struct_data) => min_size_collect_fields(&struct_data.fields),
+            Data::Enum(enum_data) => {
+                let contents = enum_data.variants.iter().enumerate().fold(
+                    quote! {},
+                    |accum, (index, _var)| {
+                        let var_min_size = quote! { Self::DATA_MIN_SIZES[#index] };
+                        if accum.is_empty() {
+                            quote! { #var_min_size }
+                        } else {
+                            quote! { ::flatty::utils::min(#accum, #var_min_size) }
+                        }
+                    },
+                );
+                quote! {
+                    ::flatty::utils::ceil_mul(
+                        Self::DATA_OFFSET + #contents,
+                        <Self as ::flatty::FlatBase>::ALIGN,
+                    )
                 }
-            });
-            quote! {
-                ::flatty::utils::ceil_mul(
-                    Self::DATA_OFFSET + #contents,
-                    <Self as ::flatty::FlatBase>::ALIGN,
-                )
             }
-        }
-        Data::Union(..) => unimplemented!(),
-    };
+            Data::Union(..) => unimplemented!(),
+        };
 
     quote! { const MIN_SIZE: usize = #value; }
 }
@@ -97,6 +101,69 @@ fn size_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         fn size(&self) -> usize {
             use ::flatty::{prelude::*, utils::ceil_mul};
             ceil_mul(#value, Self::ALIGN)
+        }
+    }
+}
+
+pub fn self_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
+    let self_ident = &input.ident;
+
+    let generic_params = &input.generics.params;
+    let generic_args = generic::args(&input.generics);
+    let where_clause = &input.generics.where_clause;
+
+    let mut items = quote! {};
+
+    match &input.data {
+        Data::Enum(data) => {
+            let enum_type = ctx.info.enum_type.as_ref().unwrap();
+
+            items = quote! {
+                #items
+                const DATA_OFFSET: usize = ::flatty::utils::ceil_mul(<#enum_type as ::flatty::FlatSized>::SIZE, <Self as ::flatty::FlatBase>::ALIGN);
+            };
+
+            if !ctx.info.sized {
+                let var_count = data.variants.len();
+                let values = data.variants.iter().fold(quote! {}, |accum, variant| {
+                    let var_min_size = min_size_collect_fields(&variant.fields);
+                    quote! { #accum #var_min_size, }
+                });
+                items = quote! {
+                    #items
+                    const DATA_MIN_SIZES: [usize; #var_count] = [ #values ];
+                }
+            }
+        }
+        Data::Struct(data) => {
+            if !data.fields.is_empty() && !ctx.info.sized {
+                let value = if data.fields.len() > 1 {
+                    let len = data.fields.len();
+                    let type_list = type_list(data.fields.iter().take(len - 1));
+                    let last_ty = &data.fields.iter().last().unwrap().ty;
+                    quote! {
+                        ::flatty::utils::ceil_mul(
+                            ::flatty::iter::fold_size!(0; #type_list),
+                            <#last_ty as ::flatty::FlatBase>::ALIGN,
+                        )
+                    }
+                } else {
+                    quote! { 0 }
+                };
+                items = quote! {
+                    #items
+                    const LAST_FIELD_OFFSET: usize = #value;
+                }
+            }
+        }
+        Data::Union(..) => unimplemented!(),
+    }
+
+    quote! {
+        impl<#generic_params> #self_ident<#generic_args>
+        #where_clause
+        {
+            #items
         }
     }
 }
