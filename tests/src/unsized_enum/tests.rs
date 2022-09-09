@@ -23,7 +23,7 @@ macro_rules! generate_tests {
             fn init_b() {
                 let mut mem = vec![0u8; 6];
                 let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-                ue.set_default(UnsizedEnumTag::B).unwrap();
+                ue.reset_tag(UnsizedEnumTag::B).unwrap();
                 if let UnsizedEnumMut::B(b0, b1) = ue.as_mut() {
                     *b0 = 0xab;
                     *b1 = 0xcdef;
@@ -49,7 +49,7 @@ macro_rules! generate_tests {
             fn init_c() {
                 let mut mem = vec![0u8; 12];
                 let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-                ue.set_default(UnsizedEnumTag::C).unwrap();
+                ue.reset_tag(UnsizedEnumTag::C).unwrap();
                 if let UnsizedEnumMut::C { a, b } = ue.as_mut() {
                     *a = 0xab;
                     b.extend_from_slice(&[0x12, 0x34, 0x56, 0x78]);
@@ -82,7 +82,7 @@ macro_rules! generate_tests {
                 let mut mem = vec![0u8; 6];
                 let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
                 assert_eq!(ue.tag(), UnsizedEnumTag::A);
-                ue.set_default(UnsizedEnumTag::B).unwrap();
+                ue.reset_tag(UnsizedEnumTag::B).unwrap();
                 assert_eq!(ue.tag(), UnsizedEnumTag::B);
             }
 
@@ -104,7 +104,7 @@ macro_rules! generate_tests {
                 let mut mem = vec![0u8; 2];
                 let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
                 assert_eq!(ue.tag(), UnsizedEnumTag::A);
-                let res = ue.set_default(UnsizedEnumTag::B);
+                let res = ue.reset_tag(UnsizedEnumTag::B);
                 assert_eq!(
                     res.err().unwrap(),
                     Error {
@@ -131,7 +131,7 @@ macro_rules! generate_tests {
             fn layout() {
                 let mut mem = vec![0u8; 6 + 8 * 2 + 1];
                 let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-                ue.set_default(UnsizedEnumTag::C).unwrap();
+                ue.reset_tag(UnsizedEnumTag::C).unwrap();
                 if let UnsizedEnumMut::C { a, b } = ue.as_mut() {
                     *a = 0xab;
                     for i in 0.. {

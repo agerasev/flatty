@@ -55,8 +55,9 @@ impl FlatCast for UnsizedStruct {
 }
 
 unsafe impl FlatDefault for UnsizedStruct {
-    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<(), Error> {
-        unsafe { MutIter::new_unchecked(this.as_mut_bytes(), type_list!(u8, u16, FlatVec<u64, u32>)) }.init_default_all()
+    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
+        unsafe { MutIter::new_unchecked(this.as_mut_bytes(), type_list!(u8, u16, FlatVec<u64, u32>)) }.init_default_all()?;
+        Ok(unsafe { this.assume_init_mut() })
     }
 }
 

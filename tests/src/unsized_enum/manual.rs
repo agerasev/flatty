@@ -75,7 +75,16 @@ impl UnsizedEnum {
     pub fn tag(&self) -> UnsizedEnumTag {
         self.tag
     }
-    pub fn set_default(&mut self, tag: UnsizedEnumTag) -> Result<(), Error> {
+    pub fn set_tag(this: &mut MaybeUninitUnsized<Self>, tag: UnsizedEnumTag) -> Result<&mut Self, Error> {
+        let bytes = this.as_mut_bytes();
+        unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) }
+            .as_mut_sized()
+            .write(tag);
+        unsafe { Self::init_default_data_by_tag(tag, bytes.get_unchecked_mut(Self::DATA_OFFSET..)) }
+            .map_err(|e| e.offset(Self::DATA_OFFSET))?;
+        Ok(unsafe { this.assume_init_mut() })
+    }
+    pub fn reset_tag(&mut self, tag: UnsizedEnumTag) -> Result<(), Error> {
         self.tag = tag;
         unsafe { Self::init_default_data_by_tag(tag, &mut self.data) }.map_err(|e| e.offset(Self::DATA_OFFSET))
     }
@@ -91,7 +100,6 @@ impl UnsizedEnum {
             UnsizedEnumTag::B => MutIter::new_unchecked(bytes, type_list!(u8, u16)).init_default_all(),
             UnsizedEnumTag::C => MutIter::new_unchecked(bytes, type_list!(u8, FlatVec<u8, u16>)).init_default_all(),
         }
-        .map_err(|e| e.offset(Self::DATA_OFFSET))
     }
 
     pub fn as_ref(&self) -> UnsizedEnumRef<'_> {
@@ -187,11 +195,8 @@ impl FlatCast for UnsizedEnum {
 }
 
 unsafe impl FlatDefault for UnsizedEnum {
-    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<(), Error> {
-        let bytes = this.as_mut_bytes();
-        let tag = unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) };
-        UnsizedEnumTag::init_default(tag)?;
-        unsafe { Self::init_default_data_by_tag(*tag.assume_init_ref(), bytes.get_unchecked_mut(Self::DATA_OFFSET..)) }
+    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
+        Self::set_tag(this, UnsizedEnumTag::default())
     }
 }
 

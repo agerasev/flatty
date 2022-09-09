@@ -75,11 +75,11 @@ where
     T: Flat + Sized + Default,
     L: Flat + Length + Default,
 {
-    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<(), Error> {
+    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
         let len = unsafe { MaybeUninitUnsized::<L>::from_mut_bytes_unchecked(this.as_mut_bytes()) };
-        L::init_default(len)?; // To avoid dereferencing invalid state.
-        unsafe { *len.assume_init_mut() = L::zero() };
-        Ok(())
+        len.as_mut_sized().write(L::zero());
+        // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeUninit<T>]`.
+        Ok(unsafe { this.assume_init_mut() })
     }
 }
 
@@ -91,7 +91,7 @@ where
     fn validate(this: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
         let len = unsafe { &MaybeUninitUnsized::<L>::from_bytes_unchecked(this.as_bytes()) };
         L::validate(len)?;
-        // Now it's safe to dereference `Self`, because data is `[MaybeUninit<T>]`.
+        // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeUninit<T>]`.
         let self_ = unsafe { this.assume_init_ref() };
         if self_.len() > self_.capacity() {
             return Err(Error {

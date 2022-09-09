@@ -14,7 +14,8 @@ fn init_default_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         }
         let type_list = type_list(iter);
         quote! {
-            unsafe { MutIter::new_unchecked(#bytes, type_list!(#type_list)) }.init_default_all()
+            unsafe { MutIter::new_unchecked(#bytes, type_list!(#type_list)) }.init_default_all()?;
+            Ok(unsafe { this.assume_init_mut() })
         }
     }
 
@@ -23,31 +24,38 @@ fn init_default_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Enum(_enum_data) => {
             let tag_type = ctx.idents.tag.as_ref().unwrap();
             quote! {
-                let bytes = this.as_mut_bytes();
-                let tag = unsafe { MaybeUninitUnsized::<#tag_type>::from_mut_bytes_unchecked(bytes) };
-                <#tag_type as ::flatty::FlatDefault>::init_default(tag)?;
-                unsafe {
-                    Self::init_default_data_by_tag(
-                        *tag.assume_init_ref(),
-                        bytes.get_unchecked_mut(Self::DATA_OFFSET..),
-                    )
-                }
+                Self::set_tag(this, <#tag_type>::default())
             }
         }
         Data::Union(_union_data) => unimplemented!(),
     };
     quote! {
-        fn init_default(this: &mut ::flatty::mem::MaybeUninitUnsized<Self>) -> Result<(), ::flatty::Error> {
+        fn init_default(this: &mut ::flatty::mem::MaybeUninitUnsized<Self>) -> Result<&mut Self, ::flatty::Error> {
             use ::flatty::{prelude::*, mem::MaybeUninitUnsized, iter::{prelude::*, MutIter, type_list}};
             #body
         }
     }
 }
 
-fn enum_set_default_method(ctx: &Context, _input: &DeriveInput) -> TokenStream {
+fn enum_set_tag_method(ctx: &Context, _input: &DeriveInput) -> TokenStream {
     let tag_type = ctx.idents.tag.as_ref().unwrap();
     quote! {
-        pub fn set_default(&mut self, tag: #tag_type) -> Result<(), ::flatty::Error> {
+        pub fn set_tag(this: &mut ::flatty::mem::MaybeUninitUnsized<Self>, tag: #tag_type) -> Result<&mut Self, ::flatty::Error> {
+            use ::flatty::mem::MaybeUninitUnsized;
+            let bytes = this.as_mut_bytes();
+            unsafe { MaybeUninitUnsized::<#tag_type>::from_mut_bytes_unchecked(bytes) }
+                .as_mut_sized().write(tag);
+            unsafe { Self::init_default_data_by_tag(tag, bytes.get_unchecked_mut(Self::DATA_OFFSET..)) }
+                .map_err(|e| e.offset(Self::DATA_OFFSET))?;
+            Ok(unsafe { this.assume_init_mut() })
+        }
+    }
+}
+
+fn enum_reset_tag_method(ctx: &Context, _input: &DeriveInput) -> TokenStream {
+    let tag_type = ctx.idents.tag.as_ref().unwrap();
+    quote! {
+        pub fn reset_tag(&mut self, tag: #tag_type) -> Result<(), ::flatty::Error> {
             self.tag = tag;
             unsafe { Self::init_default_data_by_tag(tag, &mut self.data) }.map_err(|e| e.offset(Self::DATA_OFFSET))
         }
@@ -83,7 +91,6 @@ fn enum_init_default_data_by_tag_method(ctx: &Context, input: &DeriveInput) -> T
             match tag {
                 #match_body
             }
-            .map_err(|e| e.offset(Self::DATA_OFFSET))
         }
     }
 }
@@ -114,14 +121,16 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     };
 
     let extras = if let Data::Enum(..) = &input.data {
-        let set_default_method = enum_set_default_method(ctx, input);
+        let set_tag_method = enum_set_tag_method(ctx, input);
+        let reset_tag_method = enum_reset_tag_method(ctx, input);
         let init_default_data_by_tag_method = enum_init_default_data_by_tag_method(ctx, input);
 
         quote! {
             impl<#generic_params> #self_ident<#generic_args>
             #where_clause
             {
-                #set_default_method
+                #set_tag_method
+                #reset_tag_method
                 #init_default_data_by_tag_method
             }
         }

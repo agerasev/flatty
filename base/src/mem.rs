@@ -81,4 +81,11 @@ impl<T: FlatSized> MaybeUninitUnsized<T> {
         let bytes = unsafe { from_raw_parts_mut(mu.as_mut_ptr() as *mut u8, T::SIZE) };
         unsafe { Self::from_mut_bytes_unchecked(bytes) }
     }
+
+    pub fn as_sized(&self) -> &MaybeUninit<T> {
+        unsafe { &*(self.as_bytes().as_ptr() as *const MaybeUninit<T>) }
+    }
+    pub fn as_mut_sized(&mut self) -> &mut MaybeUninit<T> {
+        unsafe { &mut *(self.as_mut_bytes().as_mut_ptr() as *mut MaybeUninit<T>) }
+    }
 }

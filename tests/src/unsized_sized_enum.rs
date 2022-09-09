@@ -31,7 +31,7 @@ fn init_a() {
 fn init_b() {
     let mut mem = vec![0u8; 6];
     let use_ = UnsizedSizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-    use_.set_default(UnsizedSizedEnumTag::B).unwrap();
+    use_.reset_tag(UnsizedSizedEnumTag::B).unwrap();
     if let UnsizedSizedEnumMut::B(b0, b1) = use_.as_mut() {
         *b0 = 0xab;
         *b1 = 0xcdef;
@@ -57,7 +57,7 @@ fn init_b() {
 fn init_c() {
     let mut mem = vec![0u8; 10];
     let use_ = UnsizedSizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-    use_.set_default(UnsizedSizedEnumTag::C).unwrap();
+    use_.reset_tag(UnsizedSizedEnumTag::C).unwrap();
     if let UnsizedSizedEnumMut::C { a, b, c } = use_.as_mut() {
         *a = 0xab;
         *b = 0xcdef;

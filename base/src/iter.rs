@@ -183,7 +183,8 @@ where
 impl<'a, T: FlatDefault + ?Sized + 'a> InitDefaultIter for MutIter<'a, SingleType<T>> {
     fn init_default_all(self) -> Result<(), Error> {
         let pos = self.pos();
-        T::init_default(self.finalize()).map_err(|e| e.offset(pos))
+        T::init_default(self.finalize()).map_err(|e| e.offset(pos))?;
+        Ok(())
     }
 }
 
