@@ -12,9 +12,7 @@ pub struct SingleType<T: Flat + ?Sized> {
 impl<T: Flat + ?Sized> SingleType<T> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
+        Self { _phantom: PhantomData }
     }
 }
 impl<T: Flat + ?Sized> TypeIter for SingleType<T> {
@@ -96,13 +94,9 @@ impl<'a, T: Flat + Sized, I: TypeIter> RefIter<'a, TwoOrMoreTypes<T, I>> {
         let iter = self.iter.next();
         let next_pos = iter.pos();
         let (prev_data, next_data) = self.data.split_at(next_pos - prev_pos);
-        (
-            RefIter {
-                data: next_data,
-                iter,
-            },
-            unsafe { MaybeUninitUnsized::from_bytes_unchecked(prev_data) },
-        )
+        (RefIter { data: next_data, iter }, unsafe {
+            MaybeUninitUnsized::from_bytes_unchecked(prev_data)
+        })
     }
 }
 impl<'a, T: Flat + ?Sized> RefIter<'a, SingleType<T>> {
@@ -139,13 +133,9 @@ impl<'a, T: Flat + Sized, I: TypeIter> MutIter<'a, TwoOrMoreTypes<T, I>> {
         let iter = self.iter.next();
         let next_pos = iter.pos();
         let (prev_data, next_data) = self.data.split_at_mut(next_pos - prev_pos);
-        (
-            MutIter {
-                data: next_data,
-                iter,
-            },
-            unsafe { MaybeUninitUnsized::from_mut_bytes_unchecked(prev_data) },
-        )
+        (MutIter { data: next_data, iter }, unsafe {
+            MaybeUninitUnsized::from_mut_bytes_unchecked(prev_data)
+        })
     }
 }
 impl<'a, T: Flat + ?Sized> MutIter<'a, SingleType<T>> {
@@ -179,8 +169,7 @@ impl<'a, T: Flat + ?Sized> ValidateIter for RefIter<'a, SingleType<T>> {
 pub trait InitDefaultIter {
     fn init_default_all(self) -> Result<(), Error>;
 }
-impl<'a, T: FlatDefault + Sized + 'a, I: TypeIter + 'a> InitDefaultIter
-    for MutIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: FlatDefault + Sized + 'a, I: TypeIter + 'a> InitDefaultIter for MutIter<'a, TwoOrMoreTypes<T, I>>
 where
     MutIter<'a, I>: InitDefaultIter,
 {
@@ -204,8 +193,7 @@ pub trait FoldSizeIter {
     /// Internal data must be valid.
     unsafe fn fold_size(self, size: usize) -> usize;
 }
-impl<'a, T: FlatDefault + Sized + 'a, I: TypeIter> FoldSizeIter
-    for RefIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: FlatDefault + Sized + 'a, I: TypeIter> FoldSizeIter for RefIter<'a, TwoOrMoreTypes<T, I>>
 where
     RefIter<'a, I>: FoldSizeIter,
 {

@@ -10,21 +10,16 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     fn collect_fields<I: FieldIter>(fields: &I, bytes: TokenStream) -> TokenStream {
         let iter = fields.iter();
         if iter.len() == 0 {
-            return quote! {
-                Ok(())
-            };
+            return quote! { Ok(()) };
         }
         let type_list = type_list(iter);
         quote! {
-            unsafe { RefIter::new_unchecked(#bytes, type_list!(#type_list)) }
-                .validate_all()
+            unsafe { RefIter::new_unchecked(#bytes, type_list!(#type_list)) } .validate_all()
         }
     }
 
     let body = match &input.data {
-        Data::Struct(struct_data) => {
-            collect_fields(&struct_data.fields, quote! { this.as_bytes() })
-        }
+        Data::Struct(struct_data) => collect_fields(&struct_data.fields, quote! { this.as_bytes() }),
         Data::Enum(enum_data) => {
             let tag_type = ctx.idents.tag.as_ref().unwrap();
             let validate_tag = quote! {

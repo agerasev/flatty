@@ -10,9 +10,7 @@ fn ptr_metadata_method(_ctx: &Context, input: &DeriveInput) -> TokenStream {
             let last_ty = &struct_data.fields.iter().last().unwrap().ty;
             quote!(
                 <#last_ty as FlatMaybeUnsized>::ptr_metadata(unsafe {
-                    MaybeUninitUnsized::<#last_ty>::from_bytes_unchecked(
-                        &this.as_bytes()[Self::LAST_FIELD_OFFSET..],
-                    )
+                    MaybeUninitUnsized::<#last_ty>::from_bytes_unchecked(&this.as_bytes()[Self::LAST_FIELD_OFFSET..])
                 })
             )
         }

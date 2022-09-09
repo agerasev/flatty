@@ -16,12 +16,10 @@ pub fn struct_(ctx: &Context, input: &DeriveInput, local: bool) -> TokenStream {
         let var_count = Index::from(data.variants.len());
         let variants = data.variants.iter().fold(quote! {}, |accum, var| {
             let ident = &var.ident;
-            let default = var.attrs.iter().find(|attr| {
-                attr.path
-                    .get_ident()
-                    .map(|ident| ident == "default")
-                    .unwrap_or(false)
-            });
+            let default = var
+                .attrs
+                .iter()
+                .find(|attr| attr.path.get_ident().map(|ident| ident == "default").unwrap_or(false));
             quote! {
                 #accum
                 #default

@@ -24,11 +24,7 @@ pub fn args(generics: &Generics) -> TokenStream {
     })
 }
 
-pub fn where_clause(
-    input: &DeriveInput,
-    bound: TokenStream,
-    last_bound: Option<TokenStream>,
-) -> TokenStream {
+pub fn where_clause(input: &DeriveInput, bound: TokenStream, last_bound: Option<TokenStream>) -> TokenStream {
     let existing = input.generics.where_clause.as_ref().map_or(quote! {}, |w| {
         let wp = &w.predicates;
         let comma = if wp.trailing_punct() {
@@ -39,20 +35,12 @@ pub fn where_clause(
         quote! { #wp #comma }
     });
 
-    fn collect_fields<I: FieldIter>(
-        fields: &I,
-        bound: &TokenStream,
-        last_bound: Option<&TokenStream>,
-    ) -> TokenStream {
+    fn collect_fields<I: FieldIter>(fields: &I, bound: &TokenStream, last_bound: Option<&TokenStream>) -> TokenStream {
         let iter = fields.iter();
         let len = iter.len();
         iter.enumerate().fold(quote! {}, |accum, (index, field)| {
             let ty = &field.ty;
-            let b = if index + 1 < len {
-                bound
-            } else {
-                last_bound.unwrap_or(bound)
-            };
+            let b = if index + 1 < len { bound } else { last_bound.unwrap_or(bound) };
             quote! {
                 #accum
                 #ty: #b,
@@ -61,9 +49,7 @@ pub fn where_clause(
     }
 
     let generated = match &input.data {
-        Data::Struct(struct_data) => {
-            collect_fields(&struct_data.fields, &bound, last_bound.as_ref())
-        }
+        Data::Struct(struct_data) => collect_fields(&struct_data.fields, &bound, last_bound.as_ref()),
         Data::Enum(enum_data) => enum_data.variants.iter().fold(quote! {}, |accum, variant| {
             let variant_clause = collect_fields(&variant.fields, &bound, last_bound.as_ref());
             quote! { #accum #variant_clause }

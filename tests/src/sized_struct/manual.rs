@@ -17,8 +17,7 @@ struct SizedStruct {
 
 impl FlatCast for SizedStruct {
     fn validate(this: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
-        unsafe { RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, u32, [u64; 4])) }
-            .validate_all()
+        unsafe { RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, u32, [u64; 4])) }.validate_all()
     }
 }
 

@@ -90,9 +90,7 @@ macro_rules! derive_float {
         impl Num for $self {
             type FromStrRadixErr = <$native as Num>::FromStrRadixErr;
             fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
-                Ok(Self::from_native(<$native as Num>::from_str_radix(
-                    str, radix,
-                )?))
+                Ok(Self::from_native(<$native as Num>::from_str_radix(str, radix)?))
             }
         }
 

@@ -40,10 +40,7 @@ impl Parse for Info {
                 if let Meta::NameValue(nv) = meta {
                     Ok((format!("{}", nv.path.get_ident().unwrap()), &nv.lit))
                 } else {
-                    Err(ParseError::new(
-                        meta.span(),
-                        "`name = value` format required",
-                    ))
+                    Err(ParseError::new(meta.span(), "`name = value` format required"))
                 }
             })
             .collect::<Result<HashMap<_, _>, ParseError>>()?;
@@ -74,10 +71,7 @@ impl Parse for Info {
         if !params.is_empty() {
             return Err(ParseError::new(
                 items.span(),
-                format!(
-                    "Unknown macro arguments: {:?}",
-                    params.keys().collect::<Vec<_>>()
-                ),
+                format!("Unknown macro arguments: {:?}", params.keys().collect::<Vec<_>>()),
             ));
         }
 

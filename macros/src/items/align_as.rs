@@ -15,12 +15,10 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Struct(data) => collect_fields(&data.fields),
         Data::Enum(data) => {
             let enum_type = ctx.info.enum_type.as_ref().unwrap();
-            data.variants
-                .iter()
-                .fold(quote! { #enum_type, }, |accum, variant| {
-                    let var_type_list = collect_fields(&variant.fields);
-                    quote! { #accum #var_type_list }
-                })
+            data.variants.iter().fold(quote! { #enum_type, }, |accum, variant| {
+                let var_type_list = collect_fields(&variant.fields);
+                quote! { #accum #var_type_list }
+            })
         }
         Data::Union(..) => unimplemented!(),
     };

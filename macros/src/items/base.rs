@@ -24,30 +24,23 @@ pub fn min_size_collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
 }
 
 pub fn min_size_const(_ctx: &Context, input: &DeriveInput) -> TokenStream {
-    let value =
-        match &input.data {
-            Data::Struct(struct_data) => min_size_collect_fields(&struct_data.fields),
-            Data::Enum(enum_data) => {
-                let contents = enum_data.variants.iter().enumerate().fold(
-                    quote! {},
-                    |accum, (index, _var)| {
-                        let var_min_size = quote! { Self::DATA_MIN_SIZES[#index] };
-                        if accum.is_empty() {
-                            quote! { #var_min_size }
-                        } else {
-                            quote! { ::flatty::utils::min(#accum, #var_min_size) }
-                        }
-                    },
-                );
-                quote! {
-                    ::flatty::utils::ceil_mul(
-                        Self::DATA_OFFSET + #contents,
-                        <Self as ::flatty::FlatBase>::ALIGN,
-                    )
+    let value = match &input.data {
+        Data::Struct(struct_data) => min_size_collect_fields(&struct_data.fields),
+        Data::Enum(enum_data) => {
+            let contents = enum_data.variants.iter().enumerate().fold(quote! {}, |accum, (index, _var)| {
+                let var_min_size = quote! { Self::DATA_MIN_SIZES[#index] };
+                if accum.is_empty() {
+                    quote! { #var_min_size }
+                } else {
+                    quote! { ::flatty::utils::min(#accum, #var_min_size) }
                 }
+            });
+            quote! {
+                ::flatty::utils::ceil_mul(Self::DATA_OFFSET + #contents, <Self as ::flatty::FlatBase>::ALIGN)
             }
-            Data::Union(..) => unimplemented!(),
-        };
+        }
+        Data::Union(..) => unimplemented!(),
+    };
 
     quote! { const MIN_SIZE: usize = #value; }
 }
@@ -55,15 +48,10 @@ pub fn min_size_const(_ctx: &Context, input: &DeriveInput) -> TokenStream {
 fn size_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let value = match &input.data {
         Data::Struct(struct_data) => {
-            let last = struct_data
-                .fields
-                .iter()
-                .enumerate()
-                .last()
-                .map(|(i, f)| match &f.ident {
-                    Some(ident) => ident.to_token_stream(),
-                    None => Index::from(i).to_token_stream(),
-                });
+            let last = struct_data.fields.iter().enumerate().last().map(|(i, f)| match &f.ident {
+                Some(ident) => ident.to_token_stream(),
+                None => Index::from(i).to_token_stream(),
+            });
             match last {
                 Some(last) => {
                     quote! { Self::LAST_FIELD_OFFSET + self.#last.size() }
@@ -142,10 +130,7 @@ pub fn self_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     let type_list = type_list(data.fields.iter().take(len - 1));
                     let last_ty = &data.fields.iter().last().unwrap().ty;
                     quote! {
-                        ::flatty::utils::ceil_mul(
-                            ::flatty::iter::fold_size!(0; #type_list),
-                            <#last_ty as ::flatty::FlatBase>::ALIGN,
-                        )
+                        ::flatty::utils::ceil_mul(::flatty::iter::fold_size!(0; #type_list), <#last_ty as ::flatty::FlatBase>::ALIGN)
                     }
                 } else {
                     quote! { 0 }

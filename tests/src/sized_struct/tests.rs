@@ -33,13 +33,10 @@ macro_rules! generate_tests {
 
             #[test]
             fn interpret() {
-                let m = (0..4).fold(
-                    vec![0x12, 0xff, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12],
-                    |mut a, i| {
-                        a.extend([i + 1, 0, 0, 0, 0, 0, 0, 0].into_iter());
-                        a
-                    },
-                );
+                let m = (0..4).fold(vec![0x12, 0xff, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12], |mut a, i| {
+                    a.extend([i + 1, 0, 0, 0, 0, 0, 0, 0].into_iter());
+                    a
+                });
                 let ss = SizedStruct::from_bytes(m.as_slice()).unwrap();
 
                 assert_eq!(ss.a, 0x12);

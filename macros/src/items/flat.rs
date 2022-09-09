@@ -8,11 +8,7 @@ pub fn impl_(_ctx: &Context, input: &DeriveInput) -> TokenStream {
 
     let generic_params = &input.generics.params;
     let generic_args = generic::args(&input.generics);
-    let where_clause = generic::where_clause(
-        input,
-        quote! { ::flatty::Flat + Sized },
-        Some(quote! { ::flatty::Flat }),
-    );
+    let where_clause = generic::where_clause(input, quote! { ::flatty::Flat + Sized }, Some(quote! { ::flatty::Flat }));
 
     quote! {
         unsafe impl<#generic_params> ::flatty::Flat for #self_ident<#generic_args>

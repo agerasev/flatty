@@ -30,12 +30,7 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     }
 }
 
-fn gen_ref_struct(
-    _ctx: &Context,
-    input: &DeriveInput,
-    mutable: bool,
-    ref_ident: &Ident,
-) -> TokenStream {
+fn gen_ref_struct(_ctx: &Context, input: &DeriveInput, mutable: bool, ref_ident: &Ident) -> TokenStream {
     let mut_ = if mutable { Some(quote! { mut }) } else { None };
     let map_field = |field: &Field| {
         let ty = &field.ty;
@@ -111,16 +106,16 @@ fn gen_ref_impl(
             let bindings = if !var.fields.is_empty() {
                 let preface = {
                     let type_list = type_list(var.fields.iter());
-                    quote!{ let iter = unsafe { #ref_iter_type::new_unchecked(& #mut_ self.data, type_list!(#type_list)) }; }
+                    quote! { let iter = unsafe { #ref_iter_type::new_unchecked(& #mut_ self.data, type_list!(#type_list)) }; }
                 };
                 let bindings = {
                     let iter = var.fields.iter();
                     let len = iter.len();
                     iter.enumerate().fold(quote! {}, |a, (i, f)| {
                         let value = if i + 1 < len {
-                            quote!{ let (iter, value) = iter.next(); }
+                            quote! { let (iter, value) = iter.next(); }
                         } else {
-                            quote!{ let value = iter.finalize(); }
+                            quote! { let value = iter.finalize(); }
                         };
                         let binding = bind(i, f);
                         quote! {
@@ -130,18 +125,18 @@ fn gen_ref_impl(
                         }
                     })
                 };
-                quote!{
+                quote! {
                     #preface
                     #bindings
                 }
             } else {
-                quote!{}
+                quote! {}
             };
             let result = {
                 let pattern = {
-                    let contents = var.fields.iter().enumerate().fold(quote!{}, |a, (i, f)| {
+                    let contents = var.fields.iter().enumerate().fold(quote! {}, |a, (i, f)| {
                         let binding = bind(i, f);
-                        quote!{ #a #binding, }
+                        quote! { #a #binding, }
                     });
                     match &var.fields {
                         Fields::Unit => quote! {},

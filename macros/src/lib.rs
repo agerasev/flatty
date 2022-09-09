@@ -43,38 +43,23 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     match &input.data {
         Data::Struct(_) => {
-            assert!(
-                ctx.info.enum_type.is_none(),
-                "`enum_type` is not allowed for `struct`",
-            );
+            assert!(ctx.info.enum_type.is_none(), "`enum_type` is not allowed for `struct`",);
         }
         Data::Enum(_) => {
             if ctx.info.enum_type.is_none() {
                 ctx.info.enum_type = Some(Ident::new("u8", Span::call_site()));
             }
 
-            ctx.idents.tag = Some(Ident::new(
-                &format!("{}Tag", input.ident),
-                input.ident.span(),
-            ));
+            ctx.idents.tag = Some(Ident::new(&format!("{}Tag", input.ident), input.ident.span()));
             if !ctx.info.sized {
-                ctx.idents.ref_ = Some(Ident::new(
-                    &format!("{}Ref", input.ident),
-                    input.ident.span(),
-                ));
-                ctx.idents.mut_ = Some(Ident::new(
-                    &format!("{}Mut", input.ident),
-                    input.ident.span(),
-                ));
+                ctx.idents.ref_ = Some(Ident::new(&format!("{}Ref", input.ident), input.ident.span()));
+                ctx.idents.mut_ = Some(Ident::new(&format!("{}Mut", input.ident), input.ident.span()));
             }
         }
         Data::Union(_) => unimplemented!(),
     };
     if !ctx.info.sized {
-        ctx.idents.align_as = Some(Ident::new(
-            &format!("{}AlignAs", input.ident),
-            input.ident.span(),
-        ));
+        ctx.idents.align_as = Some(Ident::new(&format!("{}AlignAs", input.ident), input.ident.span()));
     }
 
     let specific = match &input.data {

@@ -38,9 +38,7 @@ unsafe impl FlatMaybeUnsized for UnsizedStruct {
 
     fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize {
         FlatVec::<u64, u32>::ptr_metadata(unsafe {
-            MaybeUninitUnsized::<FlatVec<u64, u32>>::from_bytes_unchecked(
-                &this.as_bytes()[Self::LAST_FIELD_OFFSET..],
-            )
+            MaybeUninitUnsized::<FlatVec<u64, u32>>::from_bytes_unchecked(&this.as_bytes()[Self::LAST_FIELD_OFFSET..])
         })
     }
     fn bytes_len(this: &Self) -> usize {
@@ -52,17 +50,13 @@ unsafe impl FlatMaybeUnsized for UnsizedStruct {
 
 impl FlatCast for UnsizedStruct {
     fn validate(this: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
-        unsafe { RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, FlatVec<u64, u32>)) }
-            .validate_all()
+        unsafe { RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, FlatVec<u64, u32>)) }.validate_all()
     }
 }
 
 unsafe impl FlatDefault for UnsizedStruct {
     fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<(), Error> {
-        unsafe {
-            MutIter::new_unchecked(this.as_mut_bytes(), type_list!(u8, u16, FlatVec<u64, u32>))
-        }
-        .init_default_all()
+        unsafe { MutIter::new_unchecked(this.as_mut_bytes(), type_list!(u8, u16, FlatVec<u64, u32>)) }.init_default_all()
     }
 }
 

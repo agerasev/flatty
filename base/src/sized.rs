@@ -44,17 +44,9 @@ unsafe impl<T: FlatSized> FlatMaybeUnsized for T {
     }
 
     fn to_uninit(&self) -> &MaybeUninitUnsized<Self> {
-        unsafe {
-            MaybeUninitUnsized::from_bytes_unchecked(from_raw_parts(
-                self as *const _ as *const u8,
-                Self::SIZE,
-            ))
-        }
+        unsafe { MaybeUninitUnsized::from_bytes_unchecked(from_raw_parts(self as *const _ as *const u8, Self::SIZE)) }
     }
     unsafe fn to_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self> {
-        MaybeUninitUnsized::from_mut_bytes_unchecked(from_raw_parts_mut(
-            self as *mut _ as *mut u8,
-            Self::SIZE,
-        ))
+        MaybeUninitUnsized::from_mut_bytes_unchecked(from_raw_parts_mut(self as *mut _ as *mut u8, Self::SIZE))
     }
 }

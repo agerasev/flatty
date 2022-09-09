@@ -40,36 +40,27 @@ pub unsafe trait FlatMaybeUnsized: FlatBase {
 macro_rules! impl_unsized_uninit_cast {
     () => {
         unsafe fn from_uninit_unchecked(this: &$crate::mem::MaybeUninitUnsized<Self>) -> &Self {
-            let slice = ::core::ptr::slice_from_raw_parts(
-                this.as_bytes().as_ptr(),
-                Self::ptr_metadata(this),
-            );
+            let slice = ::core::ptr::slice_from_raw_parts(this.as_bytes().as_ptr(), Self::ptr_metadata(this));
             &*(slice as *const [_] as *const Self)
         }
-        unsafe fn from_mut_uninit_unchecked(
-            this: &mut $crate::mem::MaybeUninitUnsized<Self>,
-        ) -> &mut Self {
-            let slice = ::core::ptr::slice_from_raw_parts_mut(
-                this.as_mut_bytes().as_mut_ptr(),
-                Self::ptr_metadata(this),
-            );
+        unsafe fn from_mut_uninit_unchecked(this: &mut $crate::mem::MaybeUninitUnsized<Self>) -> &mut Self {
+            let slice = ::core::ptr::slice_from_raw_parts_mut(this.as_mut_bytes().as_mut_ptr(), Self::ptr_metadata(this));
             &mut *(slice as *mut [_] as *mut Self)
         }
 
         fn to_uninit(&self) -> &$crate::mem::MaybeUninitUnsized<Self> {
             unsafe {
-                $crate::mem::MaybeUninitUnsized::from_bytes_unchecked(
-                    ::core::slice::from_raw_parts(
-                        self as *const _ as *const u8,
-                        Self::bytes_len(self),
-                    ),
-                )
+                $crate::mem::MaybeUninitUnsized::from_bytes_unchecked(::core::slice::from_raw_parts(
+                    self as *const _ as *const u8,
+                    Self::bytes_len(self),
+                ))
             }
         }
         unsafe fn to_mut_uninit(&mut self) -> &mut $crate::mem::MaybeUninitUnsized<Self> {
-            $crate::mem::MaybeUninitUnsized::from_mut_bytes_unchecked(
-                ::core::slice::from_raw_parts_mut(self as *mut _ as *mut u8, Self::bytes_len(self)),
-            )
+            $crate::mem::MaybeUninitUnsized::from_mut_bytes_unchecked(::core::slice::from_raw_parts_mut(
+                self as *mut _ as *mut u8,
+                Self::bytes_len(self),
+            ))
         }
     };
 }

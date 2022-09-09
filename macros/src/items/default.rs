@@ -10,21 +10,16 @@ fn init_default_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     fn collect_fields<I: FieldIter>(fields: &I, bytes: TokenStream) -> TokenStream {
         let iter = fields.iter();
         if iter.len() == 0 {
-            return quote! {
-                Ok(())
-            };
+            return quote! { Ok(()) };
         }
         let type_list = type_list(iter);
         quote! {
-            unsafe { MutIter::new_unchecked(#bytes, type_list!(#type_list)) }
-                .init_default_all()
+            unsafe { MutIter::new_unchecked(#bytes, type_list!(#type_list)) }.init_default_all()
         }
     }
 
     let body = match &input.data {
-        Data::Struct(struct_data) => {
-            collect_fields(&struct_data.fields, quote! { this.as_mut_bytes() })
-        }
+        Data::Struct(struct_data) => collect_fields(&struct_data.fields, quote! { this.as_mut_bytes() }),
         Data::Enum(_enum_data) => {
             let tag_type = ctx.idents.tag.as_ref().unwrap();
             quote! {
@@ -54,8 +49,7 @@ fn enum_set_default_method(ctx: &Context, _input: &DeriveInput) -> TokenStream {
     quote! {
         pub fn set_default(&mut self, tag: #tag_type) -> Result<(), ::flatty::Error> {
             self.tag = tag;
-            unsafe { Self::init_default_data_by_tag(tag, &mut self.data) }
-                .map_err(|e| e.offset(Self::DATA_OFFSET))
+            unsafe { Self::init_default_data_by_tag(tag, &mut self.data) }.map_err(|e| e.offset(Self::DATA_OFFSET))
         }
     }
 }
@@ -84,10 +78,7 @@ fn enum_init_default_data_by_tag_method(ctx: &Context, input: &DeriveInput) -> T
         unsafe fn init_default_data_by_tag(tag: #tag_type, bytes: &mut [u8]) -> Result<(), ::flatty::Error> {
             use ::flatty::{iter::{prelude::*, MutIter, type_list}, Error, ErrorKind};
             if bytes.len() < Self::DATA_MIN_SIZES[tag as #enum_type as usize] {
-                return Err(Error {
-                    kind: ErrorKind::InsufficientSize,
-                    pos: 0,
-                });
+                return Err(Error { kind: ErrorKind::InsufficientSize, pos: 0 });
             }
             match tag {
                 #match_body
