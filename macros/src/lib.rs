@@ -81,7 +81,11 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 let base_impl = items::base::impl_(&ctx, &input);
                 let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
-                let default_impl = items::default::impl_(&ctx, &input);
+                let default_impl = if ctx.info.default {
+                    items::default::impl_(&ctx, &input)
+                } else {
+                    quote! {}
+                };
 
                 quote! {
                     #[repr(C)]
@@ -124,7 +128,11 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 let base_impl = items::base::impl_(&ctx, &input);
                 let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
-                let default_impl = items::default::impl_(&ctx, &input);
+                let default_impl = if ctx.info.default {
+                    items::default::impl_(&ctx, &input)
+                } else {
+                    quote! {}
+                };
 
                 quote! {
                     #struct_

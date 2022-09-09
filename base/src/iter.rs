@@ -193,7 +193,7 @@ pub trait FoldSizeIter {
     /// Internal data must be valid.
     unsafe fn fold_size(self, size: usize) -> usize;
 }
-impl<'a, T: FlatDefault + Sized + 'a, I: TypeIter> FoldSizeIter for RefIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: Flat + Sized + 'a, I: TypeIter> FoldSizeIter for RefIter<'a, TwoOrMoreTypes<T, I>>
 where
     RefIter<'a, I>: FoldSizeIter,
 {
@@ -201,7 +201,7 @@ where
         self.next().0.fold_size(ceil_mul(size, T::ALIGN) + T::SIZE)
     }
 }
-impl<'a, T: FlatDefault + ?Sized> FoldSizeIter for RefIter<'a, SingleType<T>> {
+impl<'a, T: Flat + ?Sized> FoldSizeIter for RefIter<'a, SingleType<T>> {
     unsafe fn fold_size(self, size: usize) -> usize {
         ceil_mul(size, T::ALIGN) + self.finalize().assume_init_ref().size()
     }
