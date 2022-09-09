@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use flatty::{make_flat, portable::le, FlatVec};
 
 #[make_flat(portable = true)]
@@ -8,7 +10,6 @@ struct PortableStruct {
     d: [le::U64; 4],
 }
 
-#[allow(dead_code)]
 #[make_flat(portable = true)]
 enum PortableEnum {
     #[default]

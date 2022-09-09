@@ -121,7 +121,7 @@ macro_rules! generate_tests {
                 assert_eq!(
                     res.err().unwrap(),
                     Error {
-                        kind: ErrorKind::InvalidEnumState,
+                        kind: ErrorKind::InvalidEnumTag,
                         pos: 0
                     }
                 );

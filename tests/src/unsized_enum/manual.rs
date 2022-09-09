@@ -33,7 +33,7 @@ impl FlatCast for UnsizedEnumTag {
             Ok(())
         } else {
             Err(Error {
-                kind: ErrorKind::InvalidEnumState,
+                kind: ErrorKind::InvalidEnumTag,
                 pos: 0,
             })
         }
@@ -42,12 +42,14 @@ impl FlatCast for UnsizedEnumTag {
 
 unsafe impl Flat for UnsizedEnumTag {}
 
+#[allow(dead_code)]
 enum UnsizedEnumRef<'a> {
     A,
     B(&'a u8, &'a u16),
     C { a: &'a u8, b: &'a FlatVec<u8, u16> },
 }
 
+#[allow(dead_code)]
 enum UnsizedEnumMut<'a> {
     A,
     B(&'a mut u8, &'a mut u16),

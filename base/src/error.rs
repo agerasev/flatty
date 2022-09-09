@@ -12,7 +12,7 @@ pub enum ErrorKind {
     /// Memory isn't properly aligned to be interpreted as required type.
     BadAlign,
     /// Enum binary representation contains index that doesn't match any of possible enum states.
-    InvalidEnumState,
+    InvalidEnumTag,
     /// Any other error.
     Other,
 }

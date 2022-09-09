@@ -39,7 +39,7 @@ impl FlatCast for SizedEnum {
                 .validate_all()
                 .map_err(|e| e.offset(data_offset)),
             _ => Err(Error {
-                kind: ErrorKind::InvalidEnumState,
+                kind: ErrorKind::InvalidEnumTag,
                 pos: 0,
             }),
         }

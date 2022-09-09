@@ -73,6 +73,7 @@ fn gen_ref_struct(
     };
 
     quote! {
+        #[allow(dead_code)]
         #vis enum #ref_ident<'__flatty_a, #generic_params>
         #where_clause
         {

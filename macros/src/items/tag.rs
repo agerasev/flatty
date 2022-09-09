@@ -46,7 +46,7 @@ pub fn struct_(ctx: &Context, input: &DeriveInput, local: bool) -> TokenStream {
                         Ok(())
                     } else {
                         Err(Error {
-                            kind: ErrorKind::InvalidEnumState,
+                            kind: ErrorKind::InvalidEnumTag,
                             pos: 0,
                         })
                     }

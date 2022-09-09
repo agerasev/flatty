@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use flatty::{make_flat, Flat, FlatVec};
 use std::marker::PhantomData;
 
@@ -12,7 +14,6 @@ where
     c: PhantomData<&'a U>,
 }
 
-#[allow(dead_code)]
 #[make_flat]
 enum GenericSizedEnum<'a, S: Flat, T: Flat, U, const N: usize>
 where
