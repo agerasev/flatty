@@ -6,14 +6,14 @@ use core::{
 
 /// Check that memory size and alignment are suitable for `Self`.
 fn check_align_and_min_size<T: FlatMaybeUnsized + ?Sized>(mem: &[u8]) -> Result<(), Error> {
-    if mem.len() < T::MIN_SIZE {
-        Err(Error {
-            kind: ErrorKind::InsufficientSize,
-            pos: 0,
-        })
-    } else if mem.as_ptr().align_offset(T::ALIGN) != 0 {
+    if mem.as_ptr().align_offset(T::ALIGN) != 0 {
         Err(Error {
             kind: ErrorKind::BadAlign,
+            pos: 0,
+        })
+    } else if mem.len() < T::MIN_SIZE {
+        Err(Error {
+            kind: ErrorKind::InsufficientSize,
             pos: 0,
         })
     } else {
@@ -62,6 +62,16 @@ impl<T: FlatMaybeUnsized + ?Sized> MaybeUninitUnsized<T> {
     /// `self` must be initialized.
     pub unsafe fn assume_init_mut(&mut self) -> &mut T {
         T::from_mut_uninit_unchecked(self)
+    }
+
+    pub fn new(this: &T) -> &Self {
+        this.to_uninit()
+    }
+    /// # Safety
+    ///
+    /// Modification of return value must not make `self` invalid.
+    pub unsafe fn new_mut(this: &mut T) -> &mut Self {
+        this.to_mut_uninit()
     }
 
     pub fn as_bytes(&self) -> &[u8] {

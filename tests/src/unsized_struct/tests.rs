@@ -1,17 +1,22 @@
 macro_rules! generate_tests {
     () => {
         mod tests {
-            use super::UnsizedStruct;
+            use super::{UnsizedStruct, UnsizedStructInit};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::prelude::*;
+            use flatty::{prelude::*, vec};
 
             #[test]
             fn init() {
                 let mut mem = vec![0u8; 16 + 4 * 8];
-                let us = UnsizedStruct::placement_default(mem.as_mut_slice()).unwrap();
-                us.a = 200;
-                us.b = 40000;
-                us.c.extend_from_slice(&[0, 1]);
+                let us = UnsizedStruct::placement_new(
+                    mem.as_mut_slice(),
+                    UnsizedStructInit {
+                        a: 200,
+                        b: 40000,
+                        c: vec::FromArray([0, 1]),
+                    },
+                )
+                .unwrap();
 
                 assert_eq!(us.size(), 32);
                 assert_eq!(us.a, 200);

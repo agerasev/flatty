@@ -1,6 +1,7 @@
 use crate::{
     error::{Error, ErrorKind},
     impl_unsized_uninit_cast,
+    init::InplaceInitializer,
     mem::MaybeUninitUnsized,
     utils::{floor_mul, max},
     Flat, FlatBase, FlatCast, FlatDefault, FlatMaybeUnsized, FlatSized,
@@ -70,16 +71,50 @@ where
     impl_unsized_uninit_cast!();
 }
 
-unsafe impl<T, L> FlatDefault for FlatVec<T, L>
+pub struct Empty;
+
+pub struct FromArray<T, const N: usize>(pub [T; N]);
+
+unsafe impl<T, L> InplaceInitializer<FlatVec<T, L>> for Empty
 where
-    T: Flat + Sized + Default,
-    L: Flat + Length + Default,
+    T: Flat + Sized,
+    L: Flat + Length,
 {
-    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
-        let len = unsafe { MaybeUninitUnsized::<L>::from_mut_bytes_unchecked(this.as_mut_bytes()) };
+    fn init(self, uninit: &mut MaybeUninitUnsized<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
+        let len = unsafe { MaybeUninitUnsized::<L>::from_mut_bytes_unchecked(uninit.as_mut_bytes()) };
         len.as_mut_sized().write(L::zero());
         // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeUninit<T>]`.
-        Ok(unsafe { this.assume_init_mut() })
+        Ok(unsafe { uninit.assume_init_mut() })
+    }
+}
+
+unsafe impl<T, L, const N: usize> InplaceInitializer<FlatVec<T, L>> for FromArray<T, N>
+where
+    T: Flat + Sized,
+    L: Flat + Length,
+{
+    fn init(self, uninit: &mut MaybeUninitUnsized<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
+        let vec = Empty.init(uninit).unwrap();
+        if vec.capacity() < N {
+            return Err(Error {
+                kind: ErrorKind::InsufficientSize,
+                pos: 0,
+            });
+        }
+        assert_eq!(vec.extend_from_iter(self.0.into_iter()), N);
+        Ok(vec)
+    }
+}
+
+impl<T, L> FlatDefault for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Length,
+{
+    type InplaceDefault = Empty;
+
+    fn inplace_default() -> Empty {
+        Empty
     }
 }
 

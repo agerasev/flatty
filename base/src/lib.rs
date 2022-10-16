@@ -6,13 +6,13 @@ extern crate std;
 mod array;
 mod base;
 mod cast;
-mod default;
 mod marker;
 mod maybe_unsized;
 mod prim;
 mod sized;
 
 pub mod error;
+pub mod init;
 pub mod iter;
 //pub mod iter;
 pub mod mem;
@@ -40,12 +40,12 @@ pub unsafe trait Flat: FlatBase + FlatMaybeUnsized + FlatCast {}
 
 pub use base::FlatBase;
 pub use cast::FlatCast;
-pub use default::FlatDefault;
 pub use error::{Error, ErrorKind};
+pub use init::{FlatDefault, FlatInit};
 pub use maybe_unsized::FlatMaybeUnsized;
 pub use sized::FlatSized;
 pub use vec::FlatVec;
 
 pub mod prelude {
-    pub use super::{Flat, FlatBase, FlatCast, FlatDefault, FlatMaybeUnsized, FlatSized};
+    pub use super::{Flat, FlatBase, FlatCast, FlatDefault, FlatInit, FlatMaybeUnsized, FlatSized};
 }
