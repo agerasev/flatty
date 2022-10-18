@@ -8,21 +8,20 @@ macro_rules! generate_tests {
             #[test]
             fn init_a() {
                 let mut m = vec![0u8; 4 + 4];
-                let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
-
-                if let SizedEnum::A = se {
-                } else {
-                    panic!();
-                }
-
+                SizedEnum::from_mut_bytes(&mut m)
+                    .unwrap()
+                    .new_in_place(SizedEnum::A)
+                    .unwrap();
                 assert_eq!(m[0], 0);
             }
 
             #[test]
             fn init_b() {
                 let mut m = vec![0u8; 4 + 4];
-                let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
-                *se = SizedEnum::B(0x1234, 0x56);
+                let se = SizedEnum::from_mut_bytes(&mut m)
+                    .unwrap()
+                    .new_in_place(SizedEnum::B(0x1234, 0x56))
+                    .unwrap();
 
                 if let SizedEnum::B(a, b) = se {
                     assert_eq!(*a, 0x1234);
@@ -38,8 +37,10 @@ macro_rules! generate_tests {
             #[test]
             fn init_c() {
                 let mut m = vec![0u8; 4 + 4];
-                let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
-                *se = SizedEnum::C { a: 0xab, b: 0xcdef };
+                let se = SizedEnum::from_mut_bytes(&mut m)
+                    .unwrap()
+                    .new_in_place(SizedEnum::C { a: 0xab, b: 0xcdef })
+                    .unwrap();
 
                 if let SizedEnum::C { a, b } = se {
                     assert_eq!(*a, 0xab);
@@ -56,8 +57,10 @@ macro_rules! generate_tests {
             #[test]
             fn init_d() {
                 let mut m = vec![0u8; 4 + 4];
-                let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
-                *se = SizedEnum::D(0x12345678);
+                let se = SizedEnum::from_mut_bytes(&mut m)
+                    .unwrap()
+                    .new_in_place(SizedEnum::D(0x12345678))
+                    .unwrap();
 
                 if let SizedEnum::D(a) = se {
                     assert_eq!(*a, 0x12345678);
@@ -72,7 +75,7 @@ macro_rules! generate_tests {
             #[test]
             fn interpret_c() {
                 let m = vec![2, 0, 0, 0, 0xab, 0, 0xef, 0xcd];
-                let s = SizedEnum::from_bytes(m.as_slice()).unwrap();
+                let s = SizedEnum::from_bytes(m.as_slice()).unwrap().validate().unwrap();
 
                 if let SizedEnum::C { a, b } = s {
                     assert_eq!(*a, 0xab);
@@ -85,7 +88,7 @@ macro_rules! generate_tests {
             #[test]
             fn layout() {
                 let mut m = vec![0u8; 4 + 4];
-                let se = SizedEnum::placement_default(m.as_mut_slice()).unwrap();
+                let se = SizedEnum::from_mut_bytes(&mut m).unwrap().default_in_place().unwrap();
 
                 assert_eq!(align_of::<SizedEnum>(), <SizedEnum as FlatBase>::ALIGN);
                 assert_eq!(size_of::<SizedEnum>(), <SizedEnum as FlatSized>::SIZE);

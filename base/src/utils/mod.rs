@@ -1,3 +1,5 @@
+pub mod iter;
+
 /// `const` version of [`usize::max`].
 pub const fn max(a: usize, b: usize) -> usize {
     if a >= b {

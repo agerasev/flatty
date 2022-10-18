@@ -1,5 +1,5 @@
 use crate::{NativeCast, Portable};
-use base::{mem::MaybeUninitUnsized, Error, Flat, FlatCast};
+use base::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
 use core::{
     cmp::{Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
@@ -32,9 +32,9 @@ impl<const BE: bool, const N: usize> Float<BE, N> {
     }
 }
 
-impl<const BE: bool, const N: usize> FlatCast for Float<BE, N> {
-    fn validate(_: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
-        Ok(())
+impl<const BE: bool, const N: usize> FlatCheck for Float<BE, N> {
+    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
+        Ok(unsafe { this.assume_init() })
     }
 }
 

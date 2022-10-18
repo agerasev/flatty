@@ -2,12 +2,13 @@ use super::tests::generate_tests;
 use core::mem::align_of;
 use flatty::{
     impl_unsized_uninit_cast,
-    init::InplaceInitializer,
-    iter::{fold_min_size, fold_size, prelude::*, type_list, MutIter, RefIter},
     mem::MaybeUninitUnsized,
     prelude::*,
-    utils::ceil_mul,
-    Error, FlatVec,
+    utils::{
+        ceil_mul,
+        iter::{self, prelude::*},
+    },
+    Emplacer, Error, FlatVec,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -19,51 +20,52 @@ struct UnsizedStruct {
 }
 
 #[repr(C)]
-struct AlignAs(u8, u16, <FlatVec<u64, u32> as FlatMaybeUnsized>::AlignAs);
+struct AlignAs(u8, u16, <FlatVec<u64, u32> as FlatUnsized>::AlignAs);
 
 struct UnsizedStructInit<_A, _B, _C>
 where
-    _A: InplaceInitializer<u8>,
-    _B: InplaceInitializer<u16>,
-    _C: InplaceInitializer<FlatVec<u64, u32>>,
+    _A: Emplacer<u8>,
+    _B: Emplacer<u16>,
+    _C: Emplacer<FlatVec<u64, u32>>,
 {
     a: _A,
     b: _B,
     c: _C,
 }
 
-unsafe impl<_A, _B, _C> InplaceInitializer<UnsizedStruct> for UnsizedStructInit<_A, _B, _C>
+unsafe impl<_A, _B, _C> Emplacer<UnsizedStruct> for UnsizedStructInit<_A, _B, _C>
 where
-    _A: InplaceInitializer<u8>,
-    _B: InplaceInitializer<u16>,
-    _C: InplaceInitializer<FlatVec<u64, u32>>,
+    _A: Emplacer<u8>,
+    _B: Emplacer<u16>,
+    _C: Emplacer<FlatVec<u64, u32>>,
 {
-    fn init(self, uninit: &mut MaybeUninitUnsized<UnsizedStruct>) -> Result<&mut UnsizedStruct, Error> {
-        let iter = unsafe { MutIter::new_unchecked(uninit.as_mut_bytes(), type_list!(u8, u16, FlatVec<u64, u32>)) };
+    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedStruct>) -> Result<&mut UnsizedStruct, Error> {
+        let iter =
+            unsafe { iter::MutIter::new_unchecked(uninit.as_mut_bytes(), iter::type_list!(u8, u16, FlatVec<u64, u32>)) };
         let (iter, u_a) = iter.next();
-        self.a.init(u_a)?;
+        self.a.emplace(u_a)?;
         let (iter, u_b) = iter.next();
-        self.b.init(u_b)?;
+        self.b.emplace(u_b)?;
         let u_c = iter.finalize();
-        self.c.init(u_c)?;
+        self.c.emplace(u_c)?;
         Ok(unsafe { uninit.assume_init_mut() })
     }
 }
 
 impl UnsizedStruct {
-    const LAST_FIELD_OFFSET: usize = ceil_mul(fold_size!(0; u8, u16), FlatVec::<u64, u32>::ALIGN);
+    const LAST_FIELD_OFFSET: usize = ceil_mul(iter::fold_size!(0; u8, u16), FlatVec::<u64, u32>::ALIGN);
 }
 
 unsafe impl FlatBase for UnsizedStruct {
     const ALIGN: usize = align_of::<AlignAs>();
-    const MIN_SIZE: usize = ceil_mul(fold_min_size!(0; u8, u16, FlatVec<u64, u32>), Self::ALIGN);
+    const MIN_SIZE: usize = ceil_mul(iter::fold_min_size!(0; u8, u16, FlatVec<u64, u32>), Self::ALIGN);
 
     fn size(&self) -> usize {
         ceil_mul(Self::LAST_FIELD_OFFSET + self.c.size(), Self::ALIGN)
     }
 }
 
-unsafe impl FlatMaybeUnsized for UnsizedStruct {
+unsafe impl FlatUnsized for UnsizedStruct {
     type AlignAs = AlignAs;
 
     fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize {
@@ -78,19 +80,21 @@ unsafe impl FlatMaybeUnsized for UnsizedStruct {
     impl_unsized_uninit_cast!();
 }
 
-impl FlatCast for UnsizedStruct {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
-        unsafe { RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, FlatVec<u64, u32>)) }.validate_all()
+impl FlatCheck for UnsizedStruct {
+    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
+        unsafe { iter::RefIter::new_unchecked(this.as_bytes(), iter::type_list!(u8, u16, FlatVec<u64, u32>)) }
+            .validate_all()?;
+        Ok(unsafe { this.assume_init() })
     }
 }
 
 impl FlatDefault for UnsizedStruct {
-    type InplaceDefault = UnsizedStructInit<u8, u16, <FlatVec<u64, u32> as FlatDefault>::InplaceDefault>;
-    fn inplace_default() -> Self::InplaceDefault {
+    type Emplacer = UnsizedStructInit<u8, u16, <FlatVec<u64, u32> as FlatDefault>::Emplacer>;
+    fn default_emplacer() -> Self::Emplacer {
         UnsizedStructInit {
             a: u8::default(),
             b: u16::default(),
-            c: <FlatVec<u64, u32> as FlatDefault>::inplace_default(),
+            c: <FlatVec<u64, u32> as FlatDefault>::default_emplacer(),
         }
     }
 }

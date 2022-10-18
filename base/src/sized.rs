@@ -1,4 +1,4 @@
-use crate::{mem::MaybeUninitUnsized, Flat, FlatBase, FlatMaybeUnsized};
+use crate::{mem::MaybeUninitUnsized, Emplacer, Error, Flat, FlatBase, FlatUnsized};
 use core::{
     mem::{align_of, size_of},
     slice::{from_raw_parts, from_raw_parts_mut},
@@ -9,12 +9,12 @@ use core::{
 /// # Safety
 ///
 /// `SIZE` must match `Self` size.
-pub unsafe trait FlatSized: FlatBase + FlatMaybeUnsized + Sized {
+pub unsafe trait FlatSized: FlatUnsized + Sized {
     /// Static size of the type.
     const SIZE: usize = size_of::<Self>();
 }
 
-unsafe impl<T: Flat + Sized> FlatSized for T {}
+unsafe impl<T: Flat> FlatSized for T {}
 
 unsafe impl<T: FlatSized> FlatBase for T {
     const ALIGN: usize = align_of::<Self>();
@@ -26,7 +26,7 @@ unsafe impl<T: FlatSized> FlatBase for T {
     }
 }
 
-unsafe impl<T: FlatSized> FlatMaybeUnsized for T {
+unsafe impl<T: FlatSized> FlatUnsized for T {
     type AlignAs = T;
 
     fn ptr_metadata(_this: &MaybeUninitUnsized<Self>) -> usize {
@@ -43,10 +43,16 @@ unsafe impl<T: FlatSized> FlatMaybeUnsized for T {
         &mut *(this.as_mut_bytes().as_mut_ptr() as *mut Self)
     }
 
-    fn to_uninit(&self) -> &MaybeUninitUnsized<Self> {
+    fn as_uninit(&self) -> &MaybeUninitUnsized<Self> {
         unsafe { MaybeUninitUnsized::from_bytes_unchecked(from_raw_parts(self as *const _ as *const u8, Self::SIZE)) }
     }
-    unsafe fn to_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self> {
+    unsafe fn as_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self> {
         MaybeUninitUnsized::from_mut_bytes_unchecked(from_raw_parts_mut(self as *mut _ as *mut u8, Self::SIZE))
+    }
+}
+
+unsafe impl<T: Flat> Emplacer<T> for T {
+    fn emplace(self, uninit: &mut MaybeUninitUnsized<T>) -> Result<&mut T, Error> {
+        Ok(uninit.as_mut_sized().write(self))
     }
 }

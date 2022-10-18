@@ -1,8 +1,9 @@
 use crate::{
+    error::ErrorKind,
     mem::MaybeUninitUnsized,
     prelude::*,
     utils::{ceil_mul, max},
-    Error, ErrorKind,
+    Error,
 };
 use core::marker::PhantomData;
 
@@ -205,7 +206,8 @@ where
 impl<'a, T: Flat + ?Sized> ValidateIter for RefIter<'a, SingleType<T>> {
     fn validate_all(self) -> Result<(), Error> {
         self.assert_last();
-        T::validate(self.value()).map_err(|e| e.offset(self.pos()))
+        T::validate(self.value()).map_err(|e| e.offset(self.pos()))?;
+        Ok(())
     }
 }
 
@@ -225,7 +227,7 @@ where
 }
 impl<'a, T: Flat + ?Sized> FoldSizeIter for RefIter<'a, SingleType<T>> {
     unsafe fn fold_size(self, size: usize) -> usize {
-        ceil_mul(size, T::ALIGN) + self.finalize().assume_init_ref().size()
+        ceil_mul(size, T::ALIGN) + self.finalize().assume_init().size()
     }
 }
 
@@ -236,17 +238,17 @@ pub mod prelude {
 #[macro_export]
 macro_rules! type_list {
     ($first_type:ty, $($types:ty),+ $(,)?) => {
-        $crate::iter::TwoOrMoreTypes::<$first_type, _>::new($crate::iter::type_list!($( $types ),*))
+        $crate::utils::iter::TwoOrMoreTypes::<$first_type, _>::new($crate::utils::iter::type_list!($( $types ),*))
     };
     ($type:ty $(,)?) => {
-        $crate::iter::SingleType::<$type>::new()
+        $crate::utils::iter::SingleType::<$type>::new()
     };
 }
 
 #[macro_export]
 macro_rules! fold_size {
     ($accum:expr; $first_type:ty, $($types:ty),+ $(,)?) => {
-        $crate::iter::fold_size!(
+        $crate::utils::iter::fold_size!(
             $crate::utils::ceil_mul($accum, <$first_type as $crate::FlatBase>::ALIGN) + <$first_type as $crate::FlatSized>::SIZE;
             $( $types ),*
         )
@@ -259,7 +261,7 @@ macro_rules! fold_size {
 #[macro_export]
 macro_rules! fold_min_size {
     ($accum:expr; $first_type:ty, $($types:ty),+ $(,)?) => {
-        $crate::iter::fold_min_size!(
+        $crate::utils::iter::fold_min_size!(
             $crate::utils::ceil_mul($accum, <$first_type as $crate::FlatBase>::ALIGN) + <$first_type as $crate::FlatSized>::SIZE;
             $( $types ),*
         )
