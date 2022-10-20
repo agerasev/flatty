@@ -106,7 +106,7 @@ fn gen_ref_impl(
             let bindings = if !var.fields.is_empty() {
                 let preface = {
                     let type_list = type_list(var.fields.iter());
-                    quote! { let iter = unsafe { iter::#ref_iter_type::new_unchecked(& #mut_ self.data, type_list!(#type_list)) }; }
+                    quote! { let iter = unsafe { iter::#ref_iter_type::new_unchecked(& #mut_ self.data, iter::type_list!(#type_list)) }; }
                 };
                 let bindings = {
                     let iter = var.fields.iter();

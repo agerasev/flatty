@@ -85,6 +85,16 @@ macro_rules! UnsizedEnumInit {
     };
 }
 
+impl<__B, __C> Default for UnsizedEnumInit<__B, __C>
+where
+    __B: Emplacer<u16>,
+    __C: Emplacer<FlatVec<u8, u16>>,
+{
+    fn default() -> Self {
+        Self::A
+    }
+}
+
 impl<__B, __C> UnsizedEnumInit<__B, __C>
 where
     __B: Emplacer<u16>,
@@ -255,7 +265,7 @@ impl FlatCheck for UnsizedEnum {
 impl FlatDefault for UnsizedEnum {
     type Emplacer = UnsizedEnumInit<NeverEmplacer, NeverEmplacer>;
     fn default_emplacer() -> Self::Emplacer {
-        Self::Emplacer::A
+        UnsizedEnumInit::default()
     }
 }
 

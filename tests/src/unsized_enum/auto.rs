@@ -12,4 +12,4 @@ enum UnsizedEnum {
     },
 }
 
-generate_tests!();
+//generate_tests!();

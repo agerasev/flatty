@@ -9,4 +9,4 @@ struct UnsizedStruct {
     c: FlatVec<u64, u32>,
 }
 
-generate_tests!();
+//generate_tests!();

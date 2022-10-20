@@ -7,6 +7,7 @@ pub struct AssocIdents {
     pub tag: Option<Ident>,
     pub ref_: Option<Ident>,
     pub mut_: Option<Ident>,
+    pub init: Option<Ident>,
 }
 
 #[derive(Clone, Debug)]
