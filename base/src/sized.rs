@@ -51,7 +51,7 @@ unsafe impl<T: FlatSized> FlatUnsized for T {
     }
 }
 
-unsafe impl<T: Flat> Emplacer<T> for T {
+impl<T: Flat> Emplacer<T> for T {
     fn emplace(self, uninit: &mut MaybeUninitUnsized<T>) -> Result<&mut T, Error> {
         Ok(uninit.as_mut_sized().write(self))
     }

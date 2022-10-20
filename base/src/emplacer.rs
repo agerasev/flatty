@@ -5,7 +5,7 @@ use crate::{error::Error, mem::MaybeUninitUnsized, FlatUnsized};
 /// # Safety
 ///
 /// [`Self::init`] must be valid.
-pub unsafe trait Emplacer<T: FlatUnsized + ?Sized>: Sized {
+pub trait Emplacer<T: FlatUnsized + ?Sized>: Sized {
     /// Apply initializer for uninitizalized memory.
     ///
     /// *In case of success must return reference to the same memory as `uninit`.*

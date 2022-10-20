@@ -75,7 +75,7 @@ pub struct Empty;
 
 pub struct FromArray<T, const N: usize>(pub [T; N]);
 
-unsafe impl<T, L> Emplacer<FlatVec<T, L>> for Empty
+impl<T, L> Emplacer<FlatVec<T, L>> for Empty
 where
     T: Flat + Sized,
     L: Flat + Length,
@@ -88,7 +88,7 @@ where
     }
 }
 
-unsafe impl<T, L, const N: usize> Emplacer<FlatVec<T, L>> for FromArray<T, N>
+impl<T, L, const N: usize> Emplacer<FlatVec<T, L>> for FromArray<T, N>
 where
     T: Flat + Sized,
     L: Flat + Length,

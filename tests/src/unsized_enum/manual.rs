@@ -64,23 +64,16 @@ struct UnsizedEnumAlignAs(u8, u8, u16, u8, <FlatVec<u8, u16> as FlatUnsized>::Al
 
 struct UnsizedEnumInitA;
 
-#[allow(dead_code, non_camel_case_types)]
-struct UnsizedEnumInitB<I_0, I_1>(I_0, I_1)
-where
-    I_0: Emplacer<u8>,
-    I_1: Emplacer<u16>;
+#[allow(dead_code)]
+struct UnsizedEnumInitB<__Last: Emplacer<u16>>(u8, __Last);
 
-#[allow(dead_code, non_camel_case_types)]
-struct UnsizedEnumInitC<I_A, I_B>
-where
-    I_A: Emplacer<u8>,
-    I_B: Emplacer<FlatVec<u8, u16>>,
-{
-    a: I_A,
-    b: I_B,
+#[allow(dead_code)]
+struct UnsizedEnumInitC<__Last: Emplacer<FlatVec<u8, u16>>> {
+    a: u8,
+    b: __Last,
 }
 
-unsafe impl Emplacer<UnsizedEnum> for UnsizedEnumInitA {
+impl Emplacer<UnsizedEnum> for UnsizedEnumInitA {
     fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
         let bytes = uninit.as_mut_bytes();
         unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) }
@@ -90,12 +83,8 @@ unsafe impl Emplacer<UnsizedEnum> for UnsizedEnumInitA {
     }
 }
 
-#[allow(dead_code, non_camel_case_types)]
-unsafe impl<I_0, I_1> Emplacer<UnsizedEnum> for UnsizedEnumInitB<I_0, I_1>
-where
-    I_0: Emplacer<u8>,
-    I_1: Emplacer<u16>,
-{
+#[allow(dead_code)]
+impl<__Last: Emplacer<u16>> Emplacer<UnsizedEnum> for UnsizedEnumInitB<__Last> {
     fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
         let bytes = uninit.as_mut_bytes();
         unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) }
@@ -114,12 +103,8 @@ where
     }
 }
 
-#[allow(dead_code, non_camel_case_types)]
-unsafe impl<I_A, I_B> Emplacer<UnsizedEnum> for UnsizedEnumInitC<I_A, I_B>
-where
-    I_A: Emplacer<u8>,
-    I_B: Emplacer<FlatVec<u8, u16>>,
-{
+#[allow(dead_code)]
+impl<__Last: Emplacer<FlatVec<u8, u16>>> Emplacer<UnsizedEnum> for UnsizedEnumInitC<__Last> {
     fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
         let bytes = uninit.as_mut_bytes();
         unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) }

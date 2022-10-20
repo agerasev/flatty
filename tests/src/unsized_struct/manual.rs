@@ -22,22 +22,18 @@ struct UnsizedStruct {
 #[repr(C)]
 struct AlignAs(u8, u16, <FlatVec<u64, u32> as FlatUnsized>::AlignAs);
 
-struct UnsizedStructInit<_A, _B, _C>
+struct UnsizedStructInit<__Last>
 where
-    _A: Emplacer<u8>,
-    _B: Emplacer<u16>,
-    _C: Emplacer<FlatVec<u64, u32>>,
+    __Last: Emplacer<FlatVec<u64, u32>>,
 {
-    a: _A,
-    b: _B,
-    c: _C,
+    a: u8,
+    b: u16,
+    c: __Last,
 }
 
-unsafe impl<_A, _B, _C> Emplacer<UnsizedStruct> for UnsizedStructInit<_A, _B, _C>
+impl<__Last> Emplacer<UnsizedStruct> for UnsizedStructInit<__Last>
 where
-    _A: Emplacer<u8>,
-    _B: Emplacer<u16>,
-    _C: Emplacer<FlatVec<u64, u32>>,
+    __Last: Emplacer<FlatVec<u64, u32>>,
 {
     fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedStruct>) -> Result<&mut UnsizedStruct, Error> {
         let iter =
@@ -89,7 +85,7 @@ impl FlatCheck for UnsizedStruct {
 }
 
 impl FlatDefault for UnsizedStruct {
-    type Emplacer = UnsizedStructInit<u8, u16, <FlatVec<u64, u32> as FlatDefault>::Emplacer>;
+    type Emplacer = UnsizedStructInit<<FlatVec<u64, u32> as FlatDefault>::Emplacer>;
     fn default_emplacer() -> Self::Emplacer {
         UnsizedStructInit {
             a: u8::default(),
