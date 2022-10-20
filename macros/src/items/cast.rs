@@ -14,7 +14,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         }
         let type_list = type_list(iter);
         quote! {
-            unsafe { RefIter::new_unchecked(#bytes, type_list!(#type_list)) } .validate_all()
+            unsafe { iter::RefIter::new_unchecked(#bytes, iter::type_list!(#type_list)) }.validate_all()
         }
     }
 
@@ -24,8 +24,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
             let tag_type = ctx.idents.tag.as_ref().unwrap();
             let validate_tag = quote! {
                 let tag = unsafe { MaybeUninitUnsized::<#tag_type>::from_bytes_unchecked(this.as_bytes()) };
-                <#tag_type as ::flatty::FlatCast>::validate(tag)?;
-                *unsafe{ tag.assume_init_ref() }
+                <#tag_type as ::flatty::FlatCheck>::validate(tag)?
             };
             let varaints = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
                 let items = collect_fields(&variant.fields, quote! { data });
@@ -50,9 +49,9 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Union(_union_data) => unimplemented!(),
     };
     quote! {
-        fn validate(this: &::flatty::mem::MaybeUninitUnsized<Self>) -> Result<(), ::flatty::Error> {
-            use ::flatty::{prelude::*, mem::MaybeUninitUnsized, iter::{prelude::*, RefIter, type_list}};
-            #body
+        fn validate(this: &::flatty::mem::MaybeUninitUnsized<Self>) -> Result<&Self, ::flatty::Error> {
+            use ::flatty::{prelude::*, mem::MaybeUninitUnsized, utils::iter::{prelude::*, self}};
+            { #body }.map(|_| unsafe { this.assume_init() })
         }
     }
 }
@@ -64,18 +63,18 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let generic_args = generic::args(&input.generics);
     let where_clause = generic::where_clause(
         input,
-        quote! { ::flatty::FlatCast + Sized },
+        quote! { ::flatty::FlatCheck + Sized },
         if ctx.info.sized {
             None
         } else {
-            Some(quote! { ::flatty::FlatCast })
+            Some(quote! { ::flatty::FlatCheck })
         },
     );
 
     let validate_method = validate_method(ctx, input);
 
     quote! {
-        impl<#generic_params> ::flatty::FlatCast for #self_ident<#generic_args>
+        impl<#generic_params> ::flatty::FlatCheck for #self_ident<#generic_args>
         #where_clause
         {
             #validate_method

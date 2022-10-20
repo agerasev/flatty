@@ -72,8 +72,8 @@ where
 }
 
 pub struct Empty;
-
 pub struct FromArray<T, const N: usize>(pub [T; N]);
+pub struct FromIterator<T, I: Iterator<Item = T>>(pub I);
 
 impl<T, L> Emplacer<FlatVec<T, L>> for Empty
 where
@@ -102,6 +102,25 @@ where
             });
         }
         assert_eq!(vec.extend_from_iter(self.0.into_iter()), N);
+        Ok(vec)
+    }
+}
+
+impl<T, L, I: Iterator<Item = T>> Emplacer<FlatVec<T, L>> for FromIterator<T, I>
+where
+    T: Flat + Sized,
+    L: Flat + Length,
+{
+    fn emplace(self, uninit: &mut MaybeUninitUnsized<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
+        let vec = Empty.emplace(uninit).unwrap();
+        for x in self.0 {
+            if vec.push(x).is_err() {
+                return Err(Error {
+                    kind: ErrorKind::InsufficientSize,
+                    pos: 0,
+                });
+            }
+        }
         Ok(vec)
     }
 }

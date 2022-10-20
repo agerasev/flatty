@@ -80,9 +80,10 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let align_as_struct = items::align_as::struct_(&ctx, &input);
 
                 let base_impl = items::base::impl_(&ctx, &input);
-                let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
+                let unsized_impl = items::unsized_::impl_(&ctx, &input);
+                let emplacer_struct = items::emplacer::struct_(&ctx, &input);
                 let default_impl = if ctx.info.default {
-                    items::init::impl_(&ctx, &input)
+                    items::default::impl_(&ctx, &input)
                 } else {
                     quote! {}
                 };
@@ -94,7 +95,7 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                     #align_as_struct
 
                     #base_impl
-                    #maybe_unsized_impl
+                    #unsized_impl
                     #default_impl
                 }
             }
@@ -127,9 +128,10 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let mut_impl = items::unsized_enum::mut_impl(&ctx, &input);
 
                 let base_impl = items::base::impl_(&ctx, &input);
-                let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
+                let unsized_impl = items::unsized_::impl_(&ctx, &input);
+                let emplacer_struct = items::emplacer::struct_(&ctx, &input);
                 let default_impl = if ctx.info.default {
-                    items::init::impl_(&ctx, &input)
+                    items::default::impl_(&ctx, &input)
                 } else {
                     quote! {}
                 };
@@ -147,7 +149,7 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                     #mut_impl
 
                     #base_impl
-                    #maybe_unsized_impl
+                    #unsized_impl
                     #default_impl
                 }
             }

@@ -14,7 +14,7 @@ fn init_default_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         }
         let type_list = type_list(iter);
         quote! {
-            unsafe { MutIter::new_unchecked(#bytes, type_list!(#type_list)) }.init_default_all()?;
+            unsafe { iter::MutIter::new_unchecked(#bytes, iter::type_list!(#type_list)) }.init_default_all()?;
             Ok(unsafe { this.assume_init_mut() })
         }
     }
@@ -31,7 +31,7 @@ fn init_default_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     };
     quote! {
         fn init_default(this: &mut ::flatty::mem::MaybeUninitUnsized<Self>) -> Result<&mut Self, ::flatty::Error> {
-            use ::flatty::{prelude::*, mem::MaybeUninitUnsized, iter::{prelude::*, MutIter, type_list}};
+            use ::flatty::{prelude::*, mem::MaybeUninitUnsized, utils::iter::{prelude::*, self}};
             #body
         }
     }
@@ -70,7 +70,7 @@ fn enum_init_default_data_by_tag_method(ctx: &Context, input: &DeriveInput) -> T
             let var_name = &var.ident;
             let type_list = type_list(var.fields.iter());
             let body = if !type_list.is_empty() {
-                quote! { MutIter::new_unchecked(bytes, type_list!(#type_list)).init_default_all() }
+                quote! { iter::MutIter::new_unchecked(bytes, iter::type_list!(#type_list)).init_default_all() }
             } else {
                 quote! { Ok(()) }
             };
@@ -84,7 +84,7 @@ fn enum_init_default_data_by_tag_method(ctx: &Context, input: &DeriveInput) -> T
     };
     quote! {
         unsafe fn init_default_data_by_tag(tag: #tag_type, bytes: &mut [u8]) -> Result<(), ::flatty::Error> {
-            use ::flatty::{iter::{prelude::*, MutIter, type_list}, Error, ErrorKind};
+            use ::flatty::{utils::iter::{prelude::*, self}, Error, ErrorKind};
             if bytes.len() < Self::DATA_MIN_SIZES[tag as #enum_type as usize] {
                 return Err(Error { kind: ErrorKind::InsufficientSize, pos: 0 });
             }

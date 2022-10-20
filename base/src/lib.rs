@@ -22,7 +22,7 @@ pub mod utils;
 pub mod vec;
 
 pub use default::FlatDefault;
-pub use emplacer::Emplacer;
+pub use emplacer::{Emplacer, NeverEmplacer};
 pub use error::{Error, ErrorKind};
 pub use flat::{Flat, FlatBase, FlatCheck, FlatUnsized};
 pub use sized::FlatSized;

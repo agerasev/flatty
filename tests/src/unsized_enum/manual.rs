@@ -9,7 +9,7 @@ use flatty::{
         iter::{self, prelude::*},
         min,
     },
-    Emplacer, Error, ErrorKind, FlatVec,
+    Emplacer, Error, ErrorKind, FlatVec, NeverEmplacer,
 };
 
 #[repr(C)]
@@ -62,63 +62,78 @@ enum UnsizedEnumMut<'a> {
 #[repr(C)]
 struct UnsizedEnumAlignAs(u8, u8, u16, u8, <FlatVec<u8, u16> as FlatUnsized>::AlignAs);
 
-struct UnsizedEnumInitA;
-
 #[allow(dead_code)]
-struct UnsizedEnumInitB<__Last: Emplacer<u16>>(u8, __Last);
-
-#[allow(dead_code)]
-struct UnsizedEnumInitC<__Last: Emplacer<FlatVec<u8, u16>>> {
-    a: u8,
-    b: __Last,
+enum UnsizedEnumInit<__B, __C>
+where
+    __B: Emplacer<u16>,
+    __C: Emplacer<FlatVec<u8, u16>>,
+{
+    A,
+    B(u8, __B),
+    C { a: u8, b: __C },
 }
 
-impl Emplacer<UnsizedEnum> for UnsizedEnumInitA {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
-        let bytes = uninit.as_mut_bytes();
-        unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) }
-            .as_mut_sized()
-            .write(UnsizedEnumTag::A);
-        Ok(unsafe { uninit.assume_init_mut() })
+macro_rules! UnsizedEnumInit {
+    (A) => {
+        UnsizedEnumInit::<NeverEmplacer, NeverEmplacer>::A
+    };
+    (B($( $v:expr ),* $(,)?)) => {
+        UnsizedEnumInit::<_, NeverEmplacer>::B( $( $v ),* )
+    };
+    (C { $( $k:ident: $v:expr ),* $(,)? }) => {
+        UnsizedEnumInit::<NeverEmplacer, _>::C{ $( $k: $v ),* }
+    };
+}
+
+impl<__B, __C> UnsizedEnumInit<__B, __C>
+where
+    __B: Emplacer<u16>,
+    __C: Emplacer<FlatVec<u8, u16>>,
+{
+    fn tag(&self) -> UnsizedEnumTag {
+        match self {
+            Self::A => UnsizedEnumTag::A,
+            Self::B(..) => UnsizedEnumTag::B,
+            Self::C { .. } => UnsizedEnumTag::C,
+        }
     }
 }
 
-#[allow(dead_code)]
-impl<__Last: Emplacer<u16>> Emplacer<UnsizedEnum> for UnsizedEnumInitB<__Last> {
+impl<__B, __C> Emplacer<UnsizedEnum> for UnsizedEnumInit<__B, __C>
+where
+    __B: Emplacer<u16>,
+    __C: Emplacer<FlatVec<u8, u16>>,
+{
     fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
         let bytes = uninit.as_mut_bytes();
         unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) }
             .as_mut_sized()
-            .write(UnsizedEnumTag::B);
-        let iter = iter::MutIter::new(
-            unsafe { bytes.get_unchecked_mut(UnsizedEnum::DATA_OFFSET..) },
-            iter::type_list!(u8, u16),
-        )
-        .map_err(|e| e.offset(UnsizedEnum::DATA_OFFSET))?;
-        let (iter, u_0) = iter.next();
-        self.0.emplace(u_0)?;
-        let u_1 = iter.finalize();
-        self.1.emplace(u_1)?;
-        Ok(unsafe { uninit.assume_init_mut() })
-    }
-}
-
-#[allow(dead_code)]
-impl<__Last: Emplacer<FlatVec<u8, u16>>> Emplacer<UnsizedEnum> for UnsizedEnumInitC<__Last> {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
-        let bytes = uninit.as_mut_bytes();
-        unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) }
-            .as_mut_sized()
-            .write(UnsizedEnumTag::C);
-        let iter = iter::MutIter::new(
-            unsafe { bytes.get_unchecked_mut(UnsizedEnum::DATA_OFFSET..) },
-            iter::type_list!(u8, FlatVec<u8, u16>),
-        )
-        .map_err(|e| e.offset(UnsizedEnum::DATA_OFFSET))?;
-        let (iter, u_a) = iter.next();
-        self.a.emplace(u_a)?;
-        let u_b = iter.finalize();
-        self.b.emplace(u_b)?;
+            .write(self.tag());
+        match self {
+            Self::A => (),
+            Self::B(b0, b1) => {
+                let iter = iter::MutIter::new(
+                    unsafe { bytes.get_unchecked_mut(UnsizedEnum::DATA_OFFSET..) },
+                    iter::type_list!(u8, u16),
+                )
+                .map_err(|e| e.offset(UnsizedEnum::DATA_OFFSET))?;
+                let (iter, u0) = iter.next();
+                b0.emplace(u0)?;
+                let u1 = iter.finalize();
+                b1.emplace(u1)?;
+            }
+            Self::C { a, b } => {
+                let iter = iter::MutIter::new(
+                    unsafe { bytes.get_unchecked_mut(UnsizedEnum::DATA_OFFSET..) },
+                    iter::type_list!(u8, FlatVec<u8, u16>),
+                )
+                .map_err(|e| e.offset(UnsizedEnum::DATA_OFFSET))?;
+                let (iter, __u_a) = iter.next();
+                a.emplace(__u_a)?;
+                let __u_b = iter.finalize();
+                b.emplace(__u_b)?;
+            }
+        }
         Ok(unsafe { uninit.assume_init_mut() })
     }
 }
@@ -238,9 +253,9 @@ impl FlatCheck for UnsizedEnum {
 }
 
 impl FlatDefault for UnsizedEnum {
-    type Emplacer = UnsizedEnumInitA;
+    type Emplacer = UnsizedEnumInit<NeverEmplacer, NeverEmplacer>;
     fn default_emplacer() -> Self::Emplacer {
-        UnsizedEnumInitA
+        Self::Emplacer::A
     }
 }
 

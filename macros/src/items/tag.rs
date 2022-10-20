@@ -35,13 +35,12 @@ pub fn struct_(ctx: &Context, input: &DeriveInput, local: bool) -> TokenStream {
                 #variants
             }
 
-            impl ::flatty::FlatCast for #tag_type {
-                fn validate(this: &::flatty::mem::MaybeUninitUnsized<Self>) -> Result<(), ::flatty::Error> {
+            impl ::flatty::FlatCheck for #tag_type {
+                fn validate(this: &::flatty::mem::MaybeUninitUnsized<Self>) -> Result<&Self, ::flatty::Error> {
                     use ::flatty::{prelude::*, mem::MaybeUninitUnsized, Error, ErrorKind};
                     let tag = unsafe { MaybeUninitUnsized::<#enum_type>::from_bytes_unchecked(this.as_bytes()) };
-                    <#enum_type as FlatCast>::validate(tag)?;
-                    if *unsafe { tag.assume_init_ref() } < #var_count {
-                        Ok(())
+                    if *(<#enum_type as FlatCheck>::validate(tag)?) < #var_count {
+                        Ok(unsafe { this.assume_init() })
                     } else {
                         Err(Error {
                             kind: ErrorKind::InvalidEnumTag,
