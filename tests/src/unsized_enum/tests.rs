@@ -1,9 +1,9 @@
 macro_rules! generate_tests {
     () => {
         mod tests {
-            use super::{UnsizedEnum, UnsizedEnumInit, UnsizedEnumMut, UnsizedEnumRef, UnsizedEnumTag};
+            use super::*;
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{prelude::*, vec as flat_vec, Error, ErrorKind, NeverEmplacer};
+            use flatty::{vec as flat_vec, Error, ErrorKind};
 
             #[test]
             fn init_a() {
@@ -27,7 +27,7 @@ macro_rules! generate_tests {
                 let mut mem = vec![0u8; 6];
                 let ue = UnsizedEnum::from_mut_bytes(&mut mem)
                     .unwrap()
-                    .new_in_place(UnsizedEnumInit!(B(0xab, 0xcdef)))
+                    .new_in_place(UnsizedEnumInitB(0xab, 0xcdef))
                     .unwrap();
                 assert_eq!(ue.size(), 6);
 
@@ -49,10 +49,10 @@ macro_rules! generate_tests {
                 let mut mem = vec![0u8; 12];
                 let ue = UnsizedEnum::from_mut_bytes(&mut mem)
                     .unwrap()
-                    .new_in_place(UnsizedEnumInit!(C {
+                    .new_in_place(UnsizedEnumInitC {
                         a: 0xab,
                         b: flat_vec::FromArray([0x12, 0x34, 0x56, 0x78]),
-                    }))
+                    })
                     .unwrap();
                 assert_eq!(ue.size(), 10);
 
@@ -83,7 +83,7 @@ macro_rules! generate_tests {
                     .default_in_place()
                     .unwrap();
                 assert_eq!(ue.tag(), UnsizedEnumTag::A);
-                ue.assign_in_place(UnsizedEnumInit!(B(0, 0))).unwrap();
+                ue.assign_in_place(UnsizedEnumInitB(0, 0)).unwrap();
                 assert_eq!(ue.tag(), UnsizedEnumTag::B);
             }
 
@@ -107,7 +107,7 @@ macro_rules! generate_tests {
                     .unwrap()
                     .default_in_place()
                     .unwrap();
-                let res = ue.assign_in_place(UnsizedEnumInit!(B(0, 0)));
+                let res = ue.assign_in_place(UnsizedEnumInitB(0, 0));
                 assert_eq!(
                     res.err().unwrap(),
                     Error {
@@ -135,10 +135,10 @@ macro_rules! generate_tests {
                 let mut mem = vec![0u8; 6 + 8 * 2 + 1];
                 let ue = UnsizedEnum::from_mut_bytes(&mut mem)
                     .unwrap()
-                    .new_in_place(UnsizedEnumInit!(C {
+                    .new_in_place(UnsizedEnumInitC {
                         a: 0xab,
                         b: flat_vec::Empty,
-                    }))
+                    })
                     .unwrap();
                 if let UnsizedEnumMut::C { a: _, b } = ue.as_mut() {
                     for i in 0.. {

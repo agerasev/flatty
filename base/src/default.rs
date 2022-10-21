@@ -4,12 +4,12 @@ use crate::{error::Error, mem::MaybeUninitUnsized, Emplacer, Flat};
 ///
 /// Methods must properly initialize memory.
 pub trait FlatDefault: Flat {
-    type Emplacer: Emplacer<Self>;
+    type DefaultEmplacer: Emplacer<Self>;
 
     /// Initialize uninitialized memory into valid default state.
     ///
     /// This method returned `Ok` must guaratee that `this` could be safely transmuted to `Self`.
-    fn default_emplacer() -> Self::Emplacer;
+    fn default_emplacer() -> Self::DefaultEmplacer;
 
     /// Create a new instance of `Self` initializing raw memory into default state of `Self`.
     fn default_in_place(bytes: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
@@ -18,9 +18,9 @@ pub trait FlatDefault: Flat {
 }
 
 impl<T: Flat + Default> FlatDefault for T {
-    type Emplacer = Self;
+    type DefaultEmplacer = Self;
 
-    fn default_emplacer() -> Self::Emplacer {
+    fn default_emplacer() -> Self::DefaultEmplacer {
         Self::default()
     }
 }

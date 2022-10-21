@@ -130,7 +130,7 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    type Emplacer = Empty;
+    type DefaultEmplacer = Empty;
 
     fn default_emplacer() -> Empty {
         Empty

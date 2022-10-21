@@ -63,43 +63,69 @@ enum UnsizedEnumMut<'a> {
 struct UnsizedEnumAlignAs(u8, u8, u16, u8, <FlatVec<u8, u16> as FlatUnsized>::AlignAs);
 
 #[allow(dead_code)]
-enum UnsizedEnumInit<__B, __C>
-where
-    __B: Emplacer<u16>,
-    __C: Emplacer<FlatVec<u8, u16>>,
-{
+enum UnsizedEnumInit<B0, B1, CA, CB> {
     A,
-    B(u8, __B),
-    C { a: u8, b: __C },
+    B(B0, B1),
+    C { a: CA, b: CB },
 }
 
-macro_rules! UnsizedEnumInit {
-    (A) => {
-        UnsizedEnumInit::<NeverEmplacer, NeverEmplacer>::A
-    };
-    (B($( $v:expr ),* $(,)?)) => {
-        UnsizedEnumInit::<_, NeverEmplacer>::B( $( $v ),* )
-    };
-    (C { $( $k:ident: $v:expr ),* $(,)? }) => {
-        UnsizedEnumInit::<NeverEmplacer, _>::C{ $( $k: $v ),* }
-    };
+#[allow(dead_code)]
+struct UnsizedEnumInitA;
+
+#[allow(dead_code)]
+struct UnsizedEnumInitB<B0, B1>(pub B0, pub B1);
+
+#[allow(dead_code)]
+struct UnsizedEnumInitC<CA, CB> {
+    pub a: CA,
+    pub b: CB,
 }
 
-impl<__B, __C> Default for UnsizedEnumInit<__B, __C>
-where
-    __B: Emplacer<u16>,
-    __C: Emplacer<FlatVec<u8, u16>>,
-{
-    fn default() -> Self {
+impl From<UnsizedEnumInitA> for UnsizedEnumInit<NeverEmplacer, NeverEmplacer, NeverEmplacer, NeverEmplacer> {
+    fn from(_: UnsizedEnumInitA) -> Self {
         Self::A
     }
 }
 
-impl<__B, __C> UnsizedEnumInit<__B, __C>
+impl<B0, B1> From<UnsizedEnumInitB<B0, B1>> for UnsizedEnumInit<B0, B1, NeverEmplacer, NeverEmplacer> {
+    fn from(this: UnsizedEnumInitB<B0, B1>) -> Self {
+        Self::B(this.0, this.1)
+    }
+}
+
+impl<CA, CB> From<UnsizedEnumInitC<CA, CB>> for UnsizedEnumInit<NeverEmplacer, NeverEmplacer, CA, CB> {
+    fn from(this: UnsizedEnumInitC<CA, CB>) -> Self {
+        Self::C { a: this.a, b: this.b }
+    }
+}
+
+impl Emplacer<UnsizedEnum> for UnsizedEnumInitA {
+    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
+        UnsizedEnumInit::from(self).emplace(uninit)
+    }
+}
+
+impl<B0, B1> Emplacer<UnsizedEnum> for UnsizedEnumInitB<B0, B1>
 where
-    __B: Emplacer<u16>,
-    __C: Emplacer<FlatVec<u8, u16>>,
+    B0: Emplacer<u8>,
+    B1: Emplacer<u16>,
 {
+    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
+        UnsizedEnumInit::from(self).emplace(uninit)
+    }
+}
+
+impl<CA, CB> Emplacer<UnsizedEnum> for UnsizedEnumInitC<CA, CB>
+where
+    CA: Emplacer<u8>,
+    CB: Emplacer<FlatVec<u8, u16>>,
+{
+    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
+        UnsizedEnumInit::from(self).emplace(uninit)
+    }
+}
+
+impl<B0, B1, CA, CB> UnsizedEnumInit<B0, B1, CA, CB> {
     fn tag(&self) -> UnsizedEnumTag {
         match self {
             Self::A => UnsizedEnumTag::A,
@@ -109,10 +135,12 @@ where
     }
 }
 
-impl<__B, __C> Emplacer<UnsizedEnum> for UnsizedEnumInit<__B, __C>
+impl<B0, B1, CA, CB> Emplacer<UnsizedEnum> for UnsizedEnumInit<B0, B1, CA, CB>
 where
-    __B: Emplacer<u16>,
-    __C: Emplacer<FlatVec<u8, u16>>,
+    B0: Emplacer<u8>,
+    B1: Emplacer<u16>,
+    CA: Emplacer<u8>,
+    CB: Emplacer<FlatVec<u8, u16>>,
 {
     fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
         let bytes = uninit.as_mut_bytes();
@@ -263,9 +291,9 @@ impl FlatCheck for UnsizedEnum {
 }
 
 impl FlatDefault for UnsizedEnum {
-    type Emplacer = UnsizedEnumInit<NeverEmplacer, NeverEmplacer>;
-    fn default_emplacer() -> Self::Emplacer {
-        UnsizedEnumInit::default()
+    type DefaultEmplacer = UnsizedEnumInitA;
+    fn default_emplacer() -> Self::DefaultEmplacer {
+        UnsizedEnumInitA
     }
 }
 
