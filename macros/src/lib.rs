@@ -60,6 +60,7 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     if !ctx.info.sized {
         ctx.idents.align_as = Some(Ident::new(&format!("{}AlignAs", input.ident), input.ident.span()));
+        ctx.idents.init = Some(Ident::new(&format!("{}Init", input.ident), input.ident.span()));
     }
 
     let specific = match &input.data {
@@ -78,11 +79,14 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             } else {
                 let align_as_struct = items::align_as::struct_(&ctx, &input);
+                let init_struct = items::init::struct_(&ctx, &input);
+
+                let init_impl = items::init::impl_(&ctx, &input);
 
                 let base_impl = items::base::impl_(&ctx, &input);
-                let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
+                let unsized_impl = items::unsized_::impl_(&ctx, &input);
                 let default_impl = if ctx.info.default {
-                    items::default::impl_(&ctx, &input)
+                    items::init::impl_default(&ctx, &input)
                 } else {
                     quote! {}
                 };
@@ -92,9 +96,12 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                     #input
 
                     #align_as_struct
+                    #init_struct
+
+                    #init_impl
 
                     #base_impl
-                    #maybe_unsized_impl
+                    #unsized_impl
                     #default_impl
                 }
             }
@@ -121,15 +128,17 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let align_as_struct = items::align_as::struct_(&ctx, &input);
                 let ref_struct = items::unsized_enum::ref_struct(&ctx, &input);
                 let mut_struct = items::unsized_enum::mut_struct(&ctx, &input);
+                let init_struct = items::init::struct_(&ctx, &input);
 
                 let tag_impl = items::tag::impl_(&ctx, &input);
                 let ref_impl = items::unsized_enum::ref_impl(&ctx, &input);
                 let mut_impl = items::unsized_enum::mut_impl(&ctx, &input);
+                let init_impl = items::init::impl_(&ctx, &input);
 
                 let base_impl = items::base::impl_(&ctx, &input);
-                let maybe_unsized_impl = items::maybe_unsized::impl_(&ctx, &input);
+                let unsized_impl = items::unsized_::impl_(&ctx, &input);
                 let default_impl = if ctx.info.default {
-                    items::default::impl_(&ctx, &input)
+                    items::init::impl_default(&ctx, &input)
                 } else {
                     quote! {}
                 };
@@ -141,13 +150,15 @@ pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                     #tag_struct
                     #ref_struct
                     #mut_struct
+                    #init_struct
 
                     #tag_impl
                     #ref_impl
                     #mut_impl
+                    #init_impl
 
                     #base_impl
-                    #maybe_unsized_impl
+                    #unsized_impl
                     #default_impl
                 }
             }

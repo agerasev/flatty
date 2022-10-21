@@ -1,14 +1,17 @@
 macro_rules! generate_tests {
     () => {
         mod tests {
-            use super::{UnsizedEnum, UnsizedEnumMut, UnsizedEnumRef, UnsizedEnumTag};
+            use super::{UnsizedEnum, UnsizedEnumInitB, UnsizedEnumInitC, UnsizedEnumMut, UnsizedEnumRef, UnsizedEnumTag};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{prelude::*, Error, ErrorKind};
+            use flatty::{prelude::*, vec as flat_vec, Error, ErrorKind};
 
             #[test]
             fn init_a() {
                 let mut mem = vec![0u8; 2];
-                let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
+                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
+                    .unwrap()
+                    .default_in_place()
+                    .unwrap();
                 assert_eq!(ue.size(), 2);
 
                 match ue.as_ref() {
@@ -22,14 +25,10 @@ macro_rules! generate_tests {
             #[test]
             fn init_b() {
                 let mut mem = vec![0u8; 6];
-                let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-                ue.reset_tag(UnsizedEnumTag::B).unwrap();
-                if let UnsizedEnumMut::B(b0, b1) = ue.as_mut() {
-                    *b0 = 0xab;
-                    *b1 = 0xcdef;
-                } else {
-                    unreachable!();
-                }
+                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
+                    .unwrap()
+                    .new_in_place(UnsizedEnumInitB(0xab, 0xcdef))
+                    .unwrap();
                 assert_eq!(ue.size(), 6);
 
                 match ue.as_ref() {
@@ -48,14 +47,13 @@ macro_rules! generate_tests {
             #[test]
             fn init_c() {
                 let mut mem = vec![0u8; 12];
-                let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-                ue.reset_tag(UnsizedEnumTag::C).unwrap();
-                if let UnsizedEnumMut::C { a, b } = ue.as_mut() {
-                    *a = 0xab;
-                    b.extend_from_slice(&[0x12, 0x34, 0x56, 0x78]);
-                } else {
-                    unreachable!();
-                }
+                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
+                    .unwrap()
+                    .new_in_place(UnsizedEnumInitC {
+                        a: 0xab,
+                        b: flat_vec::FromArray([0x12, 0x34, 0x56, 0x78]),
+                    })
+                    .unwrap();
                 assert_eq!(ue.size(), 10);
 
                 match ue.as_mut() {
@@ -80,16 +78,19 @@ macro_rules! generate_tests {
             #[test]
             fn tag() {
                 let mut mem = vec![0u8; 6];
-                let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
+                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
+                    .unwrap()
+                    .default_in_place()
+                    .unwrap();
                 assert_eq!(ue.tag(), UnsizedEnumTag::A);
-                ue.reset_tag(UnsizedEnumTag::B).unwrap();
+                ue.assign_in_place(UnsizedEnumInitB(0, 0)).unwrap();
                 assert_eq!(ue.tag(), UnsizedEnumTag::B);
             }
 
             #[test]
             fn init_err() {
                 let mut mem = vec![0u8; 1];
-                let res = UnsizedEnum::placement_default(mem.as_mut_slice());
+                let res = UnsizedEnum::from_mut_bytes(&mut mem);
                 assert_eq!(
                     res.err().unwrap(),
                     Error {
@@ -102,9 +103,11 @@ macro_rules! generate_tests {
             #[test]
             fn set_err() {
                 let mut mem = vec![0u8; 2];
-                let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-                assert_eq!(ue.tag(), UnsizedEnumTag::A);
-                let res = ue.reset_tag(UnsizedEnumTag::B);
+                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
+                    .unwrap()
+                    .default_in_place()
+                    .unwrap();
+                let res = ue.assign_in_place(UnsizedEnumInitB(0, 0));
                 assert_eq!(
                     res.err().unwrap(),
                     Error {
@@ -116,8 +119,8 @@ macro_rules! generate_tests {
 
             #[test]
             fn bad_tag() {
-                let mut mem = vec![4u8, 0u8];
-                let res = UnsizedEnum::from_bytes(mem.as_mut_slice());
+                let mem = vec![4u8, 0u8];
+                let res = UnsizedEnum::from_bytes(&mem).unwrap().validate();
                 assert_eq!(
                     res.err().unwrap(),
                     Error {
@@ -130,10 +133,14 @@ macro_rules! generate_tests {
             #[test]
             fn layout() {
                 let mut mem = vec![0u8; 6 + 8 * 2 + 1];
-                let ue = UnsizedEnum::placement_default(mem.as_mut_slice()).unwrap();
-                ue.reset_tag(UnsizedEnumTag::C).unwrap();
-                if let UnsizedEnumMut::C { a, b } = ue.as_mut() {
-                    *a = 0xab;
+                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
+                    .unwrap()
+                    .new_in_place(UnsizedEnumInitC {
+                        a: 0xab,
+                        b: flat_vec::Empty,
+                    })
+                    .unwrap();
+                if let UnsizedEnumMut::C { a: _, b } = ue.as_mut() {
                     for i in 0.. {
                         if b.push(i).is_err() {
                             break;

@@ -9,7 +9,7 @@ fn ptr_metadata_method(_ctx: &Context, input: &DeriveInput) -> TokenStream {
             assert!(!struct_data.fields.is_empty());
             let last_ty = &struct_data.fields.iter().last().unwrap().ty;
             quote!(
-                <#last_ty as FlatMaybeUnsized>::ptr_metadata(unsafe {
+                <#last_ty as FlatUnsized>::ptr_metadata(unsafe {
                     MaybeUninitUnsized::<#last_ty>::from_bytes_unchecked(&this.as_bytes()[Self::LAST_FIELD_OFFSET..])
                 })
             )
@@ -39,7 +39,7 @@ fn bytes_len_method(_ctx: &Context, input: &DeriveInput) -> TokenStream {
                 None => Index::from(i).to_token_stream(),
             };
             quote!(
-                Self::LAST_FIELD_OFFSET + <#last_ty as FlatMaybeUnsized>::bytes_len(&this.#last)
+                Self::LAST_FIELD_OFFSET + <#last_ty as FlatUnsized>::bytes_len(&this.#last)
             )
         }
         Data::Enum(..) => quote! {
@@ -68,7 +68,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         if ctx.info.sized {
             None
         } else {
-            Some(quote! { ::flatty::FlatMaybeUnsized })
+            Some(quote! { ::flatty::FlatUnsized })
         },
     );
 
@@ -78,7 +78,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let bytes_len_method = bytes_len_method(ctx, input);
 
     quote! {
-        unsafe impl<#generic_params> ::flatty::FlatMaybeUnsized for #self_ident<#generic_args>
+        unsafe impl<#generic_params> ::flatty::FlatUnsized for #self_ident<#generic_args>
         #where_clause
         {
             type AlignAs = #align_as_type;

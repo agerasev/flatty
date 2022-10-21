@@ -17,7 +17,7 @@ pub fn min_size_collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
     let iter = fields.iter();
     if iter.len() > 0 {
         let type_list = type_list(iter);
-        quote! { ::flatty::iter::fold_min_size!(0; #type_list) }
+        quote! { ::flatty::utils::iter::fold_min_size!(0; #type_list) }
     } else {
         quote! { 0 }
     }
@@ -65,7 +65,7 @@ fn size_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 let var_name = &variant.ident;
                 let value = if !variant.fields.is_empty() {
                     let type_list = type_list(variant.fields.iter());
-                    quote! { unsafe { RefIter::new_unchecked(&self.data, type_list!(#type_list)).fold_size(0) } }
+                    quote! { unsafe { iter::RefIter::new_unchecked(&self.data, iter::type_list!(#type_list)).fold_size(0) } }
                 } else {
                     quote! { 0 }
                 };
@@ -76,7 +76,7 @@ fn size_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
             });
             quote! {
                 {
-                    use ::flatty::iter::{prelude::*, RefIter, type_list};
+                    use ::flatty::utils::iter::{prelude::*, self};
                     Self::DATA_OFFSET + match self.tag {
                         #variants
                     }
@@ -130,7 +130,7 @@ pub fn self_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     let type_list = type_list(data.fields.iter().take(len - 1));
                     let last_ty = &data.fields.iter().last().unwrap().ty;
                     quote! {
-                        ::flatty::utils::ceil_mul(::flatty::iter::fold_size!(0; #type_list), <#last_ty as ::flatty::FlatBase>::ALIGN)
+                        ::flatty::utils::ceil_mul(::flatty::utils::iter::fold_size!(0; #type_list), <#last_ty as ::flatty::FlatBase>::ALIGN)
                     }
                 } else {
                     quote! { 0 }

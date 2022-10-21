@@ -1,8 +1,8 @@
-use crate::{mem::MaybeUninitUnsized, Error, Flat, FlatCast};
+use crate::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
 
-impl<T: Flat + Sized, const N: usize> FlatCast for [T; N] {
-    fn validate(_: &MaybeUninitUnsized<Self>) -> Result<(), Error> {
-        Ok(())
+impl<T: Flat + Sized, const N: usize> FlatCheck for [T; N] {
+    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
+        unsafe { Ok(this.assume_init()) }
     }
 }
 

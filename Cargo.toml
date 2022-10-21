@@ -4,6 +4,6 @@ members = [
     "base",
     "portable",
     "macros",
-    "tests",
     "flatty",
+    "tests",
 ]

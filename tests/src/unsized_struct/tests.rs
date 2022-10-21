@@ -1,17 +1,21 @@
 macro_rules! generate_tests {
     () => {
         mod tests {
-            use super::UnsizedStruct;
+            use super::{UnsizedStruct, UnsizedStructInit};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::prelude::*;
+            use flatty::{prelude::*, vec};
 
             #[test]
             fn init() {
                 let mut mem = vec![0u8; 16 + 4 * 8];
-                let us = UnsizedStruct::placement_default(mem.as_mut_slice()).unwrap();
-                us.a = 200;
-                us.b = 40000;
-                us.c.extend_from_slice(&[0, 1]);
+                let us = UnsizedStruct::from_mut_bytes(&mut mem)
+                    .unwrap()
+                    .new_in_place(UnsizedStructInit {
+                        a: 200,
+                        b: 40000,
+                        c: vec::FromArray([0, 1]),
+                    })
+                    .unwrap();
 
                 assert_eq!(us.size(), 32);
                 assert_eq!(us.a, 200);
@@ -34,7 +38,10 @@ macro_rules! generate_tests {
             #[test]
             fn default() {
                 let mut mem = vec![0u8; 16 + 4 * 8];
-                let us = UnsizedStruct::placement_default(mem.as_mut_slice()).unwrap();
+                let us = UnsizedStruct::from_mut_bytes(&mut mem)
+                    .unwrap()
+                    .default_in_place()
+                    .unwrap();
 
                 assert_eq!(us.size(), 16);
                 assert_eq!(us.a, 0);
@@ -45,7 +52,10 @@ macro_rules! generate_tests {
             #[test]
             fn layout() {
                 let mut mem = vec![0u8; 16 + 4 * 8];
-                let us = UnsizedStruct::placement_default(mem.as_mut_slice()).unwrap();
+                let us = UnsizedStruct::from_mut_bytes(&mut mem)
+                    .unwrap()
+                    .default_in_place()
+                    .unwrap();
                 us.a = 0;
                 us.b = 0;
                 for i in 0.. {
@@ -64,17 +74,25 @@ macro_rules! generate_tests {
                 let mut mem_ab = vec![0u8; 16 + 4 * 8];
                 let mut mem_c = vec![0u8; 16 + 3 * 8];
                 {
-                    let us = UnsizedStruct::placement_default(&mut mem_ab).unwrap();
-                    us.a = 1;
-                    us.b = 2;
-                    us.c.extend_from_slice(&[3, 4, 5, 6]);
+                    UnsizedStruct::from_mut_bytes(&mut mem_ab)
+                        .unwrap()
+                        .new_in_place(UnsizedStructInit {
+                            a: 1,
+                            b: 2,
+                            c: vec::FromArray([3, 4, 5, 6]),
+                        })
+                        .unwrap();
                 }
-                let us_a = UnsizedStruct::from_bytes(&mem_ab).unwrap();
-                let us_b = UnsizedStruct::from_bytes(&mem_ab).unwrap();
-                let us_c = UnsizedStruct::placement_default(&mut mem_c).unwrap();
-                us_c.a = 1;
-                us_c.b = 2;
-                us_c.c.extend_from_slice(&[3, 4, 5]);
+                let us_a = UnsizedStruct::from_bytes(&mem_ab).unwrap().validate().unwrap();
+                let us_b = UnsizedStruct::from_bytes(&mem_ab).unwrap().validate().unwrap();
+                let us_c = UnsizedStruct::from_mut_bytes(&mut mem_c)
+                    .unwrap()
+                    .new_in_place(UnsizedStructInit {
+                        a: 1,
+                        b: 2,
+                        c: vec::FromArray([3, 4, 5]),
+                    })
+                    .unwrap();
 
                 assert_eq!(us_a, us_b);
                 assert_ne!(us_a, us_c);

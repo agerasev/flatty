@@ -37,6 +37,7 @@ where
 struct GenericUnsizedStruct<'a, T: Flat, U, const N: usize>
 where
     U: 'a,
+    [T; N]: Default,
 {
     a: [T; N],
     b: PhantomData<&'a U>,

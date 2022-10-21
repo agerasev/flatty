@@ -1,24 +1,26 @@
-use crate::{error::Error, mem::MaybeUninitUnsized, Flat};
+use crate::{error::Error, mem::MaybeUninitUnsized, Emplacer, Flat};
 
 /// # Safety
 ///
 /// Methods must properly initialize memory.
-pub unsafe trait FlatDefault: Flat {
-    /// Initialize memory pointed by `ptr` into valid default state.
+pub trait FlatDefault: Flat {
+    type DefaultEmplacer: Emplacer<Self>;
+
+    /// Initialize uninitialized memory into valid default state.
     ///
     /// This method returned `Ok` must guaratee that `this` could be safely transmuted to `Self`.
-    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error>;
+    fn default_emplacer() -> Self::DefaultEmplacer;
 
     /// Create a new instance of `Self` initializing raw memory into default state of `Self`.
-    fn placement_default(bytes: &mut [u8]) -> Result<&mut Self, Error> {
-        let this = MaybeUninitUnsized::from_mut_bytes(bytes)?;
-        Self::init_default(this)
+    fn default_in_place(bytes: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
+        Self::new_in_place(bytes, Self::default_emplacer())
     }
 }
 
-unsafe impl<T: Flat + Default + Sized> FlatDefault for T {
-    fn init_default(this: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
-        this.as_mut_sized().write(Self::default());
-        Ok(unsafe { this.assume_init_mut() })
+impl<T: Flat + Default> FlatDefault for T {
+    type DefaultEmplacer = Self;
+
+    fn default_emplacer() -> Self::DefaultEmplacer {
+        Self::default()
     }
 }
