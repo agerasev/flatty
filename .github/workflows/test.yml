@@ -13,8 +13,9 @@ jobs:
           override: true
       - uses: actions-rs/cargo@v1
         with:
-          command: test --all
+          command: test
+          args: --all
       - uses: actions-rs/cargo@v1
         with:
-          command: check --all
-          args: -p flatty --no-default-features
+          command: check
+          args: --no-default-features
