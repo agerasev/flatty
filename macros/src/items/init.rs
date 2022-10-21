@@ -4,7 +4,9 @@ use crate::{
 };
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{punctuated::Punctuated, token::Comma, Data, DeriveInput, Field, Fields, GenericParam, Ident, Index};
+use syn::{
+    punctuated::Punctuated, spanned::Spanned, token::Comma, Data, DeriveInput, Field, Fields, GenericParam, Ident, Index,
+};
 
 struct Param<'a> {
     ident: Ident,
@@ -23,31 +25,27 @@ impl<'a> Param<'a> {
     }
 }
 
-fn global_prefix(span: Span) -> Ident {
-    Ident::new("__flatty", span)
-}
-
-fn param<'a: 'b, 'b>(i: usize, f: &'a Field, prefix: &'b Ident) -> Param<'a> {
+fn field_param<'a: 'b, 'b>(i: usize, f: &'a Field, prefix: &'b str) -> Param<'a> {
     let name = match &f.ident {
         Some(ident) => format!("{}__{}", prefix, ident.to_string().to_uppercase()),
         None => format!("{}__{}", prefix, i),
     };
-    Param::new(Ident::new(&name, prefix.span()), f)
+    Param::new(Ident::new(&name, f.span()), f)
 }
 
-fn params<'a: 'b, 'b>(fields: &'a Fields, prefix: &'b Ident) -> Vec<Param<'a>> {
-    fields.iter().enumerate().map(|(i, f)| param(i, f, prefix)).collect()
+fn fields_params<'a: 'b, 'b>(fields: &'a Fields, prefix: &'b str) -> Vec<Param<'a>> {
+    fields.iter().enumerate().map(|(i, f)| field_param(i, f, prefix)).collect()
 }
 
-fn data_params<'a: 'b, 'b>(data: &'a Data, prefix: &'b Ident) -> Vec<Vec<Param<'a>>> {
+fn data_params<'a: 'b, 'b>(data: &'a Data, prefix: &'b str) -> Vec<Vec<Param<'a>>> {
     match data {
-        Data::Struct(struct_) => vec![params(&struct_.fields, prefix)],
+        Data::Struct(struct_) => vec![fields_params(&struct_.fields, prefix)],
         Data::Enum(enum_) => enum_
             .variants
             .iter()
             .map(|var| {
-                let prefix = Ident::new(&format!("{}__{}", prefix, var.ident), var.ident.span());
-                params(&var.fields, &prefix)
+                let prefix = format!("{}__{}", prefix, var.ident);
+                fields_params(&var.fields, &prefix)
             })
             .collect(),
         Data::Union(..) => unimplemented!(),
@@ -78,15 +76,27 @@ fn extend_params<'a, 'b: 'a, I: Iterator<Item = &'a Param<'b>>>(
     params
 }
 
+fn variant_ident(init_ident: &Ident, var_ident: &Ident) -> Ident {
+    Ident::new(&format!("{}{}", init_ident, var_ident), var_ident.span())
+}
+
 pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
-    fn collect_fields(fields: &Fields, prefix: &Ident) -> (TokenStream, TokenStream) {
-        let params = params(fields, prefix);
+    fn collect_fields(fields: &Fields, prefix: &str, pub_: bool) -> (TokenStream, TokenStream) {
+        let get_vis = |param: &Param| {
+            if pub_ {
+                quote! { pub }
+            } else {
+                let vis = &param.field.vis;
+                quote! { #vis }
+            }
+        };
+        let params = fields_params(fields, prefix);
         match fields {
             Fields::Unit => (quote! {}, quote! {;}),
             Fields::Unnamed(..) => {
                 let items = params.iter().fold(quote! {}, |accum, param| {
                     let ty = &param.ident;
-                    let vis = &param.field.vis;
+                    let vis = get_vis(param);
                     quote! { #accum #vis #ty, }
                 });
                 (quote! { ( #items ) }, quote! {;})
@@ -95,7 +105,7 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 let items = params.iter().fold(quote! {}, |accum, param| {
                     let ty = &param.ident;
                     let fi = param.field.ident.as_ref().unwrap();
-                    let vis = &param.field.vis;
+                    let vis = get_vis(param);
                     quote! { #accum #vis #fi: #ty, }
                 });
                 (quote! { { #items } }, quote! {})
@@ -106,35 +116,49 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let init_ident = ctx.idents.init.as_ref().unwrap();
     let vis = &input.vis;
 
-    let prefix = global_prefix(init_ident.span());
+    let prefix = "";
     let params = data_params(&input.data, &prefix);
-    let item = match &input.data {
+    match &input.data {
         Data::Struct(data) => {
             let args = make_args(params.iter().flatten());
-            let (body, semi) = collect_fields(&data.fields, &prefix);
+            let (body, semi) = collect_fields(&data.fields, &prefix, false);
             quote! {
+                #[allow(non_camel_case_types)]
                 #vis struct #init_ident<#args> #body #semi
             }
         }
         Data::Enum(data) => {
             let mut items = quote! {};
-            let args = make_args(params.iter().flatten());
+            let mut variants = quote! {};
             for var in data.variants.iter() {
                 let var_ident = &var.ident;
-                let prefix = Ident::new(&format!("{}__{}", prefix, var_ident), var_ident.span());
-                let (var_body, _) = collect_fields(&var.fields, &prefix);
-                items = quote! {
-                    #items
+                let prefix = format!("{}__{}", prefix, var_ident);
+                let (var_body, _) = collect_fields(&var.fields, &prefix, false);
+                variants = quote! {
+                    #variants
                     #var_ident #var_body,
                 };
+
+                let var_init_ident = variant_ident(init_ident, var_ident);
+                let var_args = make_args(fields_params(&var.fields, "").iter());
+                let (body, semi) = collect_fields(&var.fields, "", true);
+                items = quote! {
+                    #items
+
+                    #[allow(non_camel_case_types)]
+                    #vis struct #var_init_ident<#var_args> #body #semi
+                }
             }
-            quote! { #vis enum #init_ident<#args> { #items } }
+
+            let args = make_args(params.iter().flatten());
+            quote! {
+                #[allow(non_camel_case_types)]
+                #vis enum #init_ident<#args> { #variants }
+
+                #items
+            }
         }
         _ => unimplemented!(),
-    };
-    quote! {
-        #[allow(non_camel_case_types)]
-        #item
     }
 }
 
@@ -183,11 +207,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let self_args = generic::args(&input.generics);
     let where_clause = &input.generics.where_clause;
 
-    let prefix = global_prefix(init_ident.span());
-    let init_params = data_params(&input.data, &prefix);
-
-    let init_args = make_args(init_params.iter().flatten());
-    let all_params = extend_params(self_params, init_params.iter().flatten());
+    let init_params = data_params(&input.data, "");
 
     let body = match &input.data {
         Data::Struct(data) => collect_fields(&data.fields, |i, f| {
@@ -235,7 +255,76 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         _ => unimplemented!(),
     };
 
+    let mut impls = quote! {};
+    if let Data::Enum(data) = &input.data {
+        for (i, var) in data.variants.iter().enumerate() {
+            let var_ident = &var.ident;
+            let var_init_ident = variant_ident(init_ident, var_ident);
+
+            let params = fields_params(&var.fields, "");
+            let args = make_args(params.iter());
+            let all_params = extend_params(self_params, params.iter());
+
+            let mut init_args = quote! {};
+            for (j, ref_params) in init_params.iter().enumerate() {
+                let ia = if i != j {
+                    (0..(ref_params.len())).into_iter().fold(quote! {}, |a, _| {
+                        quote! { #a ::flatty::NeverEmplacer, }
+                    })
+                } else {
+                    make_args(params.iter())
+                };
+                init_args = quote! { #init_args #ia };
+            }
+
+            let body = match &var.fields {
+                Fields::Unit => quote! {},
+                Fields::Unnamed(fields) => {
+                    let items = fields.unnamed.iter().enumerate().fold(quote! {}, |a, (i, _)| {
+                        let index = Index::from(i);
+                        quote! { #a this.#index, }
+                    });
+                    quote! { (#items) }
+                }
+                Fields::Named(fields) => {
+                    let items = fields.named.iter().fold(quote! {}, |a, f| {
+                        let ident = f.ident.as_ref().unwrap();
+                        quote! { #a #ident: this.#ident, }
+                    });
+                    quote! { { #items } }
+                }
+            };
+
+            impls = quote! {
+                #impls
+
+                #[allow(non_camel_case_types)]
+                impl<#args> From<#var_init_ident<#args>> for #init_ident<#init_args> {
+                    fn from(this: #var_init_ident<#args>) -> Self {
+                        Self::#var_ident #body
+                    }
+                }
+
+                #[allow(non_camel_case_types)]
+                impl<#all_params> ::flatty::Emplacer<#self_ident<#self_args>> for #var_init_ident<#args>
+                #where_clause
+                {
+                    fn emplace<'__flatty_a>(
+                        self,
+                        uninit: &'__flatty_a mut ::flatty::mem::MaybeUninitUnsized<#self_ident<#self_args>>,
+                    ) -> Result<&'__flatty_a mut #self_ident<#self_args>, ::flatty::Error> {
+                        <#init_ident<#init_args> as From<Self>>::from(self).emplace(uninit)
+                    }
+                }
+            }
+        }
+    }
+
+    let init_args = make_args(init_params.iter().flatten());
+    let all_params = extend_params(self_params, init_params.iter().flatten());
     quote! {
+        #impls
+
         #[allow(non_camel_case_types)]
         impl<#all_params> ::flatty::Emplacer<#self_ident<#self_args>> for #init_ident<#init_args>
         #where_clause
