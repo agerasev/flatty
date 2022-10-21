@@ -170,14 +170,12 @@ where
 #[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
-    use std::{
-        mem::{align_of_val, size_of_val},
-        vec,
-    };
+    use crate::utils::alloc::AlignedBytes;
+    use std::mem::{align_of_val, size_of_val};
 
     #[test]
     fn data_offset() {
-        let mut bytes = vec![0u8; 2 + 3 * 4];
+        let mut bytes = AlignedBytes::new(4 + 3 * 4, 4);
         let flat_vec = FlatVec::<i32, u16>::from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
@@ -188,18 +186,20 @@ mod tests {
 
     #[test]
     fn align() {
-        let mut bytes = vec![0u8; 4 + 3 * 4];
-        let flat_vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
+        let mut bytes = AlignedBytes::new(4 + 3 * 2, 4);
+        let flat_vec = FlatVec::<i16, u32>::from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
             .unwrap();
 
-        assert_eq!(align_of_val(flat_vec), FlatVec::<i32, u32>::ALIGN);
+        assert_eq!(align_of_val(flat_vec), 4);
+        assert_eq!(flat_vec.capacity(), 2);
+        assert_eq!(size_of_val(flat_vec), 8);
     }
 
     #[test]
     fn len_cap() {
-        let mut bytes = vec![0u8; 4 + 3 * 4];
+        let mut bytes = AlignedBytes::new(4 + 3 * 4, 4);
         let flat_vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn size() {
-        let mut bytes = vec![0u8; 4 + 3 * 4];
+        let mut bytes = AlignedBytes::new(4 + 3 * 4, 4);
         let flat_vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn extend_from_slice() {
-        let mut bytes = vec![0u8; 4 * 6];
+        let mut bytes = AlignedBytes::new(4 * 6, 4);
         let vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
@@ -250,21 +250,21 @@ mod tests {
 
     #[test]
     fn eq() {
-        let mut mem_a = vec![0u8; 4 * 5];
+        let mut mem_a = AlignedBytes::new(4 * 5, 4);
         let vec_a = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_a)
             .unwrap()
             .default_in_place()
             .unwrap();
         assert_eq!(vec_a.extend_from_slice(&[1, 2, 3, 4]), 4);
 
-        let mut mem_b = vec![0u8; 4 * 5];
+        let mut mem_b = AlignedBytes::new(4 * 5, 4);
         let vec_b = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_b)
             .unwrap()
             .default_in_place()
             .unwrap();
         assert_eq!(vec_b.extend_from_slice(&[1, 2, 3, 4]), 4);
 
-        let mut mem_c = vec![0u8; 4 * 3];
+        let mut mem_c = AlignedBytes::new(4 * 3, 4);
         let vec_c = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_c)
             .unwrap()
             .default_in_place()

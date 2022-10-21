@@ -1,10 +1,10 @@
 use crate::le;
-use base::{prelude::*, FlatVec};
+use base::{prelude::*, utils::alloc::AlignedBytes, FlatVec};
 use core::mem::align_of_val;
 
 #[test]
 fn vec() {
-    let mut bytes = vec![0u8; 2 + 3 * 4];
+    let mut bytes = AlignedBytes::new(2 + 3 * 4, 1);
     let flat_vec = FlatVec::<le::I32, le::U16>::from_mut_bytes(&mut bytes)
         .unwrap()
         .default_in_place()

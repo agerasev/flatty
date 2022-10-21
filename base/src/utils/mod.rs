@@ -1,3 +1,5 @@
+#[cfg(feature = "std")]
+pub mod alloc;
 pub mod iter;
 
 /// `const` version of [`usize::max`].

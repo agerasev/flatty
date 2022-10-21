@@ -3,11 +3,11 @@ macro_rules! generate_tests {
         mod tests {
             use super::{UnsizedEnum, UnsizedEnumInitB, UnsizedEnumInitC, UnsizedEnumMut, UnsizedEnumRef, UnsizedEnumTag};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{prelude::*, vec as flat_vec, Error, ErrorKind};
+            use flatty::{prelude::*, utils::alloc::AlignedBytes, vec as flat_vec, Error, ErrorKind};
 
             #[test]
             fn init_a() {
-                let mut mem = vec![0u8; 2];
+                let mut mem = AlignedBytes::new(2, 2);
                 let ue = UnsizedEnum::from_mut_bytes(&mut mem)
                     .unwrap()
                     .default_in_place()
@@ -24,7 +24,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn init_b() {
-                let mut mem = vec![0u8; 6];
+                let mut mem = AlignedBytes::new(6, 2);
                 let ue = UnsizedEnum::from_mut_bytes(&mut mem)
                     .unwrap()
                     .new_in_place(UnsizedEnumInitB(0xab, 0xcdef))
@@ -46,7 +46,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn init_c() {
-                let mut mem = vec![0u8; 12];
+                let mut mem = AlignedBytes::new(12, 2);
                 let ue = UnsizedEnum::from_mut_bytes(&mut mem)
                     .unwrap()
                     .new_in_place(UnsizedEnumInitC {
@@ -77,7 +77,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn tag() {
-                let mut mem = vec![0u8; 6];
+                let mut mem = AlignedBytes::new(6, 2);
                 let ue = UnsizedEnum::from_mut_bytes(&mut mem)
                     .unwrap()
                     .default_in_place()
@@ -89,7 +89,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn init_err() {
-                let mut mem = vec![0u8; 1];
+                let mut mem = AlignedBytes::new(1, 2);
                 let res = UnsizedEnum::from_mut_bytes(&mut mem);
                 assert_eq!(
                     res.err().unwrap(),
@@ -102,7 +102,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn set_err() {
-                let mut mem = vec![0u8; 2];
+                let mut mem = AlignedBytes::new(2, 2);
                 let ue = UnsizedEnum::from_mut_bytes(&mut mem)
                     .unwrap()
                     .default_in_place()
@@ -119,7 +119,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn bad_tag() {
-                let mem = vec![4u8, 0u8];
+                let mem = AlignedBytes::from_slice(&[4u8, 0u8], 2);
                 let res = UnsizedEnum::from_bytes(&mem).unwrap().validate();
                 assert_eq!(
                     res.err().unwrap(),
@@ -132,7 +132,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn layout() {
-                let mut mem = vec![0u8; 6 + 8 * 2 + 1];
+                let mut mem = AlignedBytes::new(6 + 8 * 2 + 1, 2);
                 let ue = UnsizedEnum::from_mut_bytes(&mut mem)
                     .unwrap()
                     .new_in_place(UnsizedEnumInitC {

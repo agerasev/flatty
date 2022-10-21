@@ -3,11 +3,11 @@ macro_rules! generate_tests {
         mod tests {
             use super::SizedStruct;
             use core::mem::{align_of, size_of};
-            use flatty::prelude::*;
+            use flatty::{prelude::*, utils::alloc::AlignedBytes};
 
             #[test]
             fn init() {
-                let mut m = vec![0u8; 16 + 8 * 4];
+                let mut m = AlignedBytes::new(16 + 8 * 4, 8);
                 let ss = SizedStruct::from_mut_bytes(&mut m)
                     .unwrap()
                     .new_in_place(SizedStruct {
@@ -26,7 +26,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn default() {
-                let mut m = vec![0u8; 16 + 8 * 4];
+                let mut m = AlignedBytes::new(16 + 8 * 4, 8);
                 let ss = SizedStruct::from_mut_bytes(&mut m).unwrap().default_in_place().unwrap();
 
                 assert_eq!(ss.a, u8::default());
@@ -37,10 +37,11 @@ macro_rules! generate_tests {
 
             #[test]
             fn interpret() {
-                let m = (0..4).fold(vec![0x12, 0xff, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12], |mut a, i| {
-                    a.extend([i + 1, 0, 0, 0, 0, 0, 0, 0].into_iter());
+                let um = (0..4).fold(vec![0x12, 0xff, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12], |mut a, i| {
+                    a.extend_from_slice(&[i + 1, 0, 0, 0, 0, 0, 0, 0]);
                     a
                 });
+                let m = AlignedBytes::from_slice(&um, 8);
                 let ss = SizedStruct::from_bytes(&m).unwrap().validate().unwrap();
 
                 assert_eq!(ss.a, 0x12);
@@ -51,7 +52,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn layout() {
-                let mut m = vec![0u8; 16 + 8 * 4];
+                let mut m = AlignedBytes::new(16 + 8 * 4, 8);
                 let ss = SizedStruct::from_mut_bytes(&mut m).unwrap().default_in_place().unwrap();
 
                 assert_eq!(align_of::<SizedStruct>(), <SizedStruct as FlatBase>::ALIGN);

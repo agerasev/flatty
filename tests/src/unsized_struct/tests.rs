@@ -3,11 +3,11 @@ macro_rules! generate_tests {
         mod tests {
             use super::{UnsizedStruct, UnsizedStructInit};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{prelude::*, vec};
+            use flatty::{prelude::*, utils::alloc::AlignedBytes, vec};
 
             #[test]
             fn init() {
-                let mut mem = vec![0u8; 16 + 4 * 8];
+                let mut mem = AlignedBytes::new(16 + 4 * 8, 8);
                 let us = UnsizedStruct::from_mut_bytes(&mut mem)
                     .unwrap()
                     .new_in_place(UnsizedStructInit {
@@ -37,7 +37,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn default() {
-                let mut mem = vec![0u8; 16 + 4 * 8];
+                let mut mem = AlignedBytes::new(16 + 4 * 8, 8);
                 let us = UnsizedStruct::from_mut_bytes(&mut mem)
                     .unwrap()
                     .default_in_place()
@@ -51,7 +51,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn layout() {
-                let mut mem = vec![0u8; 16 + 4 * 8];
+                let mut mem = AlignedBytes::new(16 + 4 * 8, 8);
                 let us = UnsizedStruct::from_mut_bytes(&mut mem)
                     .unwrap()
                     .default_in_place()
@@ -71,8 +71,8 @@ macro_rules! generate_tests {
 
             #[test]
             fn eq() {
-                let mut mem_ab = vec![0u8; 16 + 4 * 8];
-                let mut mem_c = vec![0u8; 16 + 3 * 8];
+                let mut mem_ab = AlignedBytes::new(16 + 4 * 8, 8);
+                let mut mem_c = AlignedBytes::new(16 + 3 * 8, 8);
                 {
                     UnsizedStruct::from_mut_bytes(&mut mem_ab)
                         .unwrap()

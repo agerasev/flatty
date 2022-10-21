@@ -1,4 +1,4 @@
-use crate::{Emplacer, Error, ErrorKind, FlatCheck, FlatDefault, FlatSized, FlatUnsized};
+use crate::{utils::floor_mul, Emplacer, Error, ErrorKind, FlatCheck, FlatDefault, FlatSized, FlatUnsized};
 use core::{
     mem::MaybeUninit,
     slice::{from_raw_parts, from_raw_parts_mut},
@@ -35,12 +35,14 @@ impl<T: FlatUnsized + ?Sized> MaybeUninitUnsized<T> {
     ///
     /// Bytes must be aligned to `T::ALIGN` and have length greater or equal to `T::MIN_SIZE`.
     pub unsafe fn from_bytes_unchecked(bytes: &[u8]) -> &Self {
+        let bytes = bytes.get_unchecked(..floor_mul(bytes.len(), T::ALIGN));
         &*(bytes as *const [u8] as *const Self)
     }
     /// # Safety
     ///
     /// Bytes must be aligned to `T::ALIGN` and have length greater or equal to `T::MIN_SIZE`.
     pub unsafe fn from_mut_bytes_unchecked(bytes: &mut [u8]) -> &mut Self {
+        let bytes = bytes.get_unchecked_mut(..floor_mul(bytes.len(), T::ALIGN));
         &mut *(bytes as *mut [u8] as *mut Self)
     }
     /// Try to convert bytes to potentially unintialized instance of `T`.
