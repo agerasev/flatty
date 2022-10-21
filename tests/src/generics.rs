@@ -4,6 +4,7 @@ use flatty::{flat, Flat, FlatVec};
 use std::marker::PhantomData;
 
 #[flat]
+#[derive(Default)]
 struct GenericSizedStruct<'a, S: Flat, T: Flat, U, const N: usize>
 where
     U: 'a,
@@ -15,6 +16,7 @@ where
 }
 
 #[flat]
+#[derive(Default)]
 enum GenericSizedEnum<'a, S: Flat, T: Flat, U, const N: usize>
 where
     U: 'a,
@@ -33,7 +35,7 @@ where
     E,
 }
 
-#[flat(sized = false)]
+#[flat(sized = false, default = true)]
 struct GenericUnsizedStruct<'a, T: Flat, U, const N: usize>
 where
     U: 'a,
@@ -44,7 +46,7 @@ where
     c: FlatVec<T>,
 }
 
-#[flat(sized = false)]
+#[flat(sized = false, default = true)]
 enum GenericUnsizedEnum<'a, S: Flat, T: Flat, U, const N: usize>
 where
     U: 'a,

@@ -1,6 +1,6 @@
 use flatty::{flat, prelude::*, utils::alloc::AlignedBytes, ErrorKind};
 
-#[flat(sized = false)]
+#[flat(sized = false, default = true)]
 #[derive(Default, Debug, PartialEq, Eq)]
 enum UnsizedSizedEnum {
     #[default]

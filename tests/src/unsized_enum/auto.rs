@@ -1,7 +1,7 @@
 use super::tests::generate_tests;
 use flatty::{flat, FlatVec};
 
-#[flat(sized = false)]
+#[flat(sized = false, default = true)]
 enum UnsizedEnum {
     #[default]
     A,

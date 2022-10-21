@@ -64,7 +64,7 @@ impl Parse for Info {
             default: if let Some(lit) = params.remove("default") {
                 parse_lit_bool(lit)?
             } else {
-                true
+                false
             },
         };
 
