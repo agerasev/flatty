@@ -1,12 +1,13 @@
 [package]
 name = "flatty"
-version = "0.1.0-alpha.2"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
-authors = ["Alexey Gerasev <alexey.gerasev@gmail.com>"]
-description = "Flatty traits and primitives"
-repository = "https://github.com/agerasev/flatty.git"
-license = "MIT/Apache-2.0"
+description = "Flat types"
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
 
 readme = "../README.md"
 documentation = "https://docs.rs/flatty"
@@ -17,6 +18,6 @@ default = ["std"]
 std = ["base/std"]
 
 [dependencies]
-base = { package = "flatty-base", path = "../base", version = "0.1.0-alpha.2", default-features = false }
-portable = { package = "flatty-portable", path = "../portable", version = "0.1.0-alpha.2", default-features = false }
-macros = { package = "flatty-macros", path = "../macros", version = "0.1.0-alpha.2" }
+macros = { package = "flatty-macros", path = "../macros" }
+base = { package = "flatty-base", path = "../base", default-features = false }
+portable = { package = "flatty-portable", path = "../portable", default-features = false }
