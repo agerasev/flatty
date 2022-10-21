@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use flatty::{make_flat, FlatVec};
+use flatty::{flat, FlatVec};
 
-#[make_flat(default = false)]
+#[flat(default = false)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SizedStruct {
     a: u8,
@@ -11,7 +11,7 @@ struct SizedStruct {
     d: [u64; 4],
 }
 
-#[make_flat(enum_type = "u8", default = false)]
+#[flat(default = false)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum SizedEnum {
     A,
@@ -20,7 +20,7 @@ enum SizedEnum {
     D(u32),
 }
 
-#[make_flat(sized = false, default = false)]
+#[flat(sized = false, default = false)]
 #[derive(Debug, PartialEq, Eq)]
 struct UnsizedStruct {
     a: u8,
@@ -28,7 +28,7 @@ struct UnsizedStruct {
     c: FlatVec<u64, u32>,
 }
 
-#[make_flat(sized = false, enum_type = "u8", default = false)]
+#[flat(sized = false, default = false)]
 enum UnsizedEnum {
     A,
     B(u8, u16),

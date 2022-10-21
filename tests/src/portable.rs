@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use flatty::{make_flat, portable::le, FlatVec};
+use flatty::{flat, portable::le, FlatVec};
 
-#[make_flat(portable = true)]
+#[flat(portable = true)]
 struct PortableStruct {
     a: u8,
     b: le::U16,
@@ -10,7 +10,7 @@ struct PortableStruct {
     d: [le::U64; 4],
 }
 
-#[make_flat(portable = true)]
+#[flat(portable = true)]
 enum PortableEnum {
     #[default]
     A,
@@ -18,13 +18,13 @@ enum PortableEnum {
     C(PortableStruct),
 }
 
-#[make_flat(sized = false, portable = true)]
+#[flat(sized = false, portable = true)]
 struct PortableUnsizedStruct {
     a: le::U16,
     b: FlatVec<le::U32, le::U16>,
 }
 
-#[make_flat(sized = false, portable = true)]
+#[flat(sized = false, portable = true)]
 enum PortableUnsizedEnum {
     #[default]
     A,

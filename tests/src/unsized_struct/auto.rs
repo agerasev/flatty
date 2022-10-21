@@ -1,7 +1,7 @@
 use super::tests::generate_tests;
-use flatty::{make_flat, FlatVec};
+use flatty::{flat, FlatVec};
 
-#[make_flat(sized = false)]
+#[flat(sized = false)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct UnsizedStruct {
     pub a: u8,

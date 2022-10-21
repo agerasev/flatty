@@ -1,6 +1,6 @@
-use flatty::{make_flat, prelude::*, ErrorKind};
+use flatty::{flat, prelude::*, ErrorKind};
 
-#[make_flat(sized = false, enum_type = "u8")]
+#[flat(sized = false)]
 #[derive(Default, Debug, PartialEq, Eq)]
 enum UnsizedSizedEnum {
     #[default]

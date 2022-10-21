@@ -16,14 +16,14 @@ use syn::{parse_macro_input, Data, DeriveInput, Ident};
 /// # Usage examples
 ///
 /// ```rust_no_check
-/// #[flatty::make_flat(sized = false)]
+/// #[flatty::flat(sized = false)]
 /// struct ... { ... }
 /// ```
 ///
 /// or
 ///
 /// ```rust_no_check
-/// #[flatty::make_flat(sized = false, enum_type = "u32")]
+/// #[flatty::flat(sized = false, enum_type = "u32")]
 /// enum ... { ... }
 /// ```
 ///
@@ -34,7 +34,7 @@ use syn::{parse_macro_input, Data, DeriveInput, Ident};
 ///   The type used for enum variant index. Possible valiues: `"u8"`, `"u16"`, `"u32"`.
 /// + `portable: bool`, optional, `false` by default. Whether structure should implement `Portable`.
 #[proc_macro_attribute]
-pub fn make_flat(attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut ctx = Context {
         info: parse_macro_input!(attr as Info),
         idents: AssocIdents::default(),

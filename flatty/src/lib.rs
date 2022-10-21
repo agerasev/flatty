@@ -30,7 +30,7 @@
 //! ### Sized struct
 //!
 //! ```rust
-//! #[flatty::make_flat]
+//! #[flatty::flat]
 //! struct SizedStruct {
 //!     a: u8,
 //!     b: u16,
@@ -44,7 +44,7 @@
 //! For enum you may explicitly set the type of variant index (default value is [`u8`]).
 //!
 //! ```rust
-//! #[flatty::make_flat(enum_type = "u32")]
+//! #[flatty::flat(enum_type = "u32")]
 //! enum SizedEnum {
 //!     A,
 //!     B(u16, u8),
@@ -56,7 +56,7 @@
 //! ### Unsized struct
 //!
 //! ```rust
-//! #[flatty::make_flat(sized = false)]
+//! #[flatty::flat(sized = false)]
 //! struct UnsizedStruct {
 //!     a: u8,
 //!     b: u16,
@@ -67,7 +67,7 @@
 //! ### Unsized enum
 //!
 //! ```rust
-//! #[flatty::make_flat(sized = false)]
+//! #[flatty::flat(sized = false)]
 //! enum UnsizedEnum {
 //!     A,
 //!     B(u8, u16),
@@ -77,7 +77,7 @@
 //!
 */
 pub use base::*;
-pub use macros::make_flat;
+pub use macros::flat;
 pub use portable;
 
 pub use portable::Portable;

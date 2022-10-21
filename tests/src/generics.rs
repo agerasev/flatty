@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
-use flatty::{make_flat, Flat, FlatVec};
+use flatty::{flat, Flat, FlatVec};
 use std::marker::PhantomData;
 
-#[make_flat]
+#[flat]
 struct GenericSizedStruct<'a, S: Flat, T: Flat, U, const N: usize>
 where
     U: 'a,
@@ -14,7 +14,7 @@ where
     c: PhantomData<&'a U>,
 }
 
-#[make_flat]
+#[flat]
 enum GenericSizedEnum<'a, S: Flat, T: Flat, U, const N: usize>
 where
     U: 'a,
@@ -33,7 +33,7 @@ where
     E,
 }
 
-#[make_flat(sized = false)]
+#[flat(sized = false)]
 struct GenericUnsizedStruct<'a, T: Flat, U, const N: usize>
 where
     U: 'a,
@@ -44,7 +44,7 @@ where
     c: FlatVec<T>,
 }
 
-#[make_flat(sized = false)]
+#[flat(sized = false)]
 enum GenericUnsizedEnum<'a, S: Flat, T: Flat, U, const N: usize>
 where
     U: 'a,

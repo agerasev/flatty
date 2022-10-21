@@ -43,7 +43,7 @@ Message is represented as native Rust `struct` or `enum`.
 ### Sized struct
 
 ```rust
-#[flatty::make_flat]
+#[flatty::flat]
 struct SizedStruct {
     a: u8,
     b: u16,
@@ -57,7 +57,7 @@ struct SizedStruct {
 For enum you may explicitly set the type of variant index (default value is `u8`).
 
 ```rust
-#[flatty::make_flat(enum_type = "u32")]
+#[flatty::flat(enum_type = "u32")]
 enum SizedEnum {
     A,
     B(u16, u8),
@@ -71,7 +71,7 @@ enum SizedEnum {
 Unsized struct is [DST](https://doc.rust-lang.org/reference/dynamically-sized-types.html). The reference to that structure contains its size.
 
 ```rust
-#[flatty::make_flat(sized = false)]
+#[flatty::flat(sized = false)]
 struct UnsizedStruct {
     a: u8,
     b: u16,
@@ -87,7 +87,7 @@ Rust doesn't support [DST](https://doc.rust-lang.org/reference/dynamically-sized
 But it has `as_ref`/`as_mut` methods that returns a native enum that contains references to original enum fields.
 
 ```rust
-#[flatty::make_flat(sized = false)]
+#[flatty::flat(sized = false)]
 enum UnsizedEnum {
     A,
     B(u8, u16),

@@ -96,7 +96,7 @@ pub trait FlatCheck: FlatUnsized {
 
 /// Flat type.
 ///
-/// *If you want to implement this type for your custom type it's recommended to use safe `make_flat` macro instead.*
+/// *If you want to implement this type for your custom type it's recommended to use safe `flat` macro instead.*
 ///
 /// # Safety
 ///

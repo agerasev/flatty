@@ -1,7 +1,7 @@
 use super::tests::generate_tests;
-use flatty::make_flat;
+use flatty::flat;
 
-#[make_flat]
+#[flat]
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SizedStruct {
     a: u8,
