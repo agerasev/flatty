@@ -176,7 +176,10 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         let mut items = if len > 0 {
             let type_list = type_list(fields.iter());
             quote! {
-                let iter = unsafe { iter::MutIter::new_unchecked(uninit.as_mut_bytes(), iter::type_list!(#type_list)) };
+                let iter = unsafe { iter::MutIter::new_unchecked(
+                    bytes,
+                    iter::type_list!(#type_list),
+                ) };
             }
         } else {
             quote! {}
@@ -210,11 +213,18 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let init_params = data_params(&input.data, "");
 
     let body = match &input.data {
-        Data::Struct(data) => collect_fields(&data.fields, |i, f| {
-            let item = field_postfix(i, f);
-            quote! { self.#item }
-        }),
+        Data::Struct(data) => {
+            let body = collect_fields(&data.fields, |i, f| {
+                let item = field_postfix(i, f);
+                quote! { self.#item }
+            });
+            quote! {
+                let bytes = uninit.as_mut_bytes();
+                #body
+            }
+        }
         Data::Enum(data) => {
+            let tag_ident = ctx.idents.tag.as_ref().unwrap();
             let items = data.variants.iter().fold(quote! {}, |accum, var| {
                 let ident = &var.ident;
                 let get_item = |i, f| {
@@ -226,7 +236,12 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                         quote! { #ident }
                     }
                 };
-                let items = collect_fields(&var.fields, get_item);
+                let tag = quote! {
+                    unsafe { ::flatty::mem::MaybeUninitUnsized::<#tag_ident>::from_mut_bytes_unchecked(bytes) }
+                        .as_mut_sized()
+                        .write(#tag_ident::#ident);
+                };
+                let body = collect_fields(&var.fields, get_item);
                 let pat_body = var
                     .fields
                     .iter()
@@ -241,7 +256,10 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 quote! {
                     #accum
                     #init_ident::#ident #pat => {
-                        #items
+                        let mut bytes = uninit.as_mut_bytes();
+                        #tag
+                        bytes = unsafe{ bytes.get_unchecked_mut(<#self_ident<#self_args>>::DATA_OFFSET..) };
+                        #body
                     }
                 }
             });
