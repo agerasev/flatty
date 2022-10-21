@@ -13,6 +13,6 @@ default = ["std"]
 std = ["stavec/std"]
 
 [dependencies.stavec]
-version = "0.2.0-rc.0"
+version = "0.2.0"
 default-features = false
 features = ["repr-c"]
