@@ -1,9 +1,9 @@
 macro_rules! generate_tests {
     () => {
         mod tests {
-            use super::*;
+            use super::{UnsizedEnum, UnsizedEnumInitB, UnsizedEnumInitC, UnsizedEnumMut, UnsizedEnumRef, UnsizedEnumTag};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{vec as flat_vec, Error, ErrorKind};
+            use flatty::{prelude::*, vec as flat_vec, Error, ErrorKind};
 
             #[test]
             fn init_a() {

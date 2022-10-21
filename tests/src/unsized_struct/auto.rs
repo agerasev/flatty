@@ -1,4 +1,4 @@
-//use super::tests::generate_tests;
+use super::tests::generate_tests;
 use flatty::{make_flat, FlatVec};
 
 #[make_flat(sized = false)]
@@ -9,4 +9,4 @@ pub struct UnsizedStruct {
     c: FlatVec<u64, u32>,
 }
 
-//generate_tests!();
+generate_tests!();
