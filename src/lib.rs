@@ -1,4 +1,3 @@
-/*
 //! Flat message buffers.
 //!
 //! # Overview
@@ -75,7 +74,6 @@
 //! }
 //! ```
 //!
-*/
 pub use base::*;
 pub use macros::flat;
 pub use portable;

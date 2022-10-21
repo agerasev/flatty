@@ -33,6 +33,7 @@ use syn::{parse_macro_input, Data, DeriveInput, Ident};
 /// + `enum_type: str`, for `enum` declaration only, optional, `"u8"` by default.
 ///   The type used for enum variant index. Possible valiues: `"u8"`, `"u16"`, `"u32"`.
 /// + `portable: bool`, optional, `false` by default. Whether structure should implement `Portable`.
+/// + `default: bool`, optional, `false` by default. Whether to create default constructors (see `FlatDefault`).
 #[proc_macro_attribute]
 pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut ctx = Context {
