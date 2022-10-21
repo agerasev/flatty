@@ -1,4 +1,4 @@
-use super::tests::generate_tests;
+//use super::tests::generate_tests;
 use flatty::{make_flat, FlatVec};
 
 #[make_flat(sized = false, enum_type = "u8")]
