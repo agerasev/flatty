@@ -167,6 +167,19 @@ where
 {
 }
 
+#[macro_export]
+macro_rules! flat_vec {
+    () => {
+        $crate::vec::FromArray([])
+    };
+    ($elem:expr; $n:expr) => {
+        $crate::vec::FromArray([$elem; $n])
+    };
+    ($($x:expr),+ $(,)?) => {
+        $crate::vec::FromArray([$($x),+])
+    };
+}
+
 #[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
@@ -253,23 +266,20 @@ mod tests {
         let mut mem_a = AlignedBytes::new(4 * 5, 4);
         let vec_a = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_a)
             .unwrap()
-            .default_in_place()
+            .new_in_place(flat_vec![1, 2, 3, 4])
             .unwrap();
-        assert_eq!(vec_a.extend_from_slice(&[1, 2, 3, 4]), 4);
 
         let mut mem_b = AlignedBytes::new(4 * 5, 4);
         let vec_b = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_b)
             .unwrap()
-            .default_in_place()
+            .new_in_place(flat_vec![1, 2, 3, 4])
             .unwrap();
-        assert_eq!(vec_b.extend_from_slice(&[1, 2, 3, 4]), 4);
 
         let mut mem_c = AlignedBytes::new(4 * 3, 4);
         let vec_c = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_c)
             .unwrap()
-            .default_in_place()
+            .new_in_place(flat_vec![1, 2])
             .unwrap();
-        assert_eq!(vec_c.extend_from_slice(&[1, 2]), 2);
 
         assert_eq!(vec_a, vec_b);
         assert_ne!(vec_a, vec_c);

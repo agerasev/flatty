@@ -3,7 +3,7 @@ macro_rules! generate_tests {
         mod tests {
             use super::{UnsizedStruct, UnsizedStructInit};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{prelude::*, utils::alloc::AlignedBytes, vec};
+            use flatty::{flat_vec, prelude::*, utils::alloc::AlignedBytes};
 
             #[test]
             fn init() {
@@ -13,7 +13,7 @@ macro_rules! generate_tests {
                     .new_in_place(UnsizedStructInit {
                         a: 200,
                         b: 40000,
-                        c: vec::FromArray([0, 1]),
+                        c: flat_vec![0, 1],
                     })
                     .unwrap();
 
@@ -79,7 +79,7 @@ macro_rules! generate_tests {
                         .new_in_place(UnsizedStructInit {
                             a: 1,
                             b: 2,
-                            c: vec::FromArray([3, 4, 5, 6]),
+                            c: flat_vec![3, 4, 5, 6],
                         })
                         .unwrap();
                 }
@@ -90,7 +90,7 @@ macro_rules! generate_tests {
                     .new_in_place(UnsizedStructInit {
                         a: 1,
                         b: 2,
-                        c: vec::FromArray([3, 4, 5]),
+                        c: flat_vec![3, 4, 5],
                     })
                     .unwrap();
 

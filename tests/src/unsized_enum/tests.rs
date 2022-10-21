@@ -3,7 +3,7 @@ macro_rules! generate_tests {
         mod tests {
             use super::{UnsizedEnum, UnsizedEnumInitB, UnsizedEnumInitC, UnsizedEnumMut, UnsizedEnumRef, UnsizedEnumTag};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{prelude::*, utils::alloc::AlignedBytes, vec as flat_vec, Error, ErrorKind};
+            use flatty::{flat_vec, prelude::*, utils::alloc::AlignedBytes, Error, ErrorKind};
 
             #[test]
             fn init_a() {
@@ -51,7 +51,7 @@ macro_rules! generate_tests {
                     .unwrap()
                     .new_in_place(UnsizedEnumInitC {
                         a: 0xab,
-                        b: flat_vec::FromArray([0x12, 0x34, 0x56, 0x78]),
+                        b: flat_vec![0x12, 0x34, 0x56, 0x78],
                     })
                     .unwrap();
                 assert_eq!(ue.size(), 10);
@@ -137,7 +137,7 @@ macro_rules! generate_tests {
                     .unwrap()
                     .new_in_place(UnsizedEnumInitC {
                         a: 0xab,
-                        b: flat_vec::Empty,
+                        b: flat_vec![],
                     })
                     .unwrap();
                 if let UnsizedEnumMut::C { a: _, b } = ue.as_mut() {
