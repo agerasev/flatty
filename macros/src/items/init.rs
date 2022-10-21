@@ -117,11 +117,11 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let vis = &input.vis;
 
     let prefix = "";
-    let params = data_params(&input.data, &prefix);
+    let params = data_params(&input.data, prefix);
     match &input.data {
         Data::Struct(data) => {
             let args = make_args(params.iter().flatten());
-            let (body, semi) = collect_fields(&data.fields, &prefix, false);
+            let (body, semi) = collect_fields(&data.fields, prefix, false);
             quote! {
                 #[allow(non_camel_case_types)]
                 #vis struct #init_ident<#args> #body #semi
