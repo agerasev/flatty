@@ -6,30 +6,19 @@ use syn::{Data, DeriveInput, Index};
 pub fn struct_(ctx: &Context, input: &DeriveInput, local: bool) -> TokenStream {
     if let Data::Enum(data) = &input.data {
         let enum_type = ctx.info.enum_type.as_ref().unwrap();
-        let derive_default = if ctx.info.default {
-            quote! { #[derive(Default)] }
-        } else {
-            quote! {}
-        };
         let vis = if !local { Some(&input.vis) } else { None };
         let tag_type = ctx.idents.tag.as_ref().unwrap();
         let var_count = Index::from(data.variants.len());
         let variants = data.variants.iter().fold(quote! {}, |accum, var| {
             let ident = &var.ident;
-            let default = var
-                .attrs
-                .iter()
-                .find(|attr| attr.path.get_ident().map(|ident| ident == "default").unwrap_or(false));
             quote! {
                 #accum
-                #default
                 #ident,
             }
         });
         quote! {
             #[allow(dead_code)]
             #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-            #derive_default
             #[repr(#enum_type)]
             #vis enum #tag_type {
                 #variants

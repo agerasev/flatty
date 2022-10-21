@@ -1,5 +1,5 @@
 use crate::{
-    utils::{generic, type_list, FieldIter},
+    utils::{generic, type_list},
     Context,
 };
 use proc_macro2::{Span, TokenStream};
@@ -176,10 +176,8 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         let mut items = if len > 0 {
             let type_list = type_list(fields.iter());
             quote! {
-                let iter = unsafe { iter::MutIter::new_unchecked(
-                    bytes,
-                    iter::type_list!(#type_list),
-                ) };
+                let iter = iter::MutIter::new(bytes, iter::type_list!(#type_list))
+                    .map_err(|e| e.offset(offset))?;
             }
         } else {
             quote! {}
@@ -220,6 +218,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
             });
             quote! {
                 let bytes = uninit.as_mut_bytes();
+                let offset = 0;
                 #body
             }
         }
@@ -258,7 +257,8 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     #init_ident::#ident #pat => {
                         let mut bytes = uninit.as_mut_bytes();
                         #tag
-                        bytes = unsafe{ bytes.get_unchecked_mut(<#self_ident<#self_args>>::DATA_OFFSET..) };
+                        let offset = <#self_ident<#self_args>>::DATA_OFFSET;
+                        bytes = unsafe{ bytes.get_unchecked_mut(offset..) };
                         #body
                     }
                 }
@@ -360,5 +360,63 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
 }
 
 pub fn impl_default(ctx: &Context, input: &DeriveInput) -> TokenStream {
-    quote! {}
+    let self_ident = &input.ident;
+    let init_ident = ctx.idents.init.as_ref().unwrap();
+
+    let self_params = &input.generics.params;
+    let self_args = generic::args(&input.generics);
+    let where_clause = &input.generics.where_clause;
+
+    let (ty, body) = match &input.data {
+        Data::Struct(data) => {
+            let args = data.fields.iter().fold(quote! {}, |a, f| {
+                let ty = &f.ty;
+                quote! { #a <#ty as ::flatty::FlatDefault>::DefaultEmplacer, }
+            });
+            let body = match &data.fields {
+                Fields::Unit => quote! {},
+                Fields::Unnamed(..) => {
+                    let items = data.fields.iter().fold(quote! {}, |a, f| {
+                        let ty = &f.ty;
+                        quote! { #a <#ty as ::flatty::FlatDefault>::default_emplacer(), }
+                    });
+                    quote! { (#items) }
+                }
+                Fields::Named(..) => {
+                    let items = data.fields.iter().fold(quote! {}, |a, f| {
+                        let ident = f.ident.as_ref().unwrap();
+                        let ty = &f.ty;
+                        quote! { #a #ident: <#ty as ::flatty::FlatDefault>::default_emplacer(), }
+                    });
+                    quote! { { #items } }
+                }
+            };
+            (quote! { #init_ident<#args> }, quote! { Self::DefaultEmplacer #body })
+        }
+        Data::Enum(data) => {
+            let default_variant = data
+                .variants
+                .iter()
+                .find(|var| {
+                    var.attrs
+                        .iter()
+                        .any(|attr| attr.path.get_ident().map(|ident| ident == "default").unwrap_or(false))
+                })
+                .unwrap();
+            let ty = variant_ident(init_ident, &default_variant.ident);
+            (quote! { #ty }, quote! { #ty })
+        }
+        _ => unimplemented!(),
+    };
+
+    quote! {
+        impl<#self_params> ::flatty::FlatDefault for #self_ident<#self_args>
+        #where_clause
+        {
+            type DefaultEmplacer = #ty;
+            fn default_emplacer() -> Self::DefaultEmplacer {
+                #body
+            }
+        }
+    }
 }
