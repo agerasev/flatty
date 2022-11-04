@@ -7,7 +7,7 @@ use flatty::{
 };
 use futures::join;
 
-use super::{read::MsgReadError, MsgReader, MsgWriter};
+use super::{read::MsgReadError, AsyncReader, AsyncWriter};
 
 #[flat(sized = false, portable = true, default = true)]
 enum TestMsg {
@@ -23,7 +23,7 @@ async fn channel() {
     let (prod, cons) = AsyncHeapRb::<u8>::new(17).split();
     join!(
         async move {
-            let mut writer = MsgWriter::<TestMsg, _>::new(prod, MAX_SIZE);
+            let mut writer = AsyncWriter::<TestMsg, _>::new(prod, MAX_SIZE);
 
             writer.new_msg().default().unwrap().write().await.unwrap();
 
@@ -48,7 +48,7 @@ async fn channel() {
             }
         },
         async move {
-            let mut reader = MsgReader::<TestMsg, _>::new(cons, MAX_SIZE);
+            let mut reader = AsyncReader::<TestMsg, _>::new(cons, MAX_SIZE);
 
             {
                 let guard = reader.read_msg().await.unwrap();

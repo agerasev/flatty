@@ -4,5 +4,5 @@ pub mod write;
 #[cfg(test)]
 mod tests;
 
-pub use read::MsgReader;
-pub use write::MsgWriter;
+pub use read::AsyncReader;
+pub use write::AsyncWriter;

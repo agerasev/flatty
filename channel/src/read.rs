@@ -3,7 +3,6 @@ use flatty::{self, prelude::*};
 use std::{
     future::Future,
     marker::PhantomData,
-    mem,
     ops::{Deref, Range},
     pin::Pin,
     task::{Context, Poll},
@@ -13,65 +12,133 @@ use std::{
 pub enum MsgReadError {
     Io(io::Error),
     Parse(flatty::Error),
+    /// Stream has been closed.
     Eof,
 }
 
-// Reader
-
-pub struct MsgReader<M: Portable + ?Sized, R: Read + Unpin> {
-    reader: R,
+struct MessageBuffer<M: Portable + ?Sized> {
     buffer: Vec<u8>,
     window: Range<usize>,
     _phantom: PhantomData<M>,
 }
 
-impl<M: Portable + ?Sized, R: Read + Unpin> MsgReader<M, R> {
-    pub fn new(reader: R, max_msg_size: usize) -> Self {
+impl<M: Portable + ?Sized> MessageBuffer<M> {
+    fn new(capacity: usize) -> Self {
         Self {
-            reader,
-            buffer: vec![0; max_msg_size],
+            buffer: vec![0; capacity],
             window: 0..0,
             _phantom: PhantomData,
         }
     }
 
-    fn poll_read_msg(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), MsgReadError>> {
-        let mut buffer = Vec::new();
-        mem::swap(&mut buffer, &mut self.buffer);
-        let mut window = self.window.clone();
-        let result = loop {
-            match M::from_bytes(&buffer[window.clone()]).and_then(|m| m.validate()) {
-                Ok(_) => break Poll::Ready(Ok(())),
-                Err(err) => match err {
-                    flatty::Error {
-                        kind: flatty::ErrorKind::InsufficientSize,
-                        ..
-                    } => {
-                        if window.end == buffer.len() {
-                            // No free space at the end of the buffer.
-                            if window.start != 0 {
-                                // Move data to the beginning of buffer to get free room for next data.
-                                buffer.copy_within(window.clone(), 0);
-                                window = 0..(window.end - window.start);
-                            } else {
-                                // Message is greater than `max_msg_size`, it cannot fit the buffer.
-                                break Poll::Ready(Err(MsgReadError::Parse(flatty::Error {
-                                    kind: flatty::ErrorKind::InsufficientSize,
-                                    pos: buffer.len(),
-                                })));
-                            }
-                        }
+    fn capacity(&self) -> usize {
+        self.buffer.len()
+    }
+
+    fn preceding_len(&self) -> usize {
+        self.window.start
+    }
+    fn occupied_len(&self) -> usize {
+        self.window.end - self.window.start
+    }
+    fn vacant_len(&self) -> usize {
+        self.capacity() - self.window.end
+    }
+    fn extendable_len(&self) -> usize {
+        self.preceding_len() + self.vacant_len()
+    }
+
+    fn occupied(&self) -> &[u8] {
+        &self.buffer[self.window.clone()]
+    }
+    fn vacant_mut(&mut self) -> &mut [u8] {
+        &mut self.buffer[self.window.end..]
+    }
+
+    fn skip_occupied(&mut self, count: usize) {
+        self.window.start += count;
+        assert!(self.window.start <= self.window.end);
+        if self.window.is_empty() {
+            self.window = 0..0;
+        }
+    }
+    fn take_vacant(&mut self, count: usize) {
+        self.window.end += count;
+        assert!(self.window.end <= self.capacity());
+    }
+
+    fn try_extend_vacant(&mut self) -> bool {
+        if self.window.start > 0 {
+            // Move data to the beginning of buffer to get free room for next data.
+            self.buffer.copy_within(self.window.clone(), 0);
+            self.window = 0..(self.window.end - self.window.start);
+            true
+        } else {
+            // Message size is greater than capacity, it cannot fit the buffer.
+            false
+        }
+    }
+
+    fn message(&self) -> Result<&M, flatty::Error> {
+        M::from_bytes(self.occupied()).and_then(|m| m.validate())
+    }
+
+    fn next_message(&self) -> Option<Result<(), MsgReadError>> {
+        match self.message() {
+            Ok(_) => Some(Ok(())),
+            Err(err) => match err {
+                flatty::Error {
+                    kind: flatty::ErrorKind::InsufficientSize,
+                    ..
+                } => {
+                    if self.extendable_len() == 0 {
+                        // Message cannot fit the buffer.
+                        Some(Err(MsgReadError::Parse(flatty::Error {
+                            kind: flatty::ErrorKind::InsufficientSize,
+                            pos: self.occupied_len(),
+                        })))
+                    } else {
+                        None
                     }
-                    other_err => break Poll::Ready(Err(MsgReadError::Parse(other_err))),
-                },
-            };
+                }
+                other_err => Some(Err(MsgReadError::Parse(other_err))),
+            },
+        }
+    }
+}
+
+// Reader
+
+pub struct AsyncReader<M: Portable + ?Sized, R: Read + Unpin> {
+    reader: R,
+    buffer: Option<MessageBuffer<M>>,
+}
+
+impl<M: Portable + ?Sized, R: Read + Unpin> AsyncReader<M, R> {
+    pub fn new(reader: R, max_msg_size: usize) -> Self {
+        Self {
+            reader,
+            buffer: Some(MessageBuffer::new(max_msg_size)),
+        }
+    }
+
+    fn poll_read_msg(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), MsgReadError>> {
+        let mut buffer = self.buffer.take().unwrap();
+        let poll = loop {
+            match buffer.next_message() {
+                Some(result) => break Poll::Ready(result),
+                None => {
+                    if buffer.vacant_len() == 0 {
+                        assert!(buffer.try_extend_vacant());
+                    }
+                }
+            }
             let reader = Pin::new(&mut self.reader);
-            match reader.poll_read(cx, &mut buffer[window.end..]) {
+            match reader.poll_read(cx, buffer.vacant_mut()) {
                 Poll::Ready(res) => match res {
                     Ok(count) => {
                         if count != 0 {
-                            window.end += count;
-                            assert!(window.end <= buffer.len());
+                            buffer.take_vacant(count);
                         } else {
                             break Poll::Ready(Err(MsgReadError::Eof));
                         }
@@ -81,9 +148,8 @@ impl<M: Portable + ?Sized, R: Read + Unpin> MsgReader<M, R> {
                 Poll::Pending => break Poll::Pending,
             };
         };
-        mem::swap(&mut buffer, &mut self.buffer);
-        self.window = window;
-        result
+        assert!(self.buffer.replace(buffer).is_none());
+        poll
     }
 
     fn take_msg(&mut self) -> MsgReadGuard<'_, M, R> {
@@ -91,11 +157,7 @@ impl<M: Portable + ?Sized, R: Read + Unpin> MsgReader<M, R> {
     }
 
     fn consume(&mut self, count: usize) {
-        self.window.start += count;
-        assert!(self.window.start <= self.window.end);
-        if self.window.is_empty() {
-            self.window = 0..0;
-        }
+        self.buffer.as_mut().unwrap().skip_occupied(count);
     }
 
     pub fn read_msg(&mut self) -> MsgReadFuture<'_, M, R> {
@@ -103,12 +165,12 @@ impl<M: Portable + ?Sized, R: Read + Unpin> MsgReader<M, R> {
     }
 }
 
-impl<M: Portable + ?Sized, R: Read + Unpin> Unpin for MsgReader<M, R> {}
+impl<M: Portable + ?Sized, R: Read + Unpin> Unpin for AsyncReader<M, R> {}
 
 // ReadGuard
 
 pub struct MsgReadGuard<'a, M: Portable + ?Sized, R: Read + Unpin> {
-    owner: &'a mut MsgReader<M, R>,
+    owner: &'a mut AsyncReader<M, R>,
 }
 
 impl<'a, M: Portable + ?Sized, R: Read + Unpin> Drop for MsgReadGuard<'a, M, R> {
@@ -120,17 +182,14 @@ impl<'a, M: Portable + ?Sized, R: Read + Unpin> Drop for MsgReadGuard<'a, M, R> 
 impl<'a, M: Portable + ?Sized, R: Read + Unpin> Deref for MsgReadGuard<'a, M, R> {
     type Target = M;
     fn deref(&self) -> &M {
-        M::from_bytes(&self.owner.buffer[self.owner.window.clone()])
-            .unwrap()
-            .validate()
-            .unwrap()
+        self.owner.buffer.as_ref().unwrap().message().unwrap()
     }
 }
 
 // ReadFuture
 
 pub struct MsgReadFuture<'a, M: Portable + ?Sized, R: Read + Unpin> {
-    owner: Option<&'a mut MsgReader<M, R>>,
+    owner: Option<&'a mut AsyncReader<M, R>>,
 }
 
 impl<'a, M: Portable + ?Sized, R: Read + Unpin> Unpin for MsgReadFuture<'a, M, R> {}

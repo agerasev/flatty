@@ -10,13 +10,13 @@ use std::{
 
 // Writer
 
-pub struct MsgWriter<M: Portable + ?Sized, W: Write + Unpin> {
+pub struct AsyncWriter<M: Portable + ?Sized, W: Write + Unpin> {
     writer: Arc<Mutex<W>>,
     buffer: Vec<u8>,
     _phantom: PhantomData<M>,
 }
 
-impl<M: Portable + ?Sized, W: Write + Unpin> MsgWriter<M, W> {
+impl<M: Portable + ?Sized, W: Write + Unpin> AsyncWriter<M, W> {
     pub fn new(writer: W, max_msg_size: usize) -> Self {
         Self {
             writer: Arc::new(Mutex::new(writer)),
@@ -30,7 +30,7 @@ impl<M: Portable + ?Sized, W: Write + Unpin> MsgWriter<M, W> {
     }
 }
 
-impl<M: Portable + ?Sized, W: Write + Unpin> Clone for MsgWriter<M, W> {
+impl<M: Portable + ?Sized, W: Write + Unpin> Clone for AsyncWriter<M, W> {
     fn clone(&self) -> Self {
         Self {
             writer: self.writer.clone(),
@@ -43,10 +43,10 @@ impl<M: Portable + ?Sized, W: Write + Unpin> Clone for MsgWriter<M, W> {
 // WriteGuard
 
 pub struct MsgUninitWriteGuard<'a, M: Portable + ?Sized, W: Write + Unpin> {
-    owner: &'a mut MsgWriter<M, W>,
+    owner: &'a mut AsyncWriter<M, W>,
 }
 pub struct MsgWriteGuard<'a, M: Portable + ?Sized, W: Write + Unpin> {
-    owner: &'a mut MsgWriter<M, W>,
+    owner: &'a mut AsyncWriter<M, W>,
 }
 
 impl<'a, M: Portable + ?Sized, W: Write + Unpin> Unpin for MsgUninitWriteGuard<'a, M, W> {}
