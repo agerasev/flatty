@@ -1,6 +1,6 @@
 use crate::le;
-use base::{prelude::*, utils::alloc::AlignedBytes, FlatVec};
 use core::mem::align_of_val;
+use flatty_base::{prelude::*, utils::alloc::AlignedBytes, FlatVec};
 
 #[test]
 fn vec() {

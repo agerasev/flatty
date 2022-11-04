@@ -1,9 +1,9 @@
 use crate::{NativeCast, Portable};
-use base::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
 use core::{
     cmp::{Ord, Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
 };
+use flatty_base::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
 use num_traits::{Bounded, FromPrimitive, Num, NumCast, One, Signed, ToPrimitive, Unsigned, Zero};
 
 unsafe impl Portable for u8 {}

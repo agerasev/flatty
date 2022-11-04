@@ -10,8 +10,8 @@ license.workspace = true
 
 [features]
 default = ["std"]
-std = ["base/std", "num-traits/std"]
+std = ["flatty-base/std", "num-traits/std"]
 
 [dependencies]
-base.workspace = true
+flatty-base.workspace = true
 num-traits = { version = "0.2", default-features = false }

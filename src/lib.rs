@@ -74,13 +74,13 @@
 //! }
 //! ```
 //!
-pub use base::*;
-pub use macros::flat;
-pub use portable;
+pub use flatty_base::*;
+pub use flatty_macros::flat;
+pub use flatty_portable as portable;
 
 pub use portable::Portable;
 
 pub mod prelude {
-    pub use base::prelude::*;
-    pub use portable::prelude::*;
+    pub use flatty_base::prelude::*;
+    pub use flatty_portable::prelude::*;
 }

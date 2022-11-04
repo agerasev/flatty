@@ -4,7 +4,7 @@ mod int;
 #[cfg(test)]
 mod tests;
 
-use base::Flat;
+use flatty_base::Flat;
 use num_traits::{FromPrimitive, Num, ToPrimitive};
 
 /// Type that can be safely transefered between different machines.

@@ -1,9 +1,9 @@
 use crate::{NativeCast, Portable};
-use base::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
 use core::{
     cmp::{Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
 };
+use flatty_base::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
 use num_traits::{Bounded, FromPrimitive, Num, NumCast, One, ToPrimitive, Zero};
 
 /// Generic portable floating-point number. Has alignment == 1.
