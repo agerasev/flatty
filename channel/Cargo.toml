@@ -9,9 +9,13 @@ authors.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[features]
+default = ["async"]
+async = ["futures"]
+
 [dependencies]
 flatty.workspace = true
-futures = "0.3.25"
+futures = { version = "0.3.25", optional = true }
 
 [dependencies.derive_more]
 version = "0.99.17"

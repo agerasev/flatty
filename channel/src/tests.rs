@@ -7,7 +7,7 @@ use flatty::{
 };
 use futures::{executor::block_on, join};
 
-use super::{reader::ReadError, AsyncReader, AsyncWriter};
+use super::{AsyncReader, AsyncWriter, ReadError};
 
 #[flat(sized = false, portable = true, default = true)]
 enum TestMsg {
