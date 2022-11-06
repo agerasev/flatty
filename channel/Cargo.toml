@@ -23,4 +23,5 @@ default-features = false
 features = ["from", "into", "deref", "deref_mut"]
 
 [dev-dependencies]
+pipe = "0.4.0"
 async-ringbuf = "0.1.0"

@@ -1,24 +1,14 @@
+use super::common::*;
+use crate::{AsyncReader, AsyncWriter, ReadError};
 use async_ringbuf::AsyncHeapRb;
 use flatty::{
-    flat,
     portable::{le, NativeCast},
     vec::FromIterator,
-    FlatVec,
 };
 use futures::{executor::block_on, join};
 
-use super::{AsyncReader, AsyncWriter, ReadError};
-
-#[flat(sized = false, portable = true, default = true)]
-enum TestMsg {
-    #[default]
-    A,
-    B(le::I32),
-    C(FlatVec<le::I32, le::U16>),
-}
-
 #[test]
-fn channel() {
+fn test() {
     block_on(async {
         const MAX_SIZE: usize = 32;
         let (prod, cons) = AsyncHeapRb::<u8>::new(17).split();
