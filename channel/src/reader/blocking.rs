@@ -1,4 +1,4 @@
-use super::{AbstractReader, ReadBuffer, ReadError, ReadGuard};
+use super::{CommonReadGuard, CommonReader, ReadBuffer, ReadError};
 use flatty::Portable;
 use std::io::Read;
 
@@ -15,7 +15,7 @@ impl<M: Portable + ?Sized, R: Read> Reader<M, R> {
         }
     }
 
-    pub fn read_message(&mut self) -> Result<ReadGuard<'_, M, Self>, ReadError> {
+    pub fn read_message(&mut self) -> Result<ReadGuard<'_, M, R>, ReadError> {
         loop {
             match self.buffer.next_message() {
                 Some(result) => break result.map(|_| ()),
@@ -40,7 +40,7 @@ impl<M: Portable + ?Sized, R: Read> Reader<M, R> {
     }
 }
 
-impl<M: Portable + ?Sized, R: Read> AbstractReader<M> for Reader<M, R> {
+impl<M: Portable + ?Sized, R: Read> CommonReader<M> for Reader<M, R> {
     fn buffer(&self) -> &ReadBuffer<M> {
         &self.buffer
     }
@@ -48,3 +48,5 @@ impl<M: Portable + ?Sized, R: Read> AbstractReader<M> for Reader<M, R> {
         &mut self.buffer
     }
 }
+
+pub type ReadGuard<'a, M, R> = CommonReadGuard<'a, M, Reader<M, R>>;

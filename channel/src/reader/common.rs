@@ -1,9 +1,17 @@
-use super::ReadError;
 use flatty::Portable;
 use std::{
+    io,
     marker::PhantomData,
     ops::{Deref, Range},
 };
+
+#[derive(Debug)]
+pub enum ReadError {
+    Io(io::Error),
+    Parse(flatty::Error),
+    /// Stream has been closed.
+    Eof,
+}
 
 pub struct ReadBuffer<M: Portable + ?Sized> {
     buffer: Vec<u8>,
@@ -96,17 +104,17 @@ impl<M: Portable + ?Sized> ReadBuffer<M> {
     }
 }
 
-pub trait AbstractReader<M: Portable + ?Sized> {
+pub trait CommonReader<M: Portable + ?Sized> {
     fn buffer(&self) -> &ReadBuffer<M>;
     fn buffer_mut(&mut self) -> &mut ReadBuffer<M>;
 }
 
-pub struct ReadGuard<'a, M: Portable + ?Sized, O: AbstractReader<M>> {
+pub struct CommonReadGuard<'a, M: Portable + ?Sized, O: CommonReader<M>> {
     owner: &'a mut O,
     _phantom: PhantomData<M>,
 }
 
-impl<'a, M: Portable + ?Sized, O: AbstractReader<M>> ReadGuard<'a, M, O> {
+impl<'a, M: Portable + ?Sized, O: CommonReader<M>> CommonReadGuard<'a, M, O> {
     pub fn new(owner: &'a mut O) -> Self {
         Self {
             owner,
@@ -115,14 +123,14 @@ impl<'a, M: Portable + ?Sized, O: AbstractReader<M>> ReadGuard<'a, M, O> {
     }
 }
 
-impl<'a, M: Portable + ?Sized, O: AbstractReader<M>> Drop for ReadGuard<'a, M, O> {
+impl<'a, M: Portable + ?Sized, O: CommonReader<M>> Drop for CommonReadGuard<'a, M, O> {
     fn drop(&mut self) {
         let size = self.size();
         self.owner.buffer_mut().skip_occupied(size);
     }
 }
 
-impl<'a, M: Portable + ?Sized, O: AbstractReader<M>> Deref for ReadGuard<'a, M, O> {
+impl<'a, M: Portable + ?Sized, O: CommonReader<M>> Deref for CommonReadGuard<'a, M, O> {
     type Target = M;
     fn deref(&self) -> &M {
         self.owner.buffer().message().unwrap()

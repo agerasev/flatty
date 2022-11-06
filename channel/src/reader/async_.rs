@@ -1,4 +1,4 @@
-use super::{AbstractReader, ReadBuffer, ReadError, ReadGuard};
+use super::{CommonReadGuard, CommonReader, ReadBuffer, ReadError};
 use flatty::Portable;
 use futures::io::AsyncRead;
 use std::{
@@ -50,8 +50,8 @@ impl<M: Portable + ?Sized, R: AsyncRead + Unpin> AsyncReader<M, R> {
         poll
     }
 
-    fn take_message(&mut self) -> ReadGuard<'_, M, Self> {
-        ReadGuard::new(self)
+    fn take_message(&mut self) -> AsyncReadGuard<'_, M, R> {
+        AsyncReadGuard::new(self)
     }
 
     pub fn read_message(&mut self) -> ReadFuture<'_, M, R> {
@@ -59,7 +59,7 @@ impl<M: Portable + ?Sized, R: AsyncRead + Unpin> AsyncReader<M, R> {
     }
 }
 
-impl<M: Portable + ?Sized, R: AsyncRead + Unpin> AbstractReader<M> for AsyncReader<M, R> {
+impl<M: Portable + ?Sized, R: AsyncRead + Unpin> CommonReader<M> for AsyncReader<M, R> {
     fn buffer(&self) -> &ReadBuffer<M> {
         self.buffer.as_ref().unwrap()
     }
@@ -77,7 +77,7 @@ pub struct ReadFuture<'a, M: Portable + ?Sized, R: AsyncRead + Unpin> {
 impl<'a, M: Portable + ?Sized, R: AsyncRead + Unpin> Unpin for ReadFuture<'a, M, R> {}
 
 impl<'a, M: Portable + ?Sized, R: AsyncRead + Unpin> Future for ReadFuture<'a, M, R> {
-    type Output = Result<ReadGuard<'a, M, AsyncReader<M, R>>, ReadError>;
+    type Output = Result<AsyncReadGuard<'a, M, R>, ReadError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let owner = self.owner.take().unwrap();
@@ -90,3 +90,5 @@ impl<'a, M: Portable + ?Sized, R: AsyncRead + Unpin> Future for ReadFuture<'a, M
         }
     }
 }
+
+pub type AsyncReadGuard<'a, M, R> = CommonReadGuard<'a, M, AsyncReader<M, R>>;

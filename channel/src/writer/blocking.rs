@@ -1,4 +1,4 @@
-use super::{AbstractWriter, WriteGuard};
+use super::{CommonUninitWriteGuard, CommonWriteGuard, CommonWriter};
 use flatty::{self, prelude::*};
 use std::{
     io::{self, Write},
@@ -20,6 +20,10 @@ impl<M: Portable + ?Sized, W: Write> Writer<M, W> {
             _phantom: PhantomData,
         }
     }
+
+    pub fn new_message(&mut self) -> UninitWriteGuard<'_, M, W> {
+        UninitWriteGuard::new(self)
+    }
 }
 
 impl<M: Portable + ?Sized, W: Write> Clone for Writer<M, W> {
@@ -32,7 +36,7 @@ impl<M: Portable + ?Sized, W: Write> Clone for Writer<M, W> {
     }
 }
 
-impl<M: Portable + ?Sized, W: Write> AbstractWriter<M> for Writer<M, W> {
+impl<M: Portable + ?Sized, W: Write> CommonWriter<M> for Writer<M, W> {
     fn buffer(&self) -> &[u8] {
         &self.buffer
     }
@@ -41,7 +45,11 @@ impl<M: Portable + ?Sized, W: Write> AbstractWriter<M> for Writer<M, W> {
     }
 }
 
-impl<'a, M: Portable + ?Sized, W: Write> WriteGuard<'a, M, Writer<M, W>> {
+pub type UninitWriteGuard<'a, M, W> = CommonUninitWriteGuard<'a, M, Writer<M, W>>;
+
+pub type WriteGuard<'a, M, W> = CommonWriteGuard<'a, M, Writer<M, W>>;
+
+impl<'a, M: Portable + ?Sized, W: Write> WriteGuard<'a, M, W> {
     pub fn write(self) -> Result<(), io::Error> {
         let mut guard = self.owner.writer.lock().unwrap();
         guard.write_all(&self.owner.buffer[..self.size()])
