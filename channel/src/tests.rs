@@ -26,14 +26,14 @@ fn channel() {
             async move {
                 let mut writer = AsyncWriter::<TestMsg, _>::new(prod, MAX_SIZE);
 
-                writer.new_message().default().unwrap().write_async().await.unwrap();
+                writer.new_message().default().unwrap().write().await.unwrap();
 
                 {
                     writer
                         .new_message()
                         .emplace(TestMsgInitB(le::I32::from(123456)))
                         .unwrap()
-                        .write_async()
+                        .write()
                         .await
                         .unwrap();
                 }
@@ -43,7 +43,7 @@ fn channel() {
                         .new_message()
                         .emplace(TestMsgInitC(FromIterator((0..7).into_iter().map(le::I32::from))))
                         .unwrap()
-                        .write_async()
+                        .write()
                         .await
                         .unwrap();
                 }

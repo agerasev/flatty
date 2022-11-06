@@ -1,5 +1,6 @@
 use super::{CommonUninitWriteGuard, CommonWriteGuard, CommonWriter};
-use flatty::{self, prelude::*};
+use derive_more::*;
+use flatty::{self, prelude::*, Emplacer};
 use std::{
     io::{self, Write},
     marker::PhantomData,
@@ -22,7 +23,7 @@ impl<M: Portable + ?Sized, W: Write> Writer<M, W> {
     }
 
     pub fn new_message(&mut self) -> UninitWriteGuard<'_, M, W> {
-        UninitWriteGuard::new(self)
+        CommonUninitWriteGuard::new(self).into()
     }
 }
 
@@ -45,9 +46,36 @@ impl<M: Portable + ?Sized, W: Write> CommonWriter<M> for Writer<M, W> {
     }
 }
 
-pub type UninitWriteGuard<'a, M, W> = CommonUninitWriteGuard<'a, M, Writer<M, W>>;
+#[derive(From, Into, Deref, DerefMut)]
+pub struct UninitWriteGuard<'a, M: Portable + ?Sized, W: Write> {
+    inner: CommonUninitWriteGuard<'a, M, Writer<M, W>>,
+}
 
-pub type WriteGuard<'a, M, W> = CommonWriteGuard<'a, M, Writer<M, W>>;
+impl<'a, M: Portable + ?Sized, W: Write> UninitWriteGuard<'a, M, W> {
+    /// # Safety
+    ///
+    /// Underlying message data must be initialized.
+    pub unsafe fn assume_init(self) -> WriteGuard<'a, M, W> {
+        CommonUninitWriteGuard::from(self).assume_init().into()
+    }
+
+    pub fn emplace(self, emplacer: impl Emplacer<M>) -> Result<WriteGuard<'a, M, W>, flatty::Error> {
+        CommonUninitWriteGuard::from(self)
+            .emplace(emplacer)
+            .map(|common| common.into())
+    }
+}
+
+impl<'a, M: Portable + FlatDefault + ?Sized, W: Write> UninitWriteGuard<'a, M, W> {
+    pub fn default(self) -> Result<WriteGuard<'a, M, W>, flatty::Error> {
+        CommonUninitWriteGuard::from(self).default().map(|common| common.into())
+    }
+}
+
+#[derive(From, Into, Deref, DerefMut)]
+pub struct WriteGuard<'a, M: Portable + ?Sized, W: Write> {
+    inner: CommonWriteGuard<'a, M, Writer<M, W>>,
+}
 
 impl<'a, M: Portable + ?Sized, W: Write> WriteGuard<'a, M, W> {
     pub fn write(self) -> Result<(), io::Error> {
