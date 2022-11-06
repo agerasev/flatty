@@ -1,10 +1,9 @@
 [package]
-name = "flatty-channel"
+name = "flatty-io"
 version = "0.1.0"
 edition.workspace = true
-resolver = "2"
 
-description = "Channels for sending flat messages"
+description = "Flat message transfer"
 authors.workspace = true
 repository.workspace = true
 license.workspace = true

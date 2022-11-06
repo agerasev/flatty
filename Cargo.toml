@@ -1,6 +1,3 @@
-[workspace]
-members = ["channel", "tests"]
-
 [workspace.package]
 version = "0.1.0-alpha.3"
 edition = "2021"
@@ -38,3 +35,6 @@ std = ["flatty-base/std"]
 flatty-macros = { workspace = true }
 flatty-base = { workspace = true }
 flatty-portable = { workspace = true }
+
+[workspace]
+members = ["io", "tests"]
