@@ -11,9 +11,7 @@ license.workspace = true
 
 [dependencies]
 flatty.workspace = true
-futures = { version = "0.3.25" }
-async-std = { version = "1.12.0" }
+futures = "0.3.25"
 
 [dev-dependencies]
 async-ringbuf = "0.1.0"
-async-std = { version = "1.12.0", features = ["attributes"] }

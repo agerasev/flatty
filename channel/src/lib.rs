@@ -1,8 +1,8 @@
-pub mod read;
-pub mod write;
+pub mod reader;
+pub mod writer;
 
 #[cfg(test)]
 mod tests;
 
-pub use read::AsyncReader;
-pub use write::AsyncWriter;
+pub use reader::{AsyncReader, ReadError};
+pub use writer::AsyncWriter;
