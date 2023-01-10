@@ -8,7 +8,7 @@ macro_rules! generate_tests {
             #[test]
             fn init() {
                 let mut mem = AlignedBytes::new(16 + 4 * 8, 8);
-                let us = UnsizedStruct::from_mut_bytes(&mut mem)
+                let us = UnsizedStruct::uninit_from_mut_bytes(&mut mem)
                     .unwrap()
                     .new_in_place(UnsizedStructInit {
                         a: 200,
@@ -38,7 +38,7 @@ macro_rules! generate_tests {
             #[test]
             fn default() {
                 let mut mem = AlignedBytes::new(16 + 4 * 8, 8);
-                let us = UnsizedStruct::from_mut_bytes(&mut mem)
+                let us = UnsizedStruct::uninit_from_mut_bytes(&mut mem)
                     .unwrap()
                     .default_in_place()
                     .unwrap();
@@ -52,7 +52,7 @@ macro_rules! generate_tests {
             #[test]
             fn layout() {
                 let mut mem = AlignedBytes::new(16 + 4 * 8, 8);
-                let us = UnsizedStruct::from_mut_bytes(&mut mem)
+                let us = UnsizedStruct::uninit_from_mut_bytes(&mut mem)
                     .unwrap()
                     .default_in_place()
                     .unwrap();
@@ -74,7 +74,7 @@ macro_rules! generate_tests {
                 let mut mem_ab = AlignedBytes::new(16 + 4 * 8, 8);
                 let mut mem_c = AlignedBytes::new(16 + 3 * 8, 8);
                 {
-                    UnsizedStruct::from_mut_bytes(&mut mem_ab)
+                    UnsizedStruct::uninit_from_mut_bytes(&mut mem_ab)
                         .unwrap()
                         .new_in_place(UnsizedStructInit {
                             a: 1,
@@ -83,9 +83,9 @@ macro_rules! generate_tests {
                         })
                         .unwrap();
                 }
-                let us_a = UnsizedStruct::from_bytes(&mem_ab).unwrap().validate().unwrap();
-                let us_b = UnsizedStruct::from_bytes(&mem_ab).unwrap().validate().unwrap();
-                let us_c = UnsizedStruct::from_mut_bytes(&mut mem_c)
+                let us_a = UnsizedStruct::from_bytes(&mem_ab).unwrap();
+                let us_b = UnsizedStruct::from_bytes(&mem_ab).unwrap();
+                let us_c = UnsizedStruct::uninit_from_mut_bytes(&mut mem_c)
                     .unwrap()
                     .new_in_place(UnsizedStructInit {
                         a: 1,

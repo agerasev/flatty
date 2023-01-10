@@ -8,7 +8,7 @@ macro_rules! generate_tests {
             #[test]
             fn init() {
                 let mut m = AlignedBytes::new(16 + 8 * 4, 8);
-                let ss = SizedStruct::from_mut_bytes(&mut m)
+                let ss = SizedStruct::uninit_from_mut_bytes(&mut m)
                     .unwrap()
                     .new_in_place(SizedStruct {
                         a: 200,
@@ -27,7 +27,10 @@ macro_rules! generate_tests {
             #[test]
             fn default() {
                 let mut m = AlignedBytes::new(16 + 8 * 4, 8);
-                let ss = SizedStruct::from_mut_bytes(&mut m).unwrap().default_in_place().unwrap();
+                let ss = SizedStruct::uninit_from_mut_bytes(&mut m)
+                    .unwrap()
+                    .default_in_place()
+                    .unwrap();
 
                 assert_eq!(ss.a, u8::default());
                 assert_eq!(ss.b, u16::default());
@@ -42,7 +45,7 @@ macro_rules! generate_tests {
                     a
                 });
                 let m = AlignedBytes::from_slice(&um, 8);
-                let ss = SizedStruct::from_bytes(&m).unwrap().validate().unwrap();
+                let ss = SizedStruct::from_bytes(&m).unwrap();
 
                 assert_eq!(ss.a, 0x12);
                 assert_eq!(ss.b, 0x1234);
@@ -53,7 +56,10 @@ macro_rules! generate_tests {
             #[test]
             fn layout() {
                 let mut m = AlignedBytes::new(16 + 8 * 4, 8);
-                let ss = SizedStruct::from_mut_bytes(&mut m).unwrap().default_in_place().unwrap();
+                let ss = SizedStruct::uninit_from_mut_bytes(&mut m)
+                    .unwrap()
+                    .default_in_place()
+                    .unwrap();
 
                 assert_eq!(align_of::<SizedStruct>(), <SizedStruct as FlatBase>::ALIGN);
                 assert_eq!(size_of::<SizedStruct>(), <SizedStruct as FlatSized>::SIZE);

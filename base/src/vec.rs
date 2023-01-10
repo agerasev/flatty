@@ -189,7 +189,7 @@ mod tests {
     #[test]
     fn data_offset() {
         let mut bytes = AlignedBytes::new(4 + 3 * 4, 4);
-        let flat_vec = FlatVec::<i32, u16>::from_mut_bytes(&mut bytes)
+        let flat_vec = FlatVec::<i32, u16>::uninit_from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
             .unwrap();
@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn align() {
         let mut bytes = AlignedBytes::new(4 + 3 * 2, 4);
-        let flat_vec = FlatVec::<i16, u32>::from_mut_bytes(&mut bytes)
+        let flat_vec = FlatVec::<i16, u32>::uninit_from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
             .unwrap();
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn len_cap() {
         let mut bytes = AlignedBytes::new(4 + 3 * 4, 4);
-        let flat_vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
+        let flat_vec = FlatVec::<i32, u32>::uninit_from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
             .unwrap();
@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn size() {
         let mut bytes = AlignedBytes::new(4 + 3 * 4, 4);
-        let flat_vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
+        let flat_vec = FlatVec::<i32, u32>::uninit_from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
             .unwrap();
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn extend_from_slice() {
         let mut bytes = AlignedBytes::new(4 * 6, 4);
-        let vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
+        let vec = FlatVec::<i32, u32>::uninit_from_mut_bytes(&mut bytes)
             .unwrap()
             .default_in_place()
             .unwrap();
@@ -264,19 +264,19 @@ mod tests {
     #[test]
     fn eq() {
         let mut mem_a = AlignedBytes::new(4 * 5, 4);
-        let vec_a = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_a)
+        let vec_a = FlatVec::<i32, u32>::uninit_from_mut_bytes(&mut mem_a)
             .unwrap()
             .new_in_place(flat_vec![1, 2, 3, 4])
             .unwrap();
 
         let mut mem_b = AlignedBytes::new(4 * 5, 4);
-        let vec_b = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_b)
+        let vec_b = FlatVec::<i32, u32>::uninit_from_mut_bytes(&mut mem_b)
             .unwrap()
             .new_in_place(flat_vec![1, 2, 3, 4])
             .unwrap();
 
         let mut mem_c = AlignedBytes::new(4 * 3, 4);
-        let vec_c = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_c)
+        let vec_c = FlatVec::<i32, u32>::uninit_from_mut_bytes(&mut mem_c)
             .unwrap()
             .new_in_place(flat_vec![1, 2])
             .unwrap();

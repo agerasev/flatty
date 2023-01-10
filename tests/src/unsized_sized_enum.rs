@@ -16,7 +16,7 @@ enum UnsizedSizedEnum {
 #[test]
 fn init_a() {
     let mut mem = AlignedBytes::new(2, 2);
-    let use_ = UnsizedSizedEnum::from_mut_bytes(&mut mem)
+    let use_ = UnsizedSizedEnum::uninit_from_mut_bytes(&mut mem)
         .unwrap()
         .default_in_place()
         .unwrap();
@@ -33,7 +33,7 @@ fn init_a() {
 #[test]
 fn init_b() {
     let mut mem = AlignedBytes::new(6, 2);
-    let use_ = UnsizedSizedEnum::from_mut_bytes(&mut mem)
+    let use_ = UnsizedSizedEnum::uninit_from_mut_bytes(&mut mem)
         .unwrap()
         .new_in_place(UnsizedSizedEnumInitB(0xab, 0xcdef))
         .unwrap();
@@ -55,7 +55,7 @@ fn init_b() {
 #[test]
 fn init_c() {
     let mut mem = AlignedBytes::new(10, 2);
-    let use_ = UnsizedSizedEnum::from_mut_bytes(&mut mem)
+    let use_ = UnsizedSizedEnum::uninit_from_mut_bytes(&mut mem)
         .unwrap()
         .new_in_place(UnsizedSizedEnumInitC {
             a: 0xab,
@@ -83,14 +83,14 @@ fn init_c() {
 #[test]
 fn from_bytes_err() {
     let mut mem = AlignedBytes::new(1, 2);
-    let res = UnsizedSizedEnum::from_mut_bytes(&mut mem);
+    let res = UnsizedSizedEnum::uninit_from_mut_bytes(&mut mem);
     assert_eq!(res.err().unwrap().kind, ErrorKind::InsufficientSize);
 }
 
 #[test]
 fn init_err() {
     let mut mem = AlignedBytes::new(3, 2);
-    let res = UnsizedSizedEnum::from_mut_bytes(&mut mem)
+    let res = UnsizedSizedEnum::uninit_from_mut_bytes(&mut mem)
         .unwrap()
         .new_in_place(UnsizedSizedEnumInitB(0, 0));
     assert_eq!(res.err().unwrap().kind, ErrorKind::InsufficientSize);

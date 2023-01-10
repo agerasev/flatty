@@ -44,10 +44,10 @@ pub unsafe trait FlatUnsized: FlatBase {
     /// Modification of return value must not make `self` invalid.
     unsafe fn as_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self>;
 
-    fn from_bytes(bytes: &[u8]) -> Result<&MaybeUninitUnsized<Self>, Error> {
+    fn uninit_from_bytes(bytes: &[u8]) -> Result<&MaybeUninitUnsized<Self>, Error> {
         MaybeUninitUnsized::from_bytes(bytes)
     }
-    fn from_mut_bytes(bytes: &mut [u8]) -> Result<&mut MaybeUninitUnsized<Self>, Error> {
+    fn uninit_from_mut_bytes(bytes: &mut [u8]) -> Result<&mut MaybeUninitUnsized<Self>, Error> {
         MaybeUninitUnsized::from_mut_bytes(bytes)
     }
 }
@@ -91,6 +91,13 @@ pub trait FlatCheck: FlatUnsized {
     fn validate_mut(this: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
         Self::validate(this)?;
         unsafe { Ok(this.assume_init_mut()) }
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<&Self, Error> {
+        Self::uninit_from_bytes(bytes)?.validate()
+    }
+    fn from_mut_bytes(bytes: &mut [u8]) -> Result<&mut Self, Error> {
+        Self::uninit_from_mut_bytes(bytes)?.validate_mut()
     }
 }
 

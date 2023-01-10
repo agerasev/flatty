@@ -77,7 +77,7 @@ impl<M: Portable + ?Sized> ReadBuffer<M> {
     }
 
     pub fn message(&self) -> Result<&M, flatty::Error> {
-        M::from_bytes(self.occupied()).and_then(|m| m.validate())
+        M::from_bytes(self.occupied())
     }
 
     pub fn next_message(&self) -> Option<Result<&M, ReadError>> {

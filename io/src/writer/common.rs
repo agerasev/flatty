@@ -40,7 +40,7 @@ impl<'a, M: Portable + ?Sized, O: CommonWriter<M>> CommonUninitWriteGuard<'a, M,
 
 impl<'a, M: Portable + FlatDefault + ?Sized, O: CommonWriter<M>> CommonUninitWriteGuard<'a, M, O> {
     pub fn default(self) -> Result<CommonWriteGuard<'a, M, O>, flatty::Error> {
-        M::from_mut_bytes(self.owner.buffer_mut())?.default_in_place()?;
+        M::uninit_from_mut_bytes(self.owner.buffer_mut())?.default_in_place()?;
         Ok(unsafe { self.assume_init() })
     }
 }
