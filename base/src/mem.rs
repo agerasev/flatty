@@ -1,6 +1,9 @@
 use crate::{utils::floor_mul, Emplacer, Error, ErrorKind, FlatCheck, FlatDefault, FlatSized, FlatUnsized};
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 use core::{
     mem::MaybeUninit,
+    ptr::slice_from_raw_parts_mut,
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
@@ -45,6 +48,16 @@ impl<T: FlatUnsized + ?Sized> MaybeUninitUnsized<T> {
         let bytes = bytes.get_unchecked_mut(..floor_mul(bytes.len(), T::ALIGN));
         &mut *(bytes as *mut [u8] as *mut Self)
     }
+    /// # Safety
+    ///
+    /// Bytes must be aligned to `T::ALIGN` and have length greater or equal to `T::MIN_SIZE`.
+    pub unsafe fn from_boxed_bytes_unchecked(bytes: Box<[u8]>) -> Box<Self> {
+        let len = floor_mul(bytes.len(), T::ALIGN);
+        let data = Box::into_raw(bytes) as *mut u8;
+        // FIXME: Whether it's safe to shrink allocated block size?
+        Box::from_raw(slice_from_raw_parts_mut(data, len) as *mut Self)
+    }
+
     /// Try to convert bytes to potentially unintialized instance of `T`.
     ///
     /// Error returned if:
@@ -60,6 +73,13 @@ impl<T: FlatUnsized + ?Sized> MaybeUninitUnsized<T> {
         check_align_and_min_size::<T>(bytes)?;
         Ok(unsafe { Self::from_mut_bytes_unchecked(bytes) })
     }
+    pub fn from_boxed_bytes(bytes: Box<[u8]>) -> Result<Box<Self>, (Error, Box<[u8]>)> {
+        match check_align_and_min_size::<T>(&bytes) {
+            Ok(()) => Ok(unsafe { Self::from_boxed_bytes_unchecked(bytes) }),
+            Err(err) => Err((err, bytes)),
+        }
+    }
+
     /// # Safety
     ///
     /// `self` must be initialized.
@@ -91,6 +111,9 @@ impl<T: FlatCheck + ?Sized> MaybeUninitUnsized<T> {
     }
     pub fn validate_mut(&mut self) -> Result<&mut T, Error> {
         T::validate_mut(self)
+    }
+    pub fn validate_boxed(self: Box<Self>) -> Result<Box<T>, (Error, Box<Self>)> {
+        T::validate_boxed(self)
     }
 }
 

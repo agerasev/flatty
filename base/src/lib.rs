@@ -1,6 +1,8 @@
 #![no_std]
 #![allow(clippy::missing_safety_doc)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 

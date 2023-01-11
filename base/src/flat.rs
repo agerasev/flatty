@@ -1,4 +1,6 @@
 use crate::{emplacer::Emplacer, error::Error, mem::MaybeUninitUnsized};
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 
 /// Basic flat type preoperties.
 pub unsafe trait FlatBase {
