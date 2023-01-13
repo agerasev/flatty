@@ -1,4 +1,4 @@
-use crate::{NativeCast, Portable};
+use crate::{derive_display, NativeCast, Portable};
 use core::{
     cmp::{Ord, Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
@@ -16,7 +16,7 @@ unsafe impl Portable for i8 {}
 /// + `N`: Width in bytes.
 /// + `S`: Signedness. `false` => unsigned, `true` => signed.
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Int<const BE: bool, const N: usize, const S: bool> {
     bytes: [u8; N],
 }
@@ -188,6 +188,8 @@ macro_rules! derive_int {
                 *self = self.rem(rhs);
             }
         }
+
+        derive_display!($self, $native);
     };
 }
 

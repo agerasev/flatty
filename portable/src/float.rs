@@ -1,4 +1,4 @@
-use crate::{NativeCast, Portable};
+use crate::{derive_display, NativeCast, Portable};
 use core::{
     cmp::{Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
@@ -12,7 +12,7 @@ use num_traits::{Bounded, FromPrimitive, Num, NumCast, One, ToPrimitive, Zero};
 /// + `BE`: Endianness. `false` => little-endian, `true` => big-endian.
 /// + `N`: Width in bytes.
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Float<const BE: bool, const N: usize> {
     bytes: [u8; N],
 }
@@ -185,6 +185,8 @@ macro_rules! derive_float {
                 *self = self.rem(rhs);
             }
         }
+
+        derive_display!($self, $native);
     };
 }
 
