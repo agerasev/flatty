@@ -88,7 +88,7 @@ macro_rules! generate_tests {
             }
 
             #[test]
-            fn init_err() {
+            fn from_bytes_err() {
                 let mut mem = AlignedBytes::new(1, 2);
                 let res = UnsizedEnum::from_mut_bytes(&mut mem);
                 assert_eq!(
@@ -96,6 +96,19 @@ macro_rules! generate_tests {
                     Error {
                         kind: ErrorKind::InsufficientSize,
                         pos: 0
+                    }
+                );
+            }
+
+            #[test]
+            fn validate_err() {
+                let mut mem = AlignedBytes::from_slice(&[1, 0, 0], 2);
+                let res = UnsizedEnum::from_mut_bytes(&mut mem).unwrap().validate();
+                assert_eq!(
+                    res.err().unwrap(),
+                    Error {
+                        kind: ErrorKind::InsufficientSize,
+                        pos: 2
                     }
                 );
             }
@@ -119,7 +132,7 @@ macro_rules! generate_tests {
 
             #[test]
             fn bad_tag() {
-                let mem = AlignedBytes::from_slice(&[4u8, 0u8], 2);
+                let mem = AlignedBytes::from_slice(&[4, 0], 2);
                 let res = UnsizedEnum::from_bytes(&mem).unwrap().validate();
                 assert_eq!(
                     res.err().unwrap(),

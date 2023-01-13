@@ -26,7 +26,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 let tag = unsafe { MaybeUninitUnsized::<#tag_type>::from_bytes_unchecked(this.as_bytes()) };
                 <#tag_type as ::flatty::FlatCheck>::validate(tag)?
             };
-            let varaints = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
+            let variants = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
                 let items = collect_fields(&variant.fields, quote! { data });
                 let var_name = &variant.ident;
                 quote! {
@@ -34,6 +34,18 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     #tag_type::#var_name => { #items }
                 }
             });
+            let size_check = if !ctx.info.sized {
+                quote! {
+                    if data.len() < Self::DATA_MIN_SIZES[*tag as usize] {
+                        return Err(Error {
+                            kind: ErrorKind::InsufficientSize,
+                            pos: Self::DATA_OFFSET,
+                        });
+                    }
+                }
+            } else {
+                quote! {}
+            };
 
             quote! {
                 use ::flatty::{Error, ErrorKind};
@@ -41,8 +53,10 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 let tag = { #validate_tag };
                 let data = unsafe { this.as_bytes().get_unchecked(Self::DATA_OFFSET..) };
 
+                #size_check
+
                 match tag {
-                    #varaints
+                    #variants
                 }.map_err(|e| e.offset(Self::DATA_OFFSET))
             }
         }

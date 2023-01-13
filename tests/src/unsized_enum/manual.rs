@@ -275,10 +275,15 @@ unsafe impl FlatUnsized for UnsizedEnum {
 impl FlatCheck for UnsizedEnum {
     fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
         let bytes = this.as_bytes();
-        let tag = unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_bytes_unchecked(bytes) };
-        UnsizedEnumTag::validate(tag)?;
+        let tag = unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_bytes_unchecked(bytes) }.validate()?;
         let bytes = unsafe { bytes.get_unchecked(Self::DATA_OFFSET..) };
-        match unsafe { tag.assume_init() } {
+        if bytes.len() < Self::DATA_MIN_SIZES[*tag as usize] {
+            return Err(Error {
+                kind: ErrorKind::InsufficientSize,
+                pos: Self::DATA_OFFSET,
+            });
+        }
+        match tag {
             UnsizedEnumTag::A => Ok(()),
             UnsizedEnumTag::B => unsafe { iter::RefIter::new_unchecked(bytes, iter::type_list!(u8, u16)).validate_all() },
             UnsizedEnumTag::C => unsafe {
