@@ -1,3 +1,5 @@
+#![no_std]
+
 mod float;
 mod impl_;
 mod int;

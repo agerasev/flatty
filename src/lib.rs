@@ -74,6 +74,8 @@
 //! }
 //! ```
 //!
+#![no_std]
+
 pub use flatty_base::*;
 pub use flatty_macros::flat;
 pub use flatty_portable as portable;
