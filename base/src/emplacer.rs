@@ -1,10 +1,6 @@
 use crate::{error::Error, mem::MaybeUninitUnsized, FlatUnsized};
 
 /// In-place initializer of flat type.
-///
-/// # Safety
-///
-/// [`Self::init`] must be valid.
 pub trait Emplacer<T: FlatUnsized + ?Sized>: Sized {
     /// Apply initializer for uninitizalized memory.
     ///
@@ -12,6 +8,7 @@ pub trait Emplacer<T: FlatUnsized + ?Sized>: Sized {
     fn emplace(self, uninit: &mut MaybeUninitUnsized<T>) -> Result<&mut T, Error>;
 }
 
+/// Emplacer that cannot be instantiated and used as a placeholder for unused parameters.
 pub enum NeverEmplacer {}
 
 impl<T: FlatUnsized + ?Sized> Emplacer<T> for NeverEmplacer {
