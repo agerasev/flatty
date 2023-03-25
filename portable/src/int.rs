@@ -270,6 +270,25 @@ derive_be_int_signed!(Int<true, 2, true>, i16);
 derive_be_int_signed!(Int<true, 4, true>, i32);
 derive_be_int_signed!(Int<true, 8, true>, i64);
 
+impl NativeCast for u8 {
+    type Native = u8;
+    fn from_native(n: u8) -> Self {
+        n
+    }
+    fn to_native(&self) -> u8 {
+        *self
+    }
+}
+impl NativeCast for i8 {
+    type Native = i8;
+    fn from_native(n: i8) -> Self {
+        n
+    }
+    fn to_native(&self) -> i8 {
+        *self
+    }
+}
+
 pub mod le {
     use super::Int;
 
