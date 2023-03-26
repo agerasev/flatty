@@ -12,7 +12,7 @@ use num_traits::{Bounded, FromPrimitive, Num, NumCast, One, ToPrimitive, Zero};
 /// + `BE`: Endianness. `false` => little-endian, `true` => big-endian.
 /// + `N`: Width in bytes.
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Float<const BE: bool, const N: usize> {
     bytes: [u8; N],
 }

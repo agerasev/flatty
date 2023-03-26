@@ -1,5 +1,6 @@
 #![no_std]
 
+mod bool_;
 mod float;
 mod impl_;
 mod int;
@@ -7,7 +8,6 @@ mod int;
 mod tests;
 
 use flatty_base::Flat;
-use num_traits::{FromPrimitive, Num, ToPrimitive};
 
 /// Type that can be safely transefered between different machines.
 ///
@@ -17,12 +17,13 @@ use num_traits::{FromPrimitive, Num, ToPrimitive};
 pub unsafe trait Portable: Flat {}
 
 /// Trait for casting portable type to/from native counterparts.
-pub trait NativeCast: Num + FromPrimitive + ToPrimitive + Copy {
-    type Native: Num + FromPrimitive + ToPrimitive + Copy;
+pub trait NativeCast: Portable + Copy {
+    type Native: Copy;
     fn from_native(n: Self::Native) -> Self;
     fn to_native(&self) -> Self::Native;
 }
 
+pub use bool_::Bool;
 pub use float::Float;
 pub use int::Int;
 

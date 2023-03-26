@@ -6,9 +6,6 @@ use core::{
 use flatty_base::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
 use num_traits::{Bounded, FromPrimitive, Num, NumCast, One, Signed, ToPrimitive, Unsigned, Zero};
 
-unsafe impl Portable for u8 {}
-unsafe impl Portable for i8 {}
-
 /// Generic portable integer. Has alignment == 1.
 ///
 /// Parameters:
@@ -16,7 +13,7 @@ unsafe impl Portable for i8 {}
 /// + `N`: Width in bytes.
 /// + `S`: Signedness. `false` => unsigned, `true` => signed.
 #[repr(C)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Int<const BE: bool, const N: usize, const S: bool> {
     bytes: [u8; N],
 }
@@ -269,6 +266,9 @@ derive_be_int_unsigned!(Int<true, 8, false>, u64);
 derive_be_int_signed!(Int<true, 2, true>, i16);
 derive_be_int_signed!(Int<true, 4, true>, i32);
 derive_be_int_signed!(Int<true, 8, true>, i64);
+
+unsafe impl Portable for u8 {}
+unsafe impl Portable for i8 {}
 
 impl NativeCast for u8 {
     type Native = u8;

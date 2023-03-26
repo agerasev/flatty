@@ -13,6 +13,8 @@ pub enum ErrorKind {
     BadAlign,
     /// Enum binary representation contains index that doesn't match any of possible enum states.
     InvalidEnumTag,
+    /// Invalid binary representation of the type.
+    InvalidData,
     /// Any other error.
     Other,
 }
