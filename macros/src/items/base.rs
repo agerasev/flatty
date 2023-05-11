@@ -108,7 +108,10 @@ pub fn self_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
 
             items = quote! {
                 #items
-                const DATA_OFFSET: usize = ::flatty::utils::ceil_mul(<#enum_type as ::flatty::FlatSized>::SIZE, <Self as ::flatty::FlatBase>::ALIGN);
+                const DATA_OFFSET: usize = ::flatty::utils::ceil_mul(
+                    <#enum_type as ::flatty::traits::FlatSized>::SIZE,
+                    <Self as ::flatty::traits::FlatBase>::ALIGN,
+                );
             };
 
             if !ctx.info.sized {

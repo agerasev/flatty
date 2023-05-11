@@ -14,7 +14,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         }
         let type_list = type_list(iter);
         quote! {
-            unsafe { iter::PtrIter::new_unchecked(#bytes, iter::type_list!(#type_list)) }.validate_all()
+            iter::DataIter::new_unchecked(#bytes, iter::type_list!(#type_list)).validate_all()
         }
     }
 
@@ -23,8 +23,8 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Enum(enum_data) => {
             let tag_type = ctx.idents.tag.as_ref().unwrap();
             let validate_tag = quote! {
-                let tag = unsafe { Unvalidated::<#tag_type>::from_bytes_unchecked(bytes) };
-                <#tag_type as ::flatty::traits::FlatValidate>::validate(tag)?
+                <#tag_type>::validate_unchecked(bytes)?;
+                <#tag_type>::from_bytes_unchecked(bytes)
             };
             let variants = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
                 let items = collect_fields(&variant.fields, quote! { data });

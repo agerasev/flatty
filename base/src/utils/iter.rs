@@ -101,11 +101,11 @@ impl<T: Flat + ?Sized> PosIter<SingleType<T>> {
 }
 
 #[derive(Clone, Debug)]
-pub struct PtrIter<'a, I: TypeIter> {
+pub struct DataIter<'a, I: TypeIter> {
     data: &'a [u8],
     iter: PosIter<I>,
 }
-impl<'a, I: TypeIter> PtrIter<'a, I> {
+impl<'a, I: TypeIter> DataIter<'a, I> {
     pub fn new(data: &'a [u8], iter: I) -> Result<Self, Error> {
         iter.check_align_and_min_size(data)?;
         Ok(unsafe { Self::new_unchecked(data, iter) })
@@ -122,44 +122,44 @@ impl<'a, I: TypeIter> PtrIter<'a, I> {
     pub fn pos(&self) -> usize {
         self.iter.pos()
     }
-    pub fn value(&self) -> *const I::Item {
-        I::Item::ptr_from_bytes(self.data)
+    pub fn value(&self) -> &[u8] {
+        self.data
     }
 }
-impl<'a, T: Flat + Sized, I: TypeIter> PtrIter<'a, TwoOrMoreTypes<T, I>> {
-    pub fn next(self) -> (PtrIter<'a, I>, *const T) {
+impl<'a, T: Flat + Sized, I: TypeIter> DataIter<'a, TwoOrMoreTypes<T, I>> {
+    pub fn next(self) -> (DataIter<'a, I>, &'a [u8]) {
         let prev_pos = self.iter.pos();
         let iter = self.iter.next();
         let next_pos = iter.pos();
         let (prev_data, next_data) = self.data.split_at(next_pos - prev_pos);
-        (PtrIter { data: next_data, iter }, T::ptr_from_bytes(prev_data))
+        (DataIter { data: next_data, iter }, prev_data)
     }
 }
-impl<'a, T: Flat + ?Sized> PtrIter<'a, SingleType<T>> {
+impl<'a, T: Flat + ?Sized> DataIter<'a, SingleType<T>> {
     pub fn assert_last(&self) {
         self.iter.assert_last()
     }
-    pub fn finalize(self) -> *const T {
-        T::ptr_from_bytes(self.data)
+    pub fn finalize(self) -> &'a [u8] {
+        self.data
     }
 }
 
 pub trait ValidateIter {
     fn validate_all(self) -> Result<(), Error>;
 }
-impl<'a, T: Flat + Sized + 'a, I: TypeIter> ValidateIter for PtrIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: Flat + Sized + 'a, I: TypeIter> ValidateIter for DataIter<'a, TwoOrMoreTypes<T, I>>
 where
-    PtrIter<'a, I>: ValidateIter,
+    DataIter<'a, I>: ValidateIter,
 {
     fn validate_all(self) -> Result<(), Error> {
-        unsafe { T::validate_ptr(self.value()) }.map_err(|e| e.offset(self.pos()))?;
+        unsafe { T::validate_unchecked(self.value()) }.map_err(|e| e.offset(self.pos()))?;
         self.next().0.validate_all()
     }
 }
-impl<'a, T: Flat + ?Sized> ValidateIter for PtrIter<'a, SingleType<T>> {
+impl<'a, T: Flat + ?Sized> ValidateIter for DataIter<'a, SingleType<T>> {
     fn validate_all(self) -> Result<(), Error> {
         self.assert_last();
-        unsafe { T::validate_ptr(self.value()) }.map_err(|e| e.offset(self.pos()))?;
+        unsafe { T::validate_unchecked(self.value()) }.map_err(|e| e.offset(self.pos()))?;
         Ok(())
     }
 }
@@ -170,17 +170,17 @@ pub trait FoldSizeIter {
     /// Internal data must be valid.
     unsafe fn fold_size(self, size: usize) -> usize;
 }
-impl<'a, T: Flat + Sized + 'a, I: TypeIter> FoldSizeIter for PtrIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: Flat + Sized + 'a, I: TypeIter> FoldSizeIter for DataIter<'a, TwoOrMoreTypes<T, I>>
 where
-    PtrIter<'a, I>: FoldSizeIter,
+    DataIter<'a, I>: FoldSizeIter,
 {
     unsafe fn fold_size(self, size: usize) -> usize {
         self.next().0.fold_size(ceil_mul(size, T::ALIGN) + T::SIZE)
     }
 }
-impl<'a, T: Flat + ?Sized> FoldSizeIter for PtrIter<'a, SingleType<T>> {
+impl<'a, T: Flat + ?Sized> FoldSizeIter for DataIter<'a, SingleType<T>> {
     unsafe fn fold_size(self, size: usize) -> usize {
-        ceil_mul(size, T::ALIGN) + (&*self.finalize()).size()
+        ceil_mul(size, T::ALIGN) + (&*T::ptr_from_bytes(self.finalize())).size()
     }
 }
 

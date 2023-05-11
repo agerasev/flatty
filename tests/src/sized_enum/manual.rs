@@ -1,12 +1,11 @@
 use super::tests::generate_tests;
 use flatty::{
-    mem::Unvalidated,
+    error::{Error, ErrorKind},
     prelude::*,
     utils::{
         ceil_mul,
         iter::{self, prelude::*},
     },
-    Error, ErrorKind,
 };
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -22,22 +21,22 @@ enum SizedEnum {
     D(u32),
 }
 
-impl FlatValidate for SizedEnum {
-    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
-        let bytes = this.as_bytes();
-        let tag = unsafe { Unvalidated::<u8>::from_bytes_unchecked(bytes) };
-        u8::validate(tag)?;
+unsafe impl FlatValidate for SizedEnum {
+    unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
+        u8::validate_unchecked(bytes)?;
+        let tag = u8::from_bytes_unchecked(bytes);
+
         let data_offset: usize = ceil_mul(u8::SIZE, Self::ALIGN);
         let bytes = unsafe { bytes.get_unchecked(data_offset..) };
-        match unsafe { tag.assume_init() } {
+        match tag {
             0 => Ok(()),
-            1 => unsafe { iter::RefIter::new_unchecked(bytes, iter::type_list!(u16, u8)) }
+            1 => unsafe { iter::DataIter::new_unchecked(bytes, iter::type_list!(u16, u8)) }
                 .validate_all()
                 .map_err(|e| e.offset(data_offset)),
-            2 => unsafe { iter::RefIter::new_unchecked(bytes, iter::type_list!(u8, u16)) }
+            2 => unsafe { iter::DataIter::new_unchecked(bytes, iter::type_list!(u8, u16)) }
                 .validate_all()
                 .map_err(|e| e.offset(data_offset)),
-            3 => unsafe { iter::RefIter::new_unchecked(bytes, iter::type_list!(u32)) }
+            3 => unsafe { iter::DataIter::new_unchecked(bytes, iter::type_list!(u32)) }
                 .validate_all()
                 .map_err(|e| e.offset(data_offset)),
             _ => Err(Error {
@@ -45,7 +44,6 @@ impl FlatValidate for SizedEnum {
                 pos: 0,
             }),
         }
-        .map(|_| unsafe { this.assume_init() })
     }
 }
 

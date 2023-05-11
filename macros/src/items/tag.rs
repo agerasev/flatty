@@ -24,12 +24,13 @@ pub fn struct_(ctx: &Context, input: &DeriveInput, local: bool) -> TokenStream {
                 #variants
             }
 
-            impl ::flatty::traits::FlatValidate for #tag_type {
-                fn validate(this: &::flatty::mem::Unvalidated<Self>) -> Result<&Self, ::flatty::Error> {
-                    use ::flatty::{prelude::*, mem::Unvalidated, Error, ErrorKind};
-                    let tag = unsafe { Unvalidated::<#enum_type>::from_bytes_unchecked(this.as_bytes()) };
-                    if *(<#enum_type as FlatValidate>::validate(tag)?) < #var_count {
-                        Ok(unsafe { this.assume_init() })
+            unsafe impl ::flatty::traits::FlatValidate for #tag_type {
+                unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), ::flatty::error::Error> {
+                    use ::flatty::{prelude::*, error::{Error, ErrorKind}};
+                    <#enum_type>::validate_unchecked(bytes)?;
+                    let tag = <#enum_type>::from_bytes_unchecked(bytes);
+                    if *tag < #var_count {
+                        Ok(())
                     } else {
                         Err(Error {
                             kind: ErrorKind::InvalidEnumTag,
