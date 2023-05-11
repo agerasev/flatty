@@ -1,18 +1,32 @@
-use crate::{error::Error, mem::Unvalidated, FlatUnsized};
+use crate::{
+    error::Error,
+    traits::{FlatSized, FlatUnsized},
+    utils::check::check_align_and_min_size,
+};
 
 /// In-place initializer of flat type.
-pub trait Emplacer<T: FlatUnsized + ?Sized>: Sized {
+pub unsafe trait Emplacer<T: FlatUnsized + ?Sized>: Sized {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error>;
+
     /// Apply initializer for uninitizalized memory.
-    ///
-    /// *In case of success must return reference to the same memory as `uninit`.*
-    fn emplace(self, uninit: &mut Unvalidated<T>) -> Result<&mut T, Error>;
+    fn emplace(self, bytes: &mut [u8]) -> Result<(), Error> {
+        check_align_and_min_size::<T>(bytes)?;
+        unsafe { self.emplace_unchecked(bytes) }
+    }
 }
 
 /// Emplacer that cannot be instantiated and used as a placeholder for unused parameters.
 pub enum NeverEmplacer {}
 
-impl<T: FlatUnsized + ?Sized> Emplacer<T> for NeverEmplacer {
-    fn emplace(self, _: &mut Unvalidated<T>) -> Result<&mut T, Error> {
+unsafe impl<T: FlatUnsized + ?Sized> Emplacer<T> for NeverEmplacer {
+    unsafe fn emplace_unchecked(self, _: &mut [u8]) -> Result<(), Error> {
         unreachable!()
+    }
+}
+
+unsafe impl<T: FlatSized> Emplacer<T> for T {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+        unsafe { (Self::ptr_from_bytes(bytes) as *mut Self).write(self) };
+        Ok(())
     }
 }

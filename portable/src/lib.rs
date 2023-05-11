@@ -7,7 +7,7 @@ mod int;
 #[cfg(test)]
 mod tests;
 
-use flatty_base::Flat;
+use flatty_base::traits::Flat;
 
 /// Type that can be safely transefered between different machines.
 ///
