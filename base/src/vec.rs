@@ -2,9 +2,9 @@ use crate::{
     emplacer::Emplacer,
     error::{Error, ErrorKind},
     impl_unsized_uninit_cast,
-    mem::MaybeUninitUnsized,
+    mem::Unvalidated,
     utils::{floor_mul, max},
-    Flat, FlatBase, FlatCheck, FlatDefault, FlatSized, FlatUnsized,
+    Flat, FlatBase, FlatDefault, FlatSized, FlatUnsized, FlatValidate,
 };
 use core::mem::MaybeUninit;
 use stavec::GenericVec;
@@ -60,7 +60,7 @@ where
 {
     type AlignAs = FlatVecAlignAs<T, L>;
 
-    fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize {
+    fn ptr_metadata(this: &Unvalidated<Self>) -> usize {
         floor_mul(this.as_bytes().len() - Self::DATA_OFFSET, Self::ALIGN) / T::SIZE
     }
 
@@ -80,8 +80,8 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
-        let len = unsafe { MaybeUninitUnsized::<L>::from_mut_bytes_unchecked(uninit.as_mut_bytes()) };
+    fn emplace(self, uninit: &mut Unvalidated<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
+        let len = unsafe { Unvalidated::<L>::from_mut_bytes_unchecked(uninit.as_mut_bytes()) };
         len.as_mut_sized().write(L::zero());
         // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeUninit<T>]`.
         Ok(unsafe { uninit.assume_init_mut() })
@@ -93,7 +93,7 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
+    fn emplace(self, uninit: &mut Unvalidated<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
         let vec = Empty.emplace(uninit).unwrap();
         if vec.capacity() < N {
             return Err(Error {
@@ -111,7 +111,7 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
+    fn emplace(self, uninit: &mut Unvalidated<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
         let vec = Empty.emplace(uninit).unwrap();
         for x in self.0 {
             if vec.push(x).is_err() {
@@ -137,13 +137,13 @@ where
     }
 }
 
-impl<T, L> FlatCheck for FlatVec<T, L>
+impl<T, L> FlatValidate for FlatVec<T, L>
 where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
-        let len = unsafe { &MaybeUninitUnsized::<L>::from_bytes_unchecked(this.as_bytes()) };
+    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
+        let len = unsafe { &Unvalidated::<L>::from_bytes_unchecked(this.as_bytes()) };
         L::validate(len)?;
         // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeUninit<T>]`.
         let self_ = unsafe { this.assume_init() };
@@ -154,7 +154,7 @@ where
             });
         }
         for x in unsafe { self_.data().get_unchecked(..self_.len()) } {
-            T::validate(MaybeUninitUnsized::from_sized(x))?;
+            T::validate(Unvalidated::from_sized(x))?;
         }
         Ok(self_)
     }

@@ -1,6 +1,6 @@
 use crate::{NativeCast, Portable};
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
-use flatty_base::{mem::MaybeUninitUnsized, Error, ErrorKind, Flat, FlatCheck};
+use flatty_base::{mem::Unvalidated, Error, ErrorKind, Flat, FlatValidate};
 
 /// Boolean type that has portable binary representation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -28,8 +28,8 @@ impl From<Bool> for bool {
     }
 }
 
-impl FlatCheck for Bool {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
+impl FlatValidate for Bool {
+    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
         match unsafe { this.as_bytes().get_unchecked(0) } {
             0..=1 => Ok(unsafe { this.assume_init() }),
             _ => Err(Error {

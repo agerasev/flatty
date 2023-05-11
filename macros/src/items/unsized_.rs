@@ -10,7 +10,7 @@ fn ptr_metadata_method(_ctx: &Context, input: &DeriveInput) -> TokenStream {
             let last_ty = &struct_data.fields.iter().last().unwrap().ty;
             quote!(
                 <#last_ty as FlatUnsized>::ptr_metadata(unsafe {
-                    MaybeUninitUnsized::<#last_ty>::from_bytes_unchecked(&this.as_bytes()[Self::LAST_FIELD_OFFSET..])
+                    Unvalidated::<#last_ty>::from_bytes_unchecked(&this.as_bytes()[Self::LAST_FIELD_OFFSET..])
                 })
             )
         }
@@ -21,8 +21,8 @@ fn ptr_metadata_method(_ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Union(..) => unimplemented!(),
     };
     quote! {
-        fn ptr_metadata(this: &::flatty::mem::MaybeUninitUnsized<Self>) -> usize {
-            use ::flatty::{prelude::*, mem::MaybeUninitUnsized};
+        fn ptr_metadata(this: &::flatty::mem::Unvalidated<Self>) -> usize {
+            use ::flatty::{prelude::*, mem::Unvalidated};
             #body
         }
     }

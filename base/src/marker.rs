@@ -1,8 +1,8 @@
-use crate::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
+use crate::{mem::Unvalidated, Error, Flat, FlatValidate};
 use core::marker::PhantomData;
 
-impl<T> FlatCheck for PhantomData<T> {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
+impl<T> FlatValidate for PhantomData<T> {
+    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
         unsafe { Ok(this.assume_init()) }
     }
 }

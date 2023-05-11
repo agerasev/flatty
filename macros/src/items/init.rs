@@ -236,7 +236,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     }
                 };
                 let tag = quote! {
-                    unsafe { ::flatty::mem::MaybeUninitUnsized::<#tag_ident>::from_mut_bytes_unchecked(bytes) }
+                    unsafe { ::flatty::mem::Unvalidated::<#tag_ident>::from_mut_bytes_unchecked(bytes) }
                         .as_mut_sized()
                         .write(#tag_ident::#ident);
                 };
@@ -329,7 +329,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 {
                     fn emplace<'__flatty_a>(
                         self,
-                        uninit: &'__flatty_a mut ::flatty::mem::MaybeUninitUnsized<#self_ident<#self_args>>,
+                        uninit: &'__flatty_a mut ::flatty::mem::Unvalidated<#self_ident<#self_args>>,
                     ) -> Result<&'__flatty_a mut #self_ident<#self_args>, ::flatty::Error> {
                         <#init_ident<#init_args> as From<Self>>::from(self).emplace(uninit)
                     }
@@ -349,7 +349,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         {
             fn emplace<'__flatty_a>(
                 self,
-                uninit: &'__flatty_a mut ::flatty::mem::MaybeUninitUnsized<#self_ident<#self_args>>,
+                uninit: &'__flatty_a mut ::flatty::mem::Unvalidated<#self_ident<#self_args>>,
             ) -> Result<&'__flatty_a mut #self_ident<#self_args>, ::flatty::Error> {
                 use ::flatty::{prelude::*, utils::iter::{prelude::*, self}};
                 #body

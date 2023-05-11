@@ -1,4 +1,8 @@
-use crate::{emplacer::Emplacer, error::Error, mem::MaybeUninitUnsized};
+use crate::{
+    emplacer::Emplacer,
+    error::Error,
+    mem::{AsBytes, Unvalidated},
+};
 
 /// Basic flat type preoperties.
 pub unsafe trait FlatBase {
@@ -17,38 +21,40 @@ pub unsafe trait FlatBase {
 pub unsafe trait FlatUnsized: FlatBase {
     /// Sized type that has the same alignment as `Self`.
     type AlignAs: Sized;
+    /// Type to store unvalidated binary representation of `Self`.
+    type AsBytes: AsBytes + ?Sized;
 
     /// Metadata to store in a wide pointer to `Self`.
     ///
     /// Provides such value, that will give [`size()`](`FlatBase::size`)` <= `[`size_of_val()`](`core::mem::size_of_val`)` <= bytes.len()`.
     ///
     /// Panics if type is `Sized`.
-    fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize;
+    fn ptr_metadata(this: &Unvalidated<Self>) -> usize;
     /// Length of underlying memory occupied by `this`.
     fn bytes_len(this: &Self) -> usize;
 
     /// Create a new instance of `Self` initializing raw memory into default state of `Self`.
-    fn new_in_place<I: Emplacer<Self>>(this: &mut MaybeUninitUnsized<Self>, emplacer: I) -> Result<&mut Self, Error> {
+    fn new_in_place<I: Emplacer<Self>>(this: &mut Unvalidated<Self>, emplacer: I) -> Result<&mut Self, Error> {
         emplacer.emplace(this)
     }
     fn assign_in_place<I: Emplacer<Self>>(&mut self, emplacer: I) -> Result<&mut Self, Error> {
         Self::new_in_place(unsafe { self.as_mut_uninit() }, emplacer)
     }
 
-    unsafe fn from_uninit_unchecked(this: &MaybeUninitUnsized<Self>) -> &Self;
-    unsafe fn from_mut_uninit_unchecked(this: &mut MaybeUninitUnsized<Self>) -> &mut Self;
+    unsafe fn from_uninit_unchecked(this: &Unvalidated<Self>) -> &Self;
+    unsafe fn from_mut_uninit_unchecked(this: &mut Unvalidated<Self>) -> &mut Self;
 
-    fn as_uninit(&self) -> &MaybeUninitUnsized<Self>;
+    fn as_uninit(&self) -> &Unvalidated<Self>;
     /// # Safety
     ///
     /// Modification of return value must not make `self` invalid.
-    unsafe fn as_mut_uninit(&mut self) -> &mut MaybeUninitUnsized<Self>;
+    unsafe fn as_mut_uninit(&mut self) -> &mut Unvalidated<Self>;
 
-    fn from_bytes(bytes: &[u8]) -> Result<&MaybeUninitUnsized<Self>, Error> {
-        MaybeUninitUnsized::from_bytes(bytes)
+    fn from_bytes(bytes: &[u8]) -> Result<&Unvalidated<Self>, Error> {
+        Unvalidated::from_bytes(bytes)
     }
-    fn from_mut_bytes(bytes: &mut [u8]) -> Result<&mut MaybeUninitUnsized<Self>, Error> {
-        MaybeUninitUnsized::from_mut_bytes(bytes)
+    fn from_mut_bytes(bytes: &mut [u8]) -> Result<&mut Unvalidated<Self>, Error> {
+        Unvalidated::from_mut_bytes(bytes)
     }
 }
 
@@ -56,25 +62,27 @@ pub unsafe trait FlatUnsized: FlatBase {
 #[macro_export]
 macro_rules! impl_unsized_uninit_cast {
     () => {
-        unsafe fn from_uninit_unchecked(this: &$crate::mem::MaybeUninitUnsized<Self>) -> &Self {
+        type AsBytes = [u8];
+
+        unsafe fn from_uninit_unchecked(this: &$crate::mem::Unvalidated<Self>) -> &Self {
             let slice = ::core::ptr::slice_from_raw_parts(this.as_bytes().as_ptr(), Self::ptr_metadata(this));
             &*(slice as *const [_] as *const Self)
         }
-        unsafe fn from_mut_uninit_unchecked(this: &mut $crate::mem::MaybeUninitUnsized<Self>) -> &mut Self {
+        unsafe fn from_mut_uninit_unchecked(this: &mut $crate::mem::Unvalidated<Self>) -> &mut Self {
             let slice = ::core::ptr::slice_from_raw_parts_mut(this.as_mut_bytes().as_mut_ptr(), Self::ptr_metadata(this));
             &mut *(slice as *mut [_] as *mut Self)
         }
 
-        fn as_uninit(&self) -> &$crate::mem::MaybeUninitUnsized<Self> {
+        fn as_uninit(&self) -> &$crate::mem::Unvalidated<Self> {
             unsafe {
-                $crate::mem::MaybeUninitUnsized::from_bytes_unchecked(::core::slice::from_raw_parts(
+                $crate::mem::Unvalidated::from_bytes_unchecked(::core::slice::from_raw_parts(
                     self as *const _ as *const u8,
                     Self::bytes_len(self),
                 ))
             }
         }
-        unsafe fn as_mut_uninit(&mut self) -> &mut $crate::mem::MaybeUninitUnsized<Self> {
-            $crate::mem::MaybeUninitUnsized::from_mut_bytes_unchecked(::core::slice::from_raw_parts_mut(
+        unsafe fn as_mut_uninit(&mut self) -> &mut $crate::mem::Unvalidated<Self> {
+            $crate::mem::Unvalidated::from_mut_bytes_unchecked(::core::slice::from_raw_parts_mut(
                 self as *mut _ as *mut u8,
                 Self::bytes_len(self),
             ))
@@ -83,13 +91,13 @@ macro_rules! impl_unsized_uninit_cast {
 }
 
 /// Flat type runtime checking.
-pub trait FlatCheck: FlatUnsized {
+pub trait FlatValidate: FlatUnsized {
     /// Check that memory contents of `this` is valid for `Self`.
     ///
     /// This method returned `Ok` must guaratee that `this` could be safely transmuted to `Self`.
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error>;
+    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error>;
     /// The same as [`Self::validate`] but returns mutable reference.
-    fn validate_mut(this: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
+    fn validate_mut(this: &mut Unvalidated<Self>) -> Result<&mut Self, Error> {
         Self::validate(this)?;
         unsafe { Ok(this.assume_init_mut()) }
     }
@@ -108,4 +116,4 @@ pub trait FlatCheck: FlatUnsized {
 /// + `Self` don't own any resources outside of it.
 /// + `Self` could be trivially copied as bytes. (We cannot require `Self: `[`Copy`] because it `?Sized`.)
 /// + All methods of dependent traits have proper implemetation and will not cause an Undefined Behaviour.
-pub unsafe trait Flat: FlatBase + FlatUnsized + FlatCheck {}
+pub unsafe trait Flat: FlatBase + FlatUnsized + FlatValidate {}

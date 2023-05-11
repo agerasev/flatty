@@ -1,4 +1,4 @@
-use flatty::{self, mem::MaybeUninitUnsized, prelude::*, Emplacer};
+use flatty::{self, mem::Unvalidated, prelude::*, Emplacer};
 use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -48,15 +48,15 @@ impl<'a, M: Portable + FlatDefault + ?Sized, O: CommonWriter<M>> CommonUninitWri
 impl<'a, M: Portable + ?Sized, O: CommonWriter<M> + Unpin> Unpin for CommonUninitWriteGuard<'a, M, O> {}
 
 impl<'a, M: Portable + ?Sized, O: CommonWriter<M>> Deref for CommonUninitWriteGuard<'a, M, O> {
-    type Target = MaybeUninitUnsized<M>;
+    type Target = Unvalidated<M>;
     fn deref(&self) -> &Self::Target {
-        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.owner.buffer()) }
+        unsafe { Unvalidated::from_bytes_unchecked(self.owner.buffer()) }
     }
 }
 
 impl<'a, M: Portable + ?Sized, O: CommonWriter<M>> DerefMut for CommonUninitWriteGuard<'a, M, O> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { MaybeUninitUnsized::from_mut_bytes_unchecked(self.owner.buffer_mut()) }
+        unsafe { Unvalidated::from_mut_bytes_unchecked(self.owner.buffer_mut()) }
     }
 }
 
@@ -70,12 +70,12 @@ impl<'a, M: Portable + ?Sized, O: CommonWriter<M> + Unpin> Unpin for CommonWrite
 impl<'a, M: Portable + ?Sized, O: CommonWriter<M>> Deref for CommonWriteGuard<'a, M, O> {
     type Target = M;
     fn deref(&self) -> &M {
-        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.owner.buffer()).assume_init() }
+        unsafe { Unvalidated::from_bytes_unchecked(self.owner.buffer()).assume_init() }
     }
 }
 
 impl<'a, M: Portable + ?Sized, O: CommonWriter<M>> DerefMut for CommonWriteGuard<'a, M, O> {
     fn deref_mut(&mut self) -> &mut M {
-        unsafe { MaybeUninitUnsized::from_mut_bytes_unchecked(self.owner.buffer_mut()).assume_init_mut() }
+        unsafe { Unvalidated::from_mut_bytes_unchecked(self.owner.buffer_mut()).assume_init_mut() }
     }
 }

@@ -25,10 +25,10 @@ pub mod vec;
 pub use default::FlatDefault;
 pub use emplacer::{Emplacer, NeverEmplacer};
 pub use error::{Error, ErrorKind};
-pub use flat::{Flat, FlatBase, FlatCheck, FlatUnsized};
+pub use flat::{Flat, FlatBase, FlatUnsized, FlatValidate};
 pub use sized::FlatSized;
 pub use vec::FlatVec;
 
 pub mod prelude {
-    pub use super::{Flat, FlatBase, FlatCheck, FlatDefault, FlatSized, FlatUnsized};
+    pub use super::{Flat, FlatBase, FlatDefault, FlatSized, FlatUnsized, FlatValidate};
 }

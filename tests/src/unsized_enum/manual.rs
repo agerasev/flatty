@@ -2,7 +2,7 @@ use super::tests::generate_tests;
 use core::mem::align_of;
 use flatty::{
     impl_unsized_uninit_cast,
-    mem::MaybeUninitUnsized,
+    mem::Unvalidated,
     prelude::*,
     utils::{
         ceil_mul, floor_mul,
@@ -28,9 +28,9 @@ enum UnsizedEnumTag {
     C,
 }
 
-impl FlatCheck for UnsizedEnumTag {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
-        let tag = unsafe { MaybeUninitUnsized::<u8>::from_bytes_unchecked(this.as_bytes()) };
+impl FlatValidate for UnsizedEnumTag {
+    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
+        let tag = unsafe { Unvalidated::<u8>::from_bytes_unchecked(this.as_bytes()) };
         u8::validate(tag)?;
         if *unsafe { tag.assume_init() } < 3 {
             Ok(unsafe { this.assume_init() })
@@ -100,7 +100,7 @@ impl<CA, CB> From<UnsizedEnumInitC<CA, CB>> for UnsizedEnumInit<NeverEmplacer, N
 }
 
 impl Emplacer<UnsizedEnum> for UnsizedEnumInitA {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
+    fn emplace(self, uninit: &mut Unvalidated<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
         UnsizedEnumInit::from(self).emplace(uninit)
     }
 }
@@ -110,7 +110,7 @@ where
     B0: Emplacer<u8>,
     B1: Emplacer<u16>,
 {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
+    fn emplace(self, uninit: &mut Unvalidated<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
         UnsizedEnumInit::from(self).emplace(uninit)
     }
 }
@@ -120,7 +120,7 @@ where
     CA: Emplacer<u8>,
     CB: Emplacer<FlatVec<u8, u16>>,
 {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
+    fn emplace(self, uninit: &mut Unvalidated<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
         UnsizedEnumInit::from(self).emplace(uninit)
     }
 }
@@ -142,9 +142,9 @@ where
     CA: Emplacer<u8>,
     CB: Emplacer<FlatVec<u8, u16>>,
 {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
+    fn emplace(self, uninit: &mut Unvalidated<UnsizedEnum>) -> Result<&mut UnsizedEnum, Error> {
         let bytes = uninit.as_mut_bytes();
-        unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) }
+        unsafe { Unvalidated::<UnsizedEnumTag>::from_mut_bytes_unchecked(bytes) }
             .as_mut_sized()
             .write(self.tag());
         match self {
@@ -262,7 +262,7 @@ unsafe impl FlatBase for UnsizedEnum {
 unsafe impl FlatUnsized for UnsizedEnum {
     type AlignAs = UnsizedEnumAlignAs;
 
-    fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize {
+    fn ptr_metadata(this: &Unvalidated<Self>) -> usize {
         floor_mul(this.as_bytes().len() - Self::DATA_OFFSET, Self::ALIGN)
     }
     fn bytes_len(this: &Self) -> usize {
@@ -272,10 +272,10 @@ unsafe impl FlatUnsized for UnsizedEnum {
     impl_unsized_uninit_cast!();
 }
 
-impl FlatCheck for UnsizedEnum {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
+impl FlatValidate for UnsizedEnum {
+    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
         let bytes = this.as_bytes();
-        let tag = unsafe { MaybeUninitUnsized::<UnsizedEnumTag>::from_bytes_unchecked(bytes) }.validate()?;
+        let tag = unsafe { Unvalidated::<UnsizedEnumTag>::from_bytes_unchecked(bytes) }.validate()?;
         let bytes = unsafe { bytes.get_unchecked(Self::DATA_OFFSET..) };
         if bytes.len() < Self::DATA_MIN_SIZES[*tag as usize] {
             return Err(Error {

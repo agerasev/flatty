@@ -1,4 +1,4 @@
-use crate::{error::Error, mem::MaybeUninitUnsized, Emplacer, Flat};
+use crate::{error::Error, mem::Unvalidated, Emplacer, Flat};
 
 /// Flat types that can be initialized to default state.
 ///
@@ -14,7 +14,7 @@ pub trait FlatDefault: Flat {
     fn default_emplacer() -> Self::DefaultEmplacer;
 
     /// Create a new instance of `Self` initializing raw memory into default state of `Self`.
-    fn default_in_place(bytes: &mut MaybeUninitUnsized<Self>) -> Result<&mut Self, Error> {
+    fn default_in_place(bytes: &mut Unvalidated<Self>) -> Result<&mut Self, Error> {
         Self::new_in_place(bytes, Self::default_emplacer())
     }
 }

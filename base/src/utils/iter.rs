@@ -1,6 +1,6 @@
 use crate::{
     error::ErrorKind,
-    mem::MaybeUninitUnsized,
+    mem::Unvalidated,
     prelude::*,
     utils::{ceil_mul, max},
     Error,
@@ -124,18 +124,18 @@ impl<'a, I: TypeIter> RefIter<'a, I> {
     pub fn pos(&self) -> usize {
         self.iter.pos()
     }
-    pub fn value(&self) -> &MaybeUninitUnsized<I::Item> {
-        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data) }
+    pub fn value(&self) -> &Unvalidated<I::Item> {
+        unsafe { Unvalidated::from_bytes_unchecked(self.data) }
     }
 }
 impl<'a, T: Flat + Sized, I: TypeIter> RefIter<'a, TwoOrMoreTypes<T, I>> {
-    pub fn next(self) -> (RefIter<'a, I>, &'a MaybeUninitUnsized<T>) {
+    pub fn next(self) -> (RefIter<'a, I>, &'a Unvalidated<T>) {
         let prev_pos = self.iter.pos();
         let iter = self.iter.next();
         let next_pos = iter.pos();
         let (prev_data, next_data) = self.data.split_at(next_pos - prev_pos);
         (RefIter { data: next_data, iter }, unsafe {
-            MaybeUninitUnsized::from_bytes_unchecked(prev_data)
+            Unvalidated::from_bytes_unchecked(prev_data)
         })
     }
 }
@@ -143,8 +143,8 @@ impl<'a, T: Flat + ?Sized> RefIter<'a, SingleType<T>> {
     pub fn assert_last(&self) {
         self.iter.assert_last()
     }
-    pub fn finalize(self) -> &'a MaybeUninitUnsized<T> {
-        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data) }
+    pub fn finalize(self) -> &'a Unvalidated<T> {
+        unsafe { Unvalidated::from_bytes_unchecked(self.data) }
     }
 }
 
@@ -172,13 +172,13 @@ impl<'a, I: TypeIter> MutIter<'a, I> {
     }
 }
 impl<'a, T: Flat + Sized, I: TypeIter> MutIter<'a, TwoOrMoreTypes<T, I>> {
-    pub fn next(self) -> (MutIter<'a, I>, &'a mut MaybeUninitUnsized<T>) {
+    pub fn next(self) -> (MutIter<'a, I>, &'a mut Unvalidated<T>) {
         let prev_pos = self.iter.pos();
         let iter = self.iter.next();
         let next_pos = iter.pos();
         let (prev_data, next_data) = self.data.split_at_mut(next_pos - prev_pos);
         (MutIter { data: next_data, iter }, unsafe {
-            MaybeUninitUnsized::from_mut_bytes_unchecked(prev_data)
+            Unvalidated::from_mut_bytes_unchecked(prev_data)
         })
     }
 }
@@ -186,8 +186,8 @@ impl<'a, T: Flat + ?Sized> MutIter<'a, SingleType<T>> {
     pub fn assert_last(&self) {
         self.iter.assert_last()
     }
-    pub fn finalize(self) -> &'a mut MaybeUninitUnsized<T> {
-        unsafe { MaybeUninitUnsized::from_mut_bytes_unchecked(self.data) }
+    pub fn finalize(self) -> &'a mut Unvalidated<T> {
+        unsafe { Unvalidated::from_mut_bytes_unchecked(self.data) }
     }
 }
 

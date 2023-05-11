@@ -1,4 +1,4 @@
-use crate::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
+use crate::{mem::Unvalidated, Error, Flat, FlatValidate};
 
 /// Macro for implementing [`Flat`] for primitive types.
 ///
@@ -9,8 +9,8 @@ use crate::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
 /// Any possible memory state of the variable of the type must be valid.
 macro_rules! impl_flat_prim {
     ($ty:ty) => {
-        impl FlatCheck for $ty {
-            fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
+        impl FlatValidate for $ty {
+            fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
                 unsafe { Ok(this.assume_init()) }
             }
         }

@@ -1,6 +1,6 @@
 use super::tests::generate_tests;
 use flatty::{
-    mem::MaybeUninitUnsized,
+    mem::Unvalidated,
     prelude::*,
     utils::{
         ceil_mul,
@@ -22,10 +22,10 @@ enum SizedEnum {
     D(u32),
 }
 
-impl FlatCheck for SizedEnum {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
+impl FlatValidate for SizedEnum {
+    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
         let bytes = this.as_bytes();
-        let tag = unsafe { MaybeUninitUnsized::<u8>::from_bytes_unchecked(bytes) };
+        let tag = unsafe { Unvalidated::<u8>::from_bytes_unchecked(bytes) };
         u8::validate(tag)?;
         let data_offset: usize = ceil_mul(u8::SIZE, Self::ALIGN);
         let bytes = unsafe { bytes.get_unchecked(data_offset..) };

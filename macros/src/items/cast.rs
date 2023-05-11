@@ -23,8 +23,8 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Enum(enum_data) => {
             let tag_type = ctx.idents.tag.as_ref().unwrap();
             let validate_tag = quote! {
-                let tag = unsafe { MaybeUninitUnsized::<#tag_type>::from_bytes_unchecked(this.as_bytes()) };
-                <#tag_type as ::flatty::FlatCheck>::validate(tag)?
+                let tag = unsafe { Unvalidated::<#tag_type>::from_bytes_unchecked(this.as_bytes()) };
+                <#tag_type as ::flatty::FlatValidate>::validate(tag)?
             };
             let variants = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
                 let items = collect_fields(&variant.fields, quote! { data });
@@ -63,8 +63,8 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Union(_union_data) => unimplemented!(),
     };
     quote! {
-        fn validate(this: &::flatty::mem::MaybeUninitUnsized<Self>) -> Result<&Self, ::flatty::Error> {
-            use ::flatty::{prelude::*, mem::MaybeUninitUnsized, utils::iter::{prelude::*, self}};
+        fn validate(this: &::flatty::mem::Unvalidated<Self>) -> Result<&Self, ::flatty::Error> {
+            use ::flatty::{prelude::*, mem::Unvalidated, utils::iter::{prelude::*, self}};
             { #body }.map(|_| unsafe { this.assume_init() })
         }
     }
@@ -77,18 +77,18 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let generic_args = generic::args(&input.generics);
     let where_clause = generic::where_clause(
         input,
-        quote! { ::flatty::FlatCheck + Sized },
+        quote! { ::flatty::FlatValidate + Sized },
         if ctx.info.sized {
             None
         } else {
-            Some(quote! { ::flatty::FlatCheck })
+            Some(quote! { ::flatty::FlatValidate })
         },
     );
 
     let validate_method = validate_method(ctx, input);
 
     quote! {
-        impl<#generic_params> ::flatty::FlatCheck for #self_ident<#generic_args>
+        impl<#generic_params> ::flatty::FlatValidate for #self_ident<#generic_args>
         #where_clause
         {
             #validate_method

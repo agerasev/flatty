@@ -1,4 +1,4 @@
-use crate::{utils::floor_mul, Emplacer, Error, ErrorKind, FlatCheck, FlatDefault, FlatSized, FlatUnsized};
+use crate::{utils::floor_mul, Emplacer, Error, ErrorKind, FlatDefault, FlatSized, FlatUnsized, FlatValidate};
 use core::{
     mem::MaybeUninit,
     slice::{from_raw_parts, from_raw_parts_mut},
@@ -21,31 +21,65 @@ fn check_align_and_min_size<T: FlatUnsized + ?Sized>(mem: &[u8]) -> Result<(), E
     }
 }
 
-/// Maybe uninit unsized.
-///
-/// Like [`MaybeUninit`](`core::mem::MaybeUninit`) but also for `?Sized` types.
+#[doc(hidden)]
+pub unsafe trait AsBytes {
+    unsafe fn from_bytes(bytes: &[u8]) -> &Self;
+    unsafe fn from_mut_bytes(bytes: &mut [u8]) -> &mut Self;
+    unsafe fn as_bytes(&self) -> &[u8];
+    unsafe fn as_mut_bytes(&mut self) -> &mut [u8];
+}
+unsafe impl AsBytes for [u8] {
+    unsafe fn from_bytes(bytes: &[u8]) -> &Self {
+        bytes
+    }
+    unsafe fn from_mut_bytes(bytes: &mut [u8]) -> &mut Self {
+        bytes
+    }
+    unsafe fn as_bytes(&self) -> &[u8] {
+        self
+    }
+    unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
+        self
+    }
+}
+unsafe impl<T: FlatSized> AsBytes for MaybeUninit<T> {
+    unsafe fn from_bytes(bytes: &[u8]) -> &Self {
+        unsafe { &*(bytes.as_ptr() as *const Self) }
+    }
+    unsafe fn from_mut_bytes(bytes: &mut [u8]) -> &mut Self {
+        unsafe { &mut *(bytes.as_mut_ptr() as *mut Self) }
+    }
+    unsafe fn as_bytes(&self) -> &[u8] {
+        unsafe { from_raw_parts(self.as_ptr() as *const u8, T::SIZE) }
+    }
+    unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
+        unsafe { from_raw_parts_mut(self.as_mut_ptr() as *mut u8, T::SIZE) }
+    }
+}
+
+/// Memory that can be reinterpreted as `T` but its contents may be invalid for `T`.
 ///
 /// Guarantees that underlying memory properly aligned and have enough length to store `T`.
 #[repr(C)]
-pub struct MaybeUninitUnsized<T: FlatUnsized + ?Sized> {
-    _align: [T::AlignAs; 0],
-    bytes: [u8],
+pub struct Unvalidated<T: FlatUnsized + ?Sized> {
+    align: [T::AlignAs; 0],
+    bytes: T::AsBytes,
 }
 
-impl<T: FlatUnsized + ?Sized> MaybeUninitUnsized<T> {
+impl<T: FlatUnsized + ?Sized> Unvalidated<T> {
     /// # Safety
     ///
     /// Bytes must be aligned to `T::ALIGN` and have length greater or equal to `T::MIN_SIZE`.
     pub unsafe fn from_bytes_unchecked(bytes: &[u8]) -> &Self {
         let bytes = bytes.get_unchecked(..floor_mul(bytes.len(), T::ALIGN));
-        &*(bytes as *const [u8] as *const Self)
+        &*(T::AsBytes::from_bytes(bytes) as *const T::AsBytes as *const Self)
     }
     /// # Safety
     ///
     /// Bytes must be aligned to `T::ALIGN` and have length greater or equal to `T::MIN_SIZE`.
     pub unsafe fn from_mut_bytes_unchecked(bytes: &mut [u8]) -> &mut Self {
         let bytes = bytes.get_unchecked_mut(..floor_mul(bytes.len(), T::ALIGN));
-        &mut *(bytes as *mut [u8] as *mut Self)
+        &mut *(T::AsBytes::from_mut_bytes(bytes) as *mut T::AsBytes as *mut Self)
     }
     /// Try to convert bytes to potentially unintialized instance of `T`.
     ///
@@ -76,10 +110,10 @@ impl<T: FlatUnsized + ?Sized> MaybeUninitUnsized<T> {
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        &self.bytes
+        unsafe { self.bytes.as_bytes() }
     }
     pub fn as_mut_bytes(&mut self) -> &mut [u8] {
-        &mut self.bytes
+        unsafe { self.bytes.as_mut_bytes() }
     }
 
     pub fn new_in_place<I: Emplacer<T>>(&mut self, emplacer: I) -> Result<&mut T, Error> {
@@ -87,7 +121,7 @@ impl<T: FlatUnsized + ?Sized> MaybeUninitUnsized<T> {
     }
 }
 
-impl<T: FlatCheck + ?Sized> MaybeUninitUnsized<T> {
+impl<T: FlatValidate + ?Sized> Unvalidated<T> {
     pub fn validate(&self) -> Result<&T, Error> {
         T::validate(self)
     }
@@ -96,13 +130,13 @@ impl<T: FlatCheck + ?Sized> MaybeUninitUnsized<T> {
     }
 }
 
-impl<T: FlatDefault + ?Sized> MaybeUninitUnsized<T> {
+impl<T: FlatDefault + ?Sized> Unvalidated<T> {
     pub fn default_in_place(&mut self) -> Result<&mut T, Error> {
         T::default_in_place(self)
     }
 }
 
-impl<T: FlatSized> MaybeUninitUnsized<T> {
+impl<T: FlatSized> Unvalidated<T> {
     pub fn from_sized(mu: &MaybeUninit<T>) -> &Self {
         let bytes = unsafe { from_raw_parts(mu.as_ptr() as *const u8, T::SIZE) };
         unsafe { Self::from_bytes_unchecked(bytes) }

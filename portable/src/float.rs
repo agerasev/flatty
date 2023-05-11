@@ -3,7 +3,7 @@ use core::{
     cmp::{Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
 };
-use flatty_base::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
+use flatty_base::{mem::Unvalidated, Error, Flat, FlatValidate};
 use num_traits::{Bounded, FromPrimitive, Num, NumCast, One, ToPrimitive, Zero};
 
 /// Generic portable floating-point number. Has alignment == 1.
@@ -32,8 +32,8 @@ impl<const BE: bool, const N: usize> Float<BE, N> {
     }
 }
 
-impl<const BE: bool, const N: usize> FlatCheck for Float<BE, N> {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
+impl<const BE: bool, const N: usize> FlatValidate for Float<BE, N> {
+    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
         Ok(unsafe { this.assume_init() })
     }
 }

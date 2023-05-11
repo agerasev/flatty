@@ -24,11 +24,11 @@ pub fn struct_(ctx: &Context, input: &DeriveInput, local: bool) -> TokenStream {
                 #variants
             }
 
-            impl ::flatty::FlatCheck for #tag_type {
-                fn validate(this: &::flatty::mem::MaybeUninitUnsized<Self>) -> Result<&Self, ::flatty::Error> {
-                    use ::flatty::{prelude::*, mem::MaybeUninitUnsized, Error, ErrorKind};
-                    let tag = unsafe { MaybeUninitUnsized::<#enum_type>::from_bytes_unchecked(this.as_bytes()) };
-                    if *(<#enum_type as FlatCheck>::validate(tag)?) < #var_count {
+            impl ::flatty::FlatValidate for #tag_type {
+                fn validate(this: &::flatty::mem::Unvalidated<Self>) -> Result<&Self, ::flatty::Error> {
+                    use ::flatty::{prelude::*, mem::Unvalidated, Error, ErrorKind};
+                    let tag = unsafe { Unvalidated::<#enum_type>::from_bytes_unchecked(this.as_bytes()) };
+                    if *(<#enum_type as FlatValidate>::validate(tag)?) < #var_count {
                         Ok(unsafe { this.assume_init() })
                     } else {
                         Err(Error {
