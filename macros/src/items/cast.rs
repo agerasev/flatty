@@ -14,17 +14,17 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         }
         let type_list = type_list(iter);
         quote! {
-            unsafe { iter::RefIter::new_unchecked(#bytes, iter::type_list!(#type_list)) }.validate_all()
+            unsafe { iter::PtrIter::new_unchecked(#bytes, iter::type_list!(#type_list)) }.validate_all()
         }
     }
 
     let body = match &input.data {
-        Data::Struct(struct_data) => collect_fields(&struct_data.fields, quote! { this.as_bytes() }),
+        Data::Struct(struct_data) => collect_fields(&struct_data.fields, quote! { bytes }),
         Data::Enum(enum_data) => {
             let tag_type = ctx.idents.tag.as_ref().unwrap();
             let validate_tag = quote! {
-                let tag = unsafe { Unvalidated::<#tag_type>::from_bytes_unchecked(this.as_bytes()) };
-                <#tag_type as ::flatty::FlatValidate>::validate(tag)?
+                let tag = unsafe { Unvalidated::<#tag_type>::from_bytes_unchecked(bytes) };
+                <#tag_type as ::flatty::traits::FlatValidate>::validate(tag)?
             };
             let variants = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
                 let items = collect_fields(&variant.fields, quote! { data });
@@ -48,10 +48,10 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
             };
 
             quote! {
-                use ::flatty::{Error, ErrorKind};
+                use ::flatty::error::{Error, ErrorKind};
 
                 let tag = { #validate_tag };
-                let data = unsafe { this.as_bytes().get_unchecked(Self::DATA_OFFSET..) };
+                let data = unsafe { bytes.get_unchecked(Self::DATA_OFFSET..) };
 
                 #size_check
 
@@ -63,9 +63,9 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Union(_union_data) => unimplemented!(),
     };
     quote! {
-        fn validate(this: &::flatty::mem::Unvalidated<Self>) -> Result<&Self, ::flatty::Error> {
-            use ::flatty::{prelude::*, mem::Unvalidated, utils::iter::{prelude::*, self}};
-            { #body }.map(|_| unsafe { this.assume_init() })
+        unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), ::flatty::error::Error> {
+            use ::flatty::{prelude::*, utils::iter::{prelude::*, self}};
+            #body
         }
     }
 }
@@ -77,18 +77,18 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let generic_args = generic::args(&input.generics);
     let where_clause = generic::where_clause(
         input,
-        quote! { ::flatty::FlatValidate + Sized },
+        quote! { ::flatty::traits::FlatValidate + Sized },
         if ctx.info.sized {
             None
         } else {
-            Some(quote! { ::flatty::FlatValidate })
+            Some(quote! { ::flatty::traits::FlatValidate })
         },
     );
 
     let validate_method = validate_method(ctx, input);
 
     quote! {
-        impl<#generic_params> ::flatty::FlatValidate for #self_ident<#generic_args>
+        unsafe impl<#generic_params> ::flatty::traits::FlatValidate for #self_ident<#generic_args>
         #where_clause
         {
             #validate_method

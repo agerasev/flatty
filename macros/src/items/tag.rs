@@ -24,7 +24,7 @@ pub fn struct_(ctx: &Context, input: &DeriveInput, local: bool) -> TokenStream {
                 #variants
             }
 
-            impl ::flatty::FlatValidate for #tag_type {
+            impl ::flatty::traits::FlatValidate for #tag_type {
                 fn validate(this: &::flatty::mem::Unvalidated<Self>) -> Result<&Self, ::flatty::Error> {
                     use ::flatty::{prelude::*, mem::Unvalidated, Error, ErrorKind};
                     let tag = unsafe { Unvalidated::<#enum_type>::from_bytes_unchecked(this.as_bytes()) };
