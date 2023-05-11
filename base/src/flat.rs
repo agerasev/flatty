@@ -13,7 +13,7 @@ pub unsafe trait FlatBase {
 
 /// Dynamically-sized flat type. Like `?Sized` but for `Flat`.
 ///
-/// For now it is implemented for all [`Flat`](`crate::Flat`) types because there is no mutually exclusive traits in Rust yet.
+/// *For now has to be implemented for all [`Flat`](`crate::Flat`) types because there is no mutually exclusive traits in Rust yet.*
 pub unsafe trait FlatUnsized: FlatBase {
     /// Sized type that has the same alignment as `Self`.
     type AlignAs: Sized;
@@ -52,6 +52,7 @@ pub unsafe trait FlatUnsized: FlatBase {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! impl_unsized_uninit_cast {
     () => {
@@ -83,7 +84,7 @@ macro_rules! impl_unsized_uninit_cast {
 
 /// Flat type runtime checking.
 pub trait FlatCheck: FlatUnsized {
-    /// FlatCheck that `this` is valid.
+    /// Check that memory contents of `this` is valid for `Self`.
     ///
     /// This method returned `Ok` must guaratee that `this` could be safely transmuted to `Self`.
     fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error>;
@@ -96,14 +97,14 @@ pub trait FlatCheck: FlatUnsized {
 
 /// Flat type.
 ///
-/// *If you want to implement this type for your custom type it's recommended to use safe `flat` macro instead.*
+/// *If you want to implement this type for your custom type it's recommended to use safe `#[flat]` attribute macro instead.*
 ///
 /// # Safety
 ///
 /// By implementing this trait by yourself you guarantee:
 ///
 /// + `Self` has stable binary representation that will not change in future.
-///   (But the representation could be differ across different platforms. If you need such a guarantee see [`Portable`](`crate::Portable`).)
+///   (But the representation could be differ across different platforms. If you need stronger guarantees see [`Portable`](`crate::Portable`).)
 /// + `Self` don't own any resources outside of it.
 /// + `Self` could be trivially copied as bytes. (We cannot require `Self: `[`Copy`] because it `?Sized`.)
 /// + All methods of dependent traits have proper implemetation and will not cause an Undefined Behaviour.

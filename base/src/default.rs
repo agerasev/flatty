@@ -1,5 +1,7 @@
 use crate::{error::Error, mem::MaybeUninitUnsized, Emplacer, Flat};
 
+/// Flat types that can be initialized to default state.
+///
 /// # Safety
 ///
 /// Methods must properly initialize memory.

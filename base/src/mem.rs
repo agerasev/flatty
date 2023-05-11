@@ -24,6 +24,8 @@ fn check_align_and_min_size<T: FlatUnsized + ?Sized>(mem: &[u8]) -> Result<(), E
 /// Maybe uninit unsized.
 ///
 /// Like [`MaybeUninit`](`core::mem::MaybeUninit`) but also for `?Sized` types.
+///
+/// Guarantees that underlying memory properly aligned and have enough length to store `T`.
 #[repr(C)]
 pub struct MaybeUninitUnsized<T: FlatUnsized + ?Sized> {
     _align: [T::AlignAs; 0],

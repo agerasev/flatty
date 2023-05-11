@@ -1,10 +1,13 @@
+/// Flat type operation error.
+///
+/// Contains error kind and offset from the beginning of flat type memory where error occured.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error {
     pub kind: ErrorKind,
     pub pos: usize,
 }
 
-/// Error that can occur while working with flat types.
+/// Error kinds that can occur while working with flat types.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ErrorKind {
     /// The byte slice has insufficient size to be interpreted as required type.

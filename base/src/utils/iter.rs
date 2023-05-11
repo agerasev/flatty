@@ -235,6 +235,7 @@ pub mod prelude {
     pub use super::{FoldSizeIter, TypeIter, ValidateIter};
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! type_list {
     ($first_type:ty, $($types:ty),+ $(,)?) => {
@@ -245,6 +246,7 @@ macro_rules! type_list {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! fold_size {
     ($accum:expr; $first_type:ty, $($types:ty),+ $(,)?) => {
@@ -258,6 +260,7 @@ macro_rules! fold_size {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! fold_min_size {
     ($accum:expr; $first_type:ty, $($types:ty),+ $(,)?) => {

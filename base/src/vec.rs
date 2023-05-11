@@ -167,6 +167,7 @@ where
 {
 }
 
+/// Creates [`FlatVec`] emplacer from given array.
 #[macro_export]
 macro_rules! flat_vec {
     () => {

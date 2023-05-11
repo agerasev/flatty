@@ -1,32 +1,28 @@
-//! Flat message buffers.
+//! Flat message buffers with direct mapping to Rust types without packing/unpacking.
 //!
-//! # Overview
+//! # Main traits
 //!
-//! There are two main traits:
+//! + [`Flat`] - type that occupies a single contiguous memory area. Guaranteed to have same binary representation on the same platform.
+//! + [`Portable`] - flat type that has stable platform-independent binary representation and therefore it can be safely transfered between different platforms (of different address width or even different endianness).
 //!
-//! + [`Flat`] - type that occupies a single contiguous memory area and could be accessed without packing/unpacking.
-//! + [`Portable`] - type that has stable memory representation and therefore it could be safely transfered between different machines (of different address width or even different endianness).
+//! # Basic types
 //!
-//! The crate provides basic flat types and a macro to create new flat types.
-//!
-//! Message is represented as native Rust `struct` or `enum`.
-//!
-//! ## Basic types
-//!
-//! ### Sized
+//! ## Sized
 //!
 //! + Unit type (`()`).
 //! + Signed and unsigned integers ([`u8`], [`i8`], [`u16`], [`i16`], [`u32`], [`i32`], [`u64`], [`i64`], [`u128`], [`i128`]).
 //! + Floating-point numbers ([`f32`], [`f64`]).
-//! + Array of some sized flat type ([`[T; N]`](`array`)` where T: `[`FlatSized`](`FlatSized`)).
+//! + Array of some sized flat type ([`[T; N]`](`array`)` where T: `[`FlatSized`]).
 //!
-//! ### Unsized
+//! ## Unsized
 //!
 //! + Flat vector ([`FlatVec<T, L = u32>`](`FlatVec`)).
 //!
-//! ## User-defined types
+//! # User-defined types
 //!
-//! ### Sized struct
+//! User can create new composite types by using [`flat`] macro.
+//!
+//! ## Struct
 //!
 //! ```rust
 //! #[flatty::flat]
@@ -38,9 +34,9 @@
 //! }
 //! ```
 //!
-//! ### Sized enum
+//! ## Enum
 //!
-//! For enum you may explicitly set the type of variant index (default value is [`u8`]).
+//! For enum you may explicitly set the type of tag (default value is [`u8`]).
 //!
 //! ```rust
 //! #[flatty::flat(enum_type = "u32")]
@@ -52,7 +48,9 @@
 //! }
 //! ```
 //!
-//! ### Unsized struct
+//! ## Unsized struct
+//!
+//! Unsized struct is [DST](https://doc.rust-lang.org/reference/dynamically-sized-types.html). The reference to that structure contains its size.
 //!
 //! ```rust
 //! #[flatty::flat(sized = false)]
@@ -63,7 +61,11 @@
 //! }
 //! ```
 //!
-//! ### Unsized enum
+//! ## Unsized enum
+//!
+//! Rust doesn't support [DST](https://doc.rust-lang.org/reference/dynamically-sized-types.html) enums yet so for now enum declaration is translated to unsized structure.
+//!
+//! But it has `as_ref`/`as_mut` methods that returns a native enum that contains references to original enum fields.
 //!
 //! ```rust
 //! #[flatty::flat(sized = false)]

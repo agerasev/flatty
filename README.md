@@ -15,85 +15,37 @@
 [github]: https://github.com/agerasev/flatty/actions/workflows/test.yml
 [license]: #license
 
-Flat message buffers.
+Flat message buffers with direct mapping to Rust types without packing/unpacking.
 
-# Overview
+## Overview
 
-The crate provides basic flat types and a macro to create new flat types. Flat means that it occupies a single contiguous memory area.
+Type called flat when it occupies a single contiguous memory area. Such types is useful when you need to store or send such object as a binary data while having convenient way to access its contents without serializing/deserializing.
 
-Flat types have stable binary representation can be safely transferred between machines (of the same endianness) as is without packing/unpacking.
+This crate provides basic flat types and the way to create new user-defined composite flat types (using `#[flat]` attribute macro), which can be used almost like regular Rust `struct`s or `enum`s.
 
-Message is represented as native Rust `struct` or `enum`.
+Also the crate can be used without `std` and even `alloc`.
 
-## Basic types
+## Concepts
 
-### Sized
+### [DST](https://doc.rust-lang.org/reference/dynamically-sized-types.html)
 
-+ Unit type (`()`).
-+ Signed and unsigned integers (`u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `u64`, `i64`, `u128`, `i128`).
-+ Floating-point numbers (`f32`, `f64`).
-+ Array of some sized flat type (`[T; N] where T: FlatSized`).
+Flat type can be dynamically sized (like `FlatVec`), in that case it exploits Rust's ability to operate `?Sized` types. User-defined flat struct can also be unsized (only last field is allowed to be unsized). Even flat enum can be unsized, but Rust doesn't natively support them yet so its contents could be accessed only via `as_ref`/`as_mut` methods returning a regular enum containing references to original enum contents.
 
-### Unsized
+### `Emplacer`
 
-+ Flat vector (`FlatVec<T, L = u32>`).
+Rust cannot construct DST in usual manner on stack because its size isn't known at compile time. Instead we may initialize such types onto given memory area. To do this we can use so-called emplacer - something that can initialize object onto given memory. For sized types its instance is also emplacer.
 
-## User-defined types
+### `MaybeUninitUnsized`
 
-### Sized struct
+It's like `MaybeUninit` but for unsized flat types. It checks that underlying memory is properly aligned and large enough to contain minimally-sized instance of the type, but its contents is uninitialized.
 
-```rust
-#[flatty::flat]
-struct SizedStruct {
-    a: u8,
-    b: u16,
-    c: u32,
-    d: [u64; 4],
-}
-```
+### `Portable`
 
-### Sized enum
+Flat type guarantee that it has the same binary representation on the platforms with same byte order, alignment and address width. If you need stronger guarantees you may use `Portable` types - they have the same binary representation on *any* platform and always aligned to byte. To make own flat type portable use `#[flat(portable = true)]`. Also this can be used to created packed flat types without alignment issues. 
 
-For enum you may explicitly set the type of variant index (default value is `u8`).
+## Examples
 
-```rust
-#[flatty::flat(enum_type = "u32")]
-enum SizedEnum {
-    A,
-    B(u16, u8),
-    C { a: u8, b: u16 },
-    D(u32),
-}
-```
-
-### Unsized struct
-
-Unsized struct is [DST](https://doc.rust-lang.org/reference/dynamically-sized-types.html). The reference to that structure contains its size.
-
-```rust
-#[flatty::flat(sized = false)]
-struct UnsizedStruct {
-    a: u8,
-    b: u16,
-    c: flatty::FlatVec<u64>,
-}
-
-```
-
-### Unsized enum
-
-Rust doesn't support [DST](https://doc.rust-lang.org/reference/dynamically-sized-types.html) enums yet so for now enum declaration is translated to unsized structure.
-
-But it has `as_ref`/`as_mut` methods that returns a native enum that contains references to original enum fields.
-
-```rust
-#[flatty::flat(sized = false)]
-enum UnsizedEnum {
-    A,
-    B(u8, u16),
-    C { a: u8, b: flatty::FlatVec<u8, u16> },
-}
-```
+You can find some examples on how to create and use flat types in [`tests`](tests/src/) directory.
 
 ## License
 

@@ -13,8 +13,9 @@ mod marker;
 mod prim;
 mod sized;
 
+/// Memory-related items.
 pub mod mem;
-/// Utuility functions used by macros, so they must be publicly available.
+/// Utility functions used by macros, so they must be publicly available.
 ///
 /// *Please, don't use them by yourself because they aren't stable.*
 pub mod utils;
