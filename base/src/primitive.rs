@@ -48,9 +48,12 @@ unsafe impl<T> FlatValidate for PhantomData<T> {
 }
 unsafe impl<T> Flat for PhantomData<T> {}
 
-unsafe impl<T: FlatSized, const N: usize> FlatValidate for [T; N] {
-    unsafe fn validate_unchecked(_bytes: &[u8]) -> Result<(), Error> {
-        unimplemented!()
+unsafe impl<T: Flat, const N: usize> FlatValidate for [T; N] {
+    unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
+        for i in 0..N {
+            T::validate_unchecked(bytes.get_unchecked((i * T::SIZE)..).get_unchecked(..T::SIZE))?;
+        }
+        Ok(())
     }
 }
-unsafe impl<T: FlatSized, const N: usize> Flat for [T; N] {}
+unsafe impl<T: Flat, const N: usize> Flat for [T; N] {}
