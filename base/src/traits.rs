@@ -59,6 +59,10 @@ pub unsafe trait FlatUnsized: FlatBase {
 pub unsafe trait FlatValidate: FlatUnsized {
     unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error>;
 
+    unsafe fn validate_ptr(this: *const Self) -> Result<(), Error> {
+        unsafe { Self::validate_unchecked(Self::ptr_to_bytes(this)) }
+    }
+
     /// Check that memory contents of `this` is valid for `Self`.
     fn validate(bytes: &[u8]) -> Result<(), Error> {
         check_align_and_min_size::<Self>(bytes)?;
