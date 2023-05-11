@@ -6,17 +6,41 @@ use crate::{
     utils::{floor_mul, max},
     Flat, FlatBase, FlatDefault, FlatSized, FlatUnsized, FlatValidate,
 };
-use core::mem::MaybeUninit;
+use core::{
+    mem::{self, MaybeUninit},
+    ptr::NonNull,
+};
 use stavec::GenericVec;
 
-pub use stavec::traits::Length;
+pub use stavec::traits::{Length, Slot};
+
+#[repr(transparent)]
+pub struct Zeroed<T: FlatSized>(MaybeUninit<T>);
+impl<T: FlatSized> Zeroed<T> {
+    fn as_unval(&self) -> &Unvalidated<T> {
+        unsafe { T::ptr_as_uninit(self.0.as_ptr()) }
+    }
+}
+unsafe impl<T: FlatSized> Slot for Zeroed<T> {
+    type Item = T;
+
+    fn empty() -> Self {
+        unsafe { Self(mem::zeroed()) }
+    }
+    fn occupied(item: Self::Item) -> Self {
+        Self(MaybeUninit::new(item))
+    }
+    unsafe fn assume_occupied(self) -> Self::Item {
+        self.0.assume_init()
+    }
+}
 
 /// Growable flat vector of sized items.
 ///
 /// It doesn't allocate memory on the heap but instead stores its contents in the same memory behind itself.
 ///
 /// Obviously, this type is DST.
-pub type FlatVec<T, L = usize> = GenericVec<T, [MaybeUninit<T>], L>;
+pub type FlatVec<T, L = usize> = GenericVec<[Zeroed<T>], L>;
 
 trait DataOffset<T, L>
 where
@@ -64,8 +88,8 @@ where
         floor_mul(this.as_bytes().len() - Self::DATA_OFFSET, Self::ALIGN) / T::SIZE
     }
 
-    fn bytes_len(this: &Self) -> usize {
-        Self::DATA_OFFSET + this.data().len() * T::SIZE
+    fn bytes_len(this: *const Self) -> usize {
+        Self::DATA_OFFSET + unsafe { NonNull::new_unchecked(this as *mut [T]) }.len() * T::SIZE
     }
 
     impl_unsized_uninit_cast!();
@@ -81,10 +105,11 @@ where
     L: Flat + Length,
 {
     fn emplace(self, uninit: &mut Unvalidated<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
-        let len = unsafe { Unvalidated::<L>::from_mut_bytes_unchecked(uninit.as_mut_bytes()) };
-        len.as_mut_sized().write(L::zero());
-        // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeUninit<T>]`.
-        Ok(unsafe { uninit.assume_init_mut() })
+        unsafe {
+            (uninit.as_mut_ptr() as *mut L).write(L::zero());
+            // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeUninit<T>]`.
+            Ok(uninit.assume_init_mut())
+        }
     }
 }
 
@@ -154,7 +179,7 @@ where
             });
         }
         for x in unsafe { self_.data().get_unchecked(..self_.len()) } {
-            T::validate(Unvalidated::from_sized(x))?;
+            T::validate(x.as_unval())?;
         }
         Ok(self_)
     }

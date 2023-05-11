@@ -100,13 +100,13 @@ impl<T: FlatUnsized + ?Sized> Unvalidated<T> {
     ///
     /// `self` must be initialized.
     pub unsafe fn assume_init(&self) -> &T {
-        T::from_uninit_unchecked(self)
+        unsafe { &*self.as_ptr() }
     }
     /// # Safety
     ///
     /// `self` must be initialized.
     pub unsafe fn assume_init_mut(&mut self) -> &mut T {
-        T::from_mut_uninit_unchecked(self)
+        unsafe { &mut *self.as_mut_ptr() }
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -114,6 +114,12 @@ impl<T: FlatUnsized + ?Sized> Unvalidated<T> {
     }
     pub fn as_mut_bytes(&mut self) -> &mut [u8] {
         unsafe { self.bytes.as_mut_bytes() }
+    }
+    pub fn as_ptr(&self) -> *const T {
+        T::ptr_from_uninit(self)
+    }
+    pub fn as_mut_ptr(&mut self) -> *mut T {
+        T::ptr_from_mut_uninit(self)
     }
 
     pub fn new_in_place<I: Emplacer<T>>(&mut self, emplacer: I) -> Result<&mut T, Error> {
@@ -133,23 +139,5 @@ impl<T: FlatValidate + ?Sized> Unvalidated<T> {
 impl<T: FlatDefault + ?Sized> Unvalidated<T> {
     pub fn default_in_place(&mut self) -> Result<&mut T, Error> {
         T::default_in_place(self)
-    }
-}
-
-impl<T: FlatSized> Unvalidated<T> {
-    pub fn from_sized(mu: &MaybeUninit<T>) -> &Self {
-        let bytes = unsafe { from_raw_parts(mu.as_ptr() as *const u8, T::SIZE) };
-        unsafe { Self::from_bytes_unchecked(bytes) }
-    }
-    pub fn from_mut_sized(mu: &mut MaybeUninit<T>) -> &mut Self {
-        let bytes = unsafe { from_raw_parts_mut(mu.as_mut_ptr() as *mut u8, T::SIZE) };
-        unsafe { Self::from_mut_bytes_unchecked(bytes) }
-    }
-
-    pub fn as_sized(&self) -> &MaybeUninit<T> {
-        unsafe { &*(self.as_bytes().as_ptr() as *const MaybeUninit<T>) }
-    }
-    pub fn as_mut_sized(&mut self) -> &mut MaybeUninit<T> {
-        unsafe { &mut *(self.as_mut_bytes().as_mut_ptr() as *mut MaybeUninit<T>) }
     }
 }

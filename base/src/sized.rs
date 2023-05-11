@@ -33,27 +33,30 @@ unsafe impl<T: FlatSized> FlatUnsized for T {
     fn ptr_metadata(_this: &Unvalidated<Self>) -> usize {
         panic!("Sized type ptr has no metadata");
     }
-    fn bytes_len(_this: &Self) -> usize {
+    fn bytes_len(_this: *const Self) -> usize {
         Self::SIZE
     }
 
-    unsafe fn from_uninit_unchecked(this: &Unvalidated<Self>) -> &Self {
-        &*(this.as_bytes().as_ptr() as *const Self)
+    fn ptr_from_uninit(this: &Unvalidated<Self>) -> *const Self {
+        this.as_bytes().as_ptr() as *const Self
     }
-    unsafe fn from_mut_uninit_unchecked(this: &mut Unvalidated<Self>) -> &mut Self {
-        &mut *(this.as_mut_bytes().as_mut_ptr() as *mut Self)
+    fn ptr_from_mut_uninit(this: &mut Unvalidated<Self>) -> *mut Self {
+        this.as_mut_bytes().as_mut_ptr() as *mut Self
     }
 
-    fn as_uninit(&self) -> &Unvalidated<Self> {
-        unsafe { Unvalidated::from_bytes_unchecked(from_raw_parts(self as *const _ as *const u8, Self::SIZE)) }
+    unsafe fn ptr_as_uninit<'a>(this: *const Self) -> &'a Unvalidated<Self> {
+        unsafe { Unvalidated::from_bytes_unchecked(from_raw_parts(this as *const u8, Self::SIZE)) }
     }
-    unsafe fn as_mut_uninit(&mut self) -> &mut Unvalidated<Self> {
-        Unvalidated::from_mut_bytes_unchecked(from_raw_parts_mut(self as *mut _ as *mut u8, Self::SIZE))
+    unsafe fn ptr_as_mut_uninit<'a>(this: *mut Self) -> &'a mut Unvalidated<Self> {
+        Unvalidated::from_mut_bytes_unchecked(from_raw_parts_mut(this as *mut u8, Self::SIZE))
     }
 }
 
 impl<T: Flat> Emplacer<T> for T {
-    fn emplace(self, uninit: &mut Unvalidated<T>) -> Result<&mut T, Error> {
-        Ok(uninit.as_mut_sized().write(self))
+    fn emplace(self, unval: &mut Unvalidated<T>) -> Result<&mut T, Error> {
+        unsafe {
+            unval.as_mut_ptr().write(self);
+            Ok(unval.assume_init_mut())
+        }
     }
 }

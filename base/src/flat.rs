@@ -26,12 +26,10 @@ pub unsafe trait FlatUnsized: FlatBase {
 
     /// Metadata to store in a wide pointer to `Self`.
     ///
-    /// Provides such value, that will give [`size()`](`FlatBase::size`)` <= `[`size_of_val()`](`core::mem::size_of_val`)` <= bytes.len()`.
-    ///
     /// Panics if type is `Sized`.
     fn ptr_metadata(this: &Unvalidated<Self>) -> usize;
     /// Length of underlying memory occupied by `this`.
-    fn bytes_len(this: &Self) -> usize;
+    fn bytes_len(this: *const Self) -> usize;
 
     /// Create a new instance of `Self` initializing raw memory into default state of `Self`.
     fn new_in_place<I: Emplacer<Self>>(this: &mut Unvalidated<Self>, emplacer: I) -> Result<&mut Self, Error> {
@@ -41,14 +39,21 @@ pub unsafe trait FlatUnsized: FlatBase {
         Self::new_in_place(unsafe { self.as_mut_uninit() }, emplacer)
     }
 
-    unsafe fn from_uninit_unchecked(this: &Unvalidated<Self>) -> &Self;
-    unsafe fn from_mut_uninit_unchecked(this: &mut Unvalidated<Self>) -> &mut Self;
+    fn ptr_from_uninit(this: &Unvalidated<Self>) -> *const Self;
+    fn ptr_from_mut_uninit(this: &mut Unvalidated<Self>) -> *mut Self;
 
-    fn as_uninit(&self) -> &Unvalidated<Self>;
+    unsafe fn ptr_as_uninit<'a>(this: *const Self) -> &'a Unvalidated<Self>;
+    unsafe fn ptr_as_mut_uninit<'a>(this: *mut Self) -> &'a mut Unvalidated<Self>;
+
+    fn as_uninit(&self) -> &Unvalidated<Self> {
+        unsafe { Self::ptr_as_uninit(self as *const _) }
+    }
     /// # Safety
     ///
     /// Modification of return value must not make `self` invalid.
-    unsafe fn as_mut_uninit(&mut self) -> &mut Unvalidated<Self>;
+    unsafe fn as_mut_uninit(&mut self) -> &mut Unvalidated<Self> {
+        Self::ptr_as_mut_uninit(self as *mut _)
+    }
 
     fn from_bytes(bytes: &[u8]) -> Result<&Unvalidated<Self>, Error> {
         Unvalidated::from_bytes(bytes)
@@ -64,27 +69,27 @@ macro_rules! impl_unsized_uninit_cast {
     () => {
         type AsBytes = [u8];
 
-        unsafe fn from_uninit_unchecked(this: &$crate::mem::Unvalidated<Self>) -> &Self {
+        fn ptr_from_uninit(this: &$crate::mem::Unvalidated<Self>) -> *const Self {
             let slice = ::core::ptr::slice_from_raw_parts(this.as_bytes().as_ptr(), Self::ptr_metadata(this));
-            &*(slice as *const [_] as *const Self)
+            slice as *const [_] as *const Self
         }
-        unsafe fn from_mut_uninit_unchecked(this: &mut $crate::mem::Unvalidated<Self>) -> &mut Self {
+        fn ptr_from_mut_uninit(this: &mut $crate::mem::Unvalidated<Self>) -> *mut Self {
             let slice = ::core::ptr::slice_from_raw_parts_mut(this.as_mut_bytes().as_mut_ptr(), Self::ptr_metadata(this));
-            &mut *(slice as *mut [_] as *mut Self)
+            slice as *mut [_] as *mut Self
         }
 
-        fn as_uninit(&self) -> &$crate::mem::Unvalidated<Self> {
+        unsafe fn ptr_as_uninit<'__uninit_a>(this: *const Self) -> &'__uninit_a $crate::mem::Unvalidated<Self> {
             unsafe {
                 $crate::mem::Unvalidated::from_bytes_unchecked(::core::slice::from_raw_parts(
-                    self as *const _ as *const u8,
-                    Self::bytes_len(self),
+                    this as *const u8,
+                    Self::bytes_len(this),
                 ))
             }
         }
-        unsafe fn as_mut_uninit(&mut self) -> &mut $crate::mem::Unvalidated<Self> {
+        unsafe fn ptr_as_mut_uninit<'__uninit_a>(this: *mut Self) -> &'__uninit_a mut $crate::mem::Unvalidated<Self> {
             $crate::mem::Unvalidated::from_mut_bytes_unchecked(::core::slice::from_raw_parts_mut(
-                self as *mut _ as *mut u8,
-                Self::bytes_len(self),
+                this as *mut u8,
+                Self::bytes_len(this),
             ))
         }
     };
