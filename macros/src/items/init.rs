@@ -286,7 +286,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
             let mut init_args = quote! {};
             for (j, ref_params) in init_params.iter().enumerate() {
                 let ia = if i != j {
-                    (0..(ref_params.len())).into_iter().fold(quote! {}, |a, _| {
+                    (0..(ref_params.len())).fold(quote! {}, |a, _| {
                         quote! { #a ::flatty::NeverEmplacer, }
                     })
                 } else {

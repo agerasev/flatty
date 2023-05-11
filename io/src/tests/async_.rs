@@ -31,7 +31,7 @@ fn test() {
                 {
                     writer
                         .new_message()
-                        .emplace(TestMsgInitC(FromIterator((0..7).into_iter().map(le::I32::from))))
+                        .emplace(TestMsgInitC(FromIterator((0..7).map(le::I32::from))))
                         .unwrap()
                         .write()
                         .await
@@ -61,7 +61,7 @@ fn test() {
                     let guard = reader.read_message().await.unwrap();
                     match guard.as_ref() {
                         TestMsgRef::C(v) => {
-                            assert!(v.iter().map(|x| x.to_native()).eq((0..7).into_iter()));
+                            assert!(v.iter().map(|x| x.to_native()).eq(0..7));
                         }
                         _ => panic!(),
                     }
