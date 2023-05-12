@@ -34,7 +34,7 @@ where
     C: Emplacer<FlatVec<u64, u32>>,
 {
     unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
-        let iter = iter::MutIter::new_unchecked(bytes, iter::type_list!(u8, u16, FlatVec<u64, u32>));
+        let iter = iter::BytesMutIter::new_unchecked(bytes, iter::type_list!(u8, u16, FlatVec<u64, u32>));
         let (iter, u_a) = iter.next();
         self.a.emplace_unchecked(u_a)?;
         let (iter, u_b) = iter.next();
@@ -80,7 +80,7 @@ unsafe impl FlatUnsized for UnsizedStruct {
 
 unsafe impl FlatValidate for UnsizedStruct {
     unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
-        unsafe { iter::RefIter::new_unchecked(bytes, iter::type_list!(u8, u16, FlatVec<u64, u32>)) }.validate_all()
+        unsafe { iter::BytesIter::new_unchecked(bytes, iter::type_list!(u8, u16, FlatVec<u64, u32>)) }.validate_all()
     }
 }
 

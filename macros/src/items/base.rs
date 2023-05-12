@@ -65,7 +65,7 @@ fn size_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 let var_name = &variant.ident;
                 let value = if !variant.fields.is_empty() {
                     let type_list = type_list(variant.fields.iter());
-                    quote! { unsafe { iter::RefIter::new_unchecked(&self.data, iter::type_list!(#type_list)).fold_size(0) } }
+                    quote! { unsafe { iter::BytesIter::new_unchecked(&self.data, iter::type_list!(#type_list)).fold_size(0) } }
                 } else {
                     quote! { 0 }
                 };

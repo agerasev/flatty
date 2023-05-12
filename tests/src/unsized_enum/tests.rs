@@ -3,15 +3,17 @@ macro_rules! generate_tests {
         mod tests {
             use super::{UnsizedEnum, UnsizedEnumInitB, UnsizedEnumInitC, UnsizedEnumMut, UnsizedEnumRef, UnsizedEnumTag};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{flat_vec, prelude::*, utils::alloc::AlignedBytes, Error, ErrorKind};
+            use flatty::{
+                error::{Error, ErrorKind},
+                flat_vec,
+                prelude::*,
+                utils::alloc::AlignedBytes,
+            };
 
             #[test]
             fn init_a() {
                 let mut mem = AlignedBytes::new(2, 2);
-                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
-                    .unwrap()
-                    .default_in_place()
-                    .unwrap();
+                let ue = UnsizedEnum::default_in_place(&mut mem).unwrap();
                 assert_eq!(ue.size(), 2);
 
                 match ue.as_ref() {
@@ -25,10 +27,7 @@ macro_rules! generate_tests {
             #[test]
             fn init_b() {
                 let mut mem = AlignedBytes::new(6, 2);
-                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
-                    .unwrap()
-                    .new_in_place(UnsizedEnumInitB(0xab, 0xcdef))
-                    .unwrap();
+                let ue = UnsizedEnum::new_in_place(&mut mem, UnsizedEnumInitB(0xab, 0xcdef)).unwrap();
                 assert_eq!(ue.size(), 6);
 
                 match ue.as_ref() {
@@ -47,13 +46,14 @@ macro_rules! generate_tests {
             #[test]
             fn init_c() {
                 let mut mem = AlignedBytes::new(12, 2);
-                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
-                    .unwrap()
-                    .new_in_place(UnsizedEnumInitC {
+                let ue = UnsizedEnum::new_in_place(
+                    &mut mem,
+                    UnsizedEnumInitC {
                         a: 0xab,
                         b: flat_vec![0x12, 0x34, 0x56, 0x78],
-                    })
-                    .unwrap();
+                    },
+                )
+                .unwrap();
                 assert_eq!(ue.size(), 10);
 
                 match ue.as_mut() {
@@ -78,10 +78,7 @@ macro_rules! generate_tests {
             #[test]
             fn tag() {
                 let mut mem = AlignedBytes::new(6, 2);
-                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
-                    .unwrap()
-                    .default_in_place()
-                    .unwrap();
+                let ue = UnsizedEnum::default_in_place(&mut mem).unwrap();
                 assert_eq!(ue.tag(), UnsizedEnumTag::A);
                 ue.assign_in_place(UnsizedEnumInitB(0, 0)).unwrap();
                 assert_eq!(ue.tag(), UnsizedEnumTag::B);
@@ -103,7 +100,7 @@ macro_rules! generate_tests {
             #[test]
             fn validate_err() {
                 let mut mem = AlignedBytes::from_slice(&[1, 0, 0], 2);
-                let res = UnsizedEnum::from_mut_bytes(&mut mem).unwrap().validate();
+                let res = UnsizedEnum::from_mut_bytes(&mut mem);
                 assert_eq!(
                     res.err().unwrap(),
                     Error {
@@ -116,10 +113,7 @@ macro_rules! generate_tests {
             #[test]
             fn set_err() {
                 let mut mem = AlignedBytes::new(2, 2);
-                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
-                    .unwrap()
-                    .default_in_place()
-                    .unwrap();
+                let ue = UnsizedEnum::default_in_place(&mut mem).unwrap();
                 let res = ue.assign_in_place(UnsizedEnumInitB(0, 0));
                 assert_eq!(
                     res.err().unwrap(),
@@ -133,7 +127,7 @@ macro_rules! generate_tests {
             #[test]
             fn bad_tag() {
                 let mem = AlignedBytes::from_slice(&[4, 0], 2);
-                let res = UnsizedEnum::from_bytes(&mem).unwrap().validate();
+                let res = UnsizedEnum::from_bytes(&mem);
                 assert_eq!(
                     res.err().unwrap(),
                     Error {
@@ -146,13 +140,14 @@ macro_rules! generate_tests {
             #[test]
             fn layout() {
                 let mut mem = AlignedBytes::new(6 + 8 * 2 + 1, 2);
-                let ue = UnsizedEnum::from_mut_bytes(&mut mem)
-                    .unwrap()
-                    .new_in_place(UnsizedEnumInitC {
+                let ue = UnsizedEnum::new_in_place(
+                    &mut mem,
+                    UnsizedEnumInitC {
                         a: 0xab,
                         b: flat_vec![],
-                    })
-                    .unwrap();
+                    },
+                )
+                .unwrap();
                 if let UnsizedEnumMut::C { a: _, b } = ue.as_mut() {
                     for i in 0.. {
                         if b.push(i).is_err() {

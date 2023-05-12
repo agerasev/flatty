@@ -83,8 +83,7 @@ fn gen_ref_impl(
     mutable: bool,
     ref_ident: &Ident,
     ref_method_name: TokenStream,
-    assume_init: TokenStream,
-    ref_iter_type: TokenStream,
+    iter_data_type: TokenStream,
 ) -> TokenStream {
     let mut_ = if mutable { Some(quote! { mut }) } else { None };
     let self_ident = &input.ident;
@@ -106,22 +105,28 @@ fn gen_ref_impl(
             let bindings = if !var.fields.is_empty() {
                 let preface = {
                     let type_list = type_list(var.fields.iter());
-                    quote! { let iter = unsafe { iter::#ref_iter_type::new_unchecked(& #mut_ self.data, iter::type_list!(#type_list)) }; }
+                    quote! {
+                        let iter = unsafe {
+                            iter::DataIter::new_unchecked(
+                                iter::#iter_data_type::new(& #mut_ self.data),
+                                iter::type_list!(#type_list),
+                            )
+                        };
+                    }
                 };
                 let bindings = {
                     let iter = var.fields.iter();
                     let len = iter.len();
                     iter.enumerate().fold(quote! {}, |a, (i, f)| {
-                        let value = if i + 1 < len {
-                            quote! { let (iter, value) = iter.next(); }
-                        } else {
-                            quote! { let value = iter.finalize(); }
-                        };
                         let binding = bind(i, f);
+                        let value = if i + 1 < len {
+                            quote! { let (iter, #binding) = iter.next(); }
+                        } else {
+                            quote! { let #binding = iter.finalize(); }
+                        };
                         quote! {
                             #a
                             #value
-                            let #binding = unsafe { value.#assume_init() };
                         }
                     })
                 };
@@ -183,8 +188,7 @@ pub fn ref_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
         false,
         ctx.idents.ref_.as_ref().unwrap(),
         quote! { as_ref },
-        quote! { assume_init },
-        quote! { RefIter },
+        quote! { RefData },
     )
 }
 
@@ -199,7 +203,6 @@ pub fn mut_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
         true,
         ctx.idents.mut_.as_ref().unwrap(),
         quote! { as_mut },
-        quote! { assume_init_mut },
-        quote! { MutIter },
+        quote! { MutData },
     )
 }

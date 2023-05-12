@@ -26,6 +26,10 @@ pub unsafe fn offset_bytes_start(bytes: &[u8], count: isize) -> &[u8] {
     slice::from_raw_parts(ptr.offset(count), (len as isize - count) as usize)
 }
 
+pub unsafe fn set_bytes_len(bytes: &[u8], len: usize) -> &[u8] {
+    slice::from_raw_parts(bytes.as_ptr(), len)
+}
+
 #[doc(hidden)]
 #[macro_export]
 macro_rules! offset_wide_ptr {

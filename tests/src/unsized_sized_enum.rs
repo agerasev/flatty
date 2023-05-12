@@ -1,4 +1,4 @@
-use flatty::{flat, prelude::*, utils::alloc::AlignedBytes, ErrorKind};
+use flatty::{error::ErrorKind, flat, prelude::*, utils::alloc::AlignedBytes};
 
 #[flat(sized = false, default = true)]
 #[derive(Default, Debug, PartialEq, Eq)]
@@ -16,10 +16,7 @@ enum UnsizedSizedEnum {
 #[test]
 fn init_a() {
     let mut mem = AlignedBytes::new(2, 2);
-    let use_ = UnsizedSizedEnum::from_mut_bytes(&mut mem)
-        .unwrap()
-        .default_in_place()
-        .unwrap();
+    let use_ = UnsizedSizedEnum::default_in_place(&mut mem).unwrap();
     assert_eq!(use_.size(), 2);
 
     match use_.as_ref() {
@@ -33,10 +30,7 @@ fn init_a() {
 #[test]
 fn init_b() {
     let mut mem = AlignedBytes::new(6, 2);
-    let use_ = UnsizedSizedEnum::from_mut_bytes(&mut mem)
-        .unwrap()
-        .new_in_place(UnsizedSizedEnumInitB(0xab, 0xcdef))
-        .unwrap();
+    let use_ = UnsizedSizedEnum::new_in_place(&mut mem, UnsizedSizedEnumInitB(0xab, 0xcdef)).unwrap();
     assert_eq!(use_.size(), 6);
 
     match use_.as_ref() {
@@ -55,14 +49,15 @@ fn init_b() {
 #[test]
 fn init_c() {
     let mut mem = AlignedBytes::new(10, 2);
-    let use_ = UnsizedSizedEnum::from_mut_bytes(&mut mem)
-        .unwrap()
-        .new_in_place(UnsizedSizedEnumInitC {
+    let use_ = UnsizedSizedEnum::new_in_place(
+        &mut mem,
+        UnsizedSizedEnumInitC {
             a: 0xab,
             b: 0xcdef,
             c: [0x12, 0x34, 0x56, 0x78],
-        })
-        .unwrap();
+        },
+    )
+    .unwrap();
     assert_eq!(use_.size(), 10);
 
     match use_.as_mut() {
@@ -90,8 +85,6 @@ fn from_bytes_err() {
 #[test]
 fn init_err() {
     let mut mem = AlignedBytes::new(3, 2);
-    let res = UnsizedSizedEnum::from_mut_bytes(&mut mem)
-        .unwrap()
-        .new_in_place(UnsizedSizedEnumInitB(0, 0));
+    let res = UnsizedSizedEnum::new_in_place(&mut mem, UnsizedSizedEnumInitB(0, 0));
     assert_eq!(res.err().unwrap().kind, ErrorKind::InsufficientSize);
 }

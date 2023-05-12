@@ -16,7 +16,7 @@ struct SizedStruct {
 
 unsafe impl FlatValidate for SizedStruct {
     unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
-        unsafe { iter::RefIter::new_unchecked(bytes, type_list!(u8, u16, u32, [u64; 4])) }.validate_all()?;
+        unsafe { iter::BytesIter::new_unchecked(bytes, type_list!(u8, u16, u32, [u64; 4])) }.validate_all()?;
         Ok(())
     }
 }

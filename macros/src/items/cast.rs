@@ -14,7 +14,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         }
         let type_list = type_list(iter);
         quote! {
-            iter::RefIter::new_unchecked(#bytes, iter::type_list!(#type_list)).validate_all()
+            iter::BytesIter::new_unchecked(#bytes, iter::type_list!(#type_list)).validate_all()
         }
     }
 
