@@ -16,12 +16,12 @@ fn test() {
             async move {
                 let mut writer = AsyncWriter::<TestMsg, _>::new(prod, MAX_SIZE);
 
-                writer.new_message().default().unwrap().write().await.unwrap();
+                writer.alloc_message().default().unwrap().write().await.unwrap();
 
                 {
                     writer
-                        .new_message()
-                        .emplace(TestMsgInitB(le::I32::from(123456)))
+                        .alloc_message()
+                        .new_in_place(TestMsgInitB(le::I32::from(123456)))
                         .unwrap()
                         .write()
                         .await
@@ -30,8 +30,8 @@ fn test() {
 
                 {
                     writer
-                        .new_message()
-                        .emplace(TestMsgInitC(FromIterator((0..7).map(le::I32::from))))
+                        .alloc_message()
+                        .new_in_place(TestMsgInitC(FromIterator((0..7).map(le::I32::from))))
                         .unwrap()
                         .write()
                         .await

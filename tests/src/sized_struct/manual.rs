@@ -1,9 +1,7 @@
 use super::tests::generate_tests;
 use flatty::{
-    mem::MaybeUninitUnsized,
     prelude::*,
-    type_list,
-    utils::iter::{self, prelude::*},
+    utils::iter::{self, prelude::*, type_list},
     Error,
 };
 
@@ -16,10 +14,10 @@ struct SizedStruct {
     d: [u64; 4],
 }
 
-impl FlatCheck for SizedStruct {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
-        unsafe { iter::RefIter::new_unchecked(this.as_bytes(), type_list!(u8, u16, u32, [u64; 4])) }.validate_all()?;
-        Ok(unsafe { this.assume_init() })
+unsafe impl FlatValidate for SizedStruct {
+    unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
+        unsafe { iter::BytesIter::new_unchecked(bytes, type_list!(u8, u16, u32, [u64; 4])) }.validate_all()?;
+        Ok(())
     }
 }
 

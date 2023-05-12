@@ -3,7 +3,10 @@ use core::{
     cmp::{Ord, Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
 };
-use flatty_base::{mem::MaybeUninitUnsized, Error, Flat, FlatCheck};
+use flatty_base::{
+    error::Error,
+    traits::{Flat, FlatValidate},
+};
 use num_traits::{Bounded, FromPrimitive, Num, NumCast, One, Signed, ToPrimitive, Unsigned, Zero};
 
 /// Generic portable integer. Has alignment == 1.
@@ -33,9 +36,9 @@ impl<const BE: bool, const N: usize, const S: bool> Int<BE, N, S> {
     }
 }
 
-impl<const BE: bool, const N: usize, const S: bool> FlatCheck for Int<BE, N, S> {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
-        Ok(unsafe { this.assume_init() })
+unsafe impl<const BE: bool, const N: usize, const S: bool> FlatValidate for Int<BE, N, S> {
+    unsafe fn validate_unchecked(_: &[u8]) -> Result<(), Error> {
+        Ok(())
     }
 }
 

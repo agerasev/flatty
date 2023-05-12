@@ -7,15 +7,15 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     pub fn collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
         fields.iter().fold(quote! {}, |a, f| {
             let ty = &f.ty;
-            quote! { #a <#ty as ::flatty::FlatUnsized>::AlignAs, }
+            quote! { #a <#ty as ::flatty::traits::FlatUnsized>::AlignAs, }
         })
     }
 
     let type_list = match &input.data {
         Data::Struct(data) => collect_fields(&data.fields),
         Data::Enum(data) => {
-            let enum_type = ctx.info.enum_type.as_ref().unwrap();
-            data.variants.iter().fold(quote! { #enum_type, }, |accum, variant| {
+            let tag_type = ctx.info.tag_type.as_ref().unwrap();
+            data.variants.iter().fold(quote! { #tag_type, }, |accum, variant| {
                 let var_type_list = collect_fields(&variant.fields);
                 quote! { #accum #var_type_list }
             })

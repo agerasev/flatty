@@ -1,22 +1,45 @@
 use crate::{
     emplacer::Emplacer,
     error::{Error, ErrorKind},
-    impl_unsized_uninit_cast,
-    mem::MaybeUninitUnsized,
+    traits::{Flat, FlatBase, FlatDefault, FlatSized, FlatUnsized, FlatValidate},
     utils::{floor_mul, max},
-    Flat, FlatBase, FlatCheck, FlatDefault, FlatSized, FlatUnsized,
 };
-use core::mem::MaybeUninit;
+use core::{
+    mem::MaybeUninit,
+    ptr::{self, NonNull},
+    slice,
+};
 use stavec::GenericVec;
 
-pub use stavec::traits::Length;
+pub use stavec::traits::{Length, Slot};
+
+#[repr(transparent)]
+pub struct MaybeInvalid<T: FlatSized>(MaybeUninit<T>);
+impl<T: FlatSized> MaybeInvalid<T> {
+    fn as_ptr(&self) -> *const T {
+        self.0.as_ptr()
+    }
+}
+unsafe impl<T: FlatSized> Slot for MaybeInvalid<T> {
+    type Item = T;
+
+    fn new(item: Self::Item) -> Self {
+        Self(MaybeUninit::new(item))
+    }
+    unsafe fn assume_init(self) -> Self::Item {
+        self.0.assume_init()
+    }
+    unsafe fn assume_init_read(&self) -> Self::Item {
+        self.0.assume_init_read()
+    }
+}
 
 /// Growable flat vector of sized items.
 ///
 /// It doesn't allocate memory on the heap but instead stores its contents in the same memory behind itself.
 ///
 /// Obviously, this type is DST.
-pub type FlatVec<T, L = usize> = GenericVec<T, [MaybeUninit<T>], L>;
+pub type FlatVec<T, L = usize> = GenericVec<[MaybeInvalid<T>], L>;
 
 trait DataOffset<T, L>
 where
@@ -60,41 +83,41 @@ where
 {
     type AlignAs = FlatVecAlignAs<T, L>;
 
-    fn ptr_metadata(this: &MaybeUninitUnsized<Self>) -> usize {
-        floor_mul(this.as_bytes().len() - Self::DATA_OFFSET, Self::ALIGN) / T::SIZE
+    fn ptr_from_bytes(bytes: &[u8]) -> *const Self {
+        let meta = floor_mul(bytes.len() - Self::DATA_OFFSET, Self::ALIGN) / T::SIZE;
+        ptr::slice_from_raw_parts(bytes.as_ptr(), meta) as *const Self
     }
-
-    fn bytes_len(this: &Self) -> usize {
-        Self::DATA_OFFSET + this.data().len() * T::SIZE
+    unsafe fn ptr_to_bytes<'a>(this: *const Self) -> &'a [u8] {
+        let meta = unsafe { NonNull::new_unchecked(this as *mut [T]) }.len();
+        let len = Self::DATA_OFFSET + meta * T::SIZE;
+        slice::from_raw_parts(this as *const u8, len)
     }
-
-    impl_unsized_uninit_cast!();
 }
 
 pub struct Empty;
 pub struct FromArray<T, const N: usize>(pub [T; N]);
 pub struct FromIterator<T, I: Iterator<Item = T>>(pub I);
 
-impl<T, L> Emplacer<FlatVec<T, L>> for Empty
+unsafe impl<T, L> Emplacer<FlatVec<T, L>> for Empty
 where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
-        let len = unsafe { MaybeUninitUnsized::<L>::from_mut_bytes_unchecked(uninit.as_mut_bytes()) };
-        len.as_mut_sized().write(L::zero());
-        // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeUninit<T>]`.
-        Ok(unsafe { uninit.assume_init_mut() })
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+        unsafe { (bytes.as_mut_ptr() as *mut L).write(L::zero()) };
+        // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeInvalid<T>]`.
+        Ok(())
     }
 }
 
-impl<T, L, const N: usize> Emplacer<FlatVec<T, L>> for FromArray<T, N>
+unsafe impl<T, L, const N: usize> Emplacer<FlatVec<T, L>> for FromArray<T, N>
 where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
-        let vec = Empty.emplace(uninit).unwrap();
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+        unsafe { <Empty as Emplacer<FlatVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
+        let vec = unsafe { FlatVec::<T, L>::from_mut_bytes_unchecked(bytes) };
         if vec.capacity() < N {
             return Err(Error {
                 kind: ErrorKind::InsufficientSize,
@@ -102,17 +125,18 @@ where
             });
         }
         assert_eq!(vec.extend_from_iter(self.0.into_iter()), N);
-        Ok(vec)
+        Ok(())
     }
 }
 
-impl<T, L, I: Iterator<Item = T>> Emplacer<FlatVec<T, L>> for FromIterator<T, I>
+unsafe impl<T, L, I: Iterator<Item = T>> Emplacer<FlatVec<T, L>> for FromIterator<T, I>
 where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    fn emplace(self, uninit: &mut MaybeUninitUnsized<FlatVec<T, L>>) -> Result<&mut FlatVec<T, L>, Error> {
-        let vec = Empty.emplace(uninit).unwrap();
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+        unsafe { <Empty as Emplacer<FlatVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
+        let vec = unsafe { FlatVec::<T, L>::from_mut_bytes_unchecked(bytes) };
         for x in self.0 {
             if vec.push(x).is_err() {
                 return Err(Error {
@@ -121,7 +145,7 @@ where
                 });
             }
         }
-        Ok(vec)
+        Ok(())
     }
 }
 
@@ -137,26 +161,25 @@ where
     }
 }
 
-impl<T, L> FlatCheck for FlatVec<T, L>
+unsafe impl<T, L> FlatValidate for FlatVec<T, L>
 where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    fn validate(this: &MaybeUninitUnsized<Self>) -> Result<&Self, Error> {
-        let len = unsafe { &MaybeUninitUnsized::<L>::from_bytes_unchecked(this.as_bytes()) };
-        L::validate(len)?;
-        // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeUninit<T>]`.
-        let self_ = unsafe { this.assume_init() };
-        if self_.len() > self_.capacity() {
+    unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
+        unsafe { L::validate_unchecked(bytes) }?;
+        // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeInvalid<T>]`.
+        let this = unsafe { Self::from_bytes_unchecked(bytes) };
+        if this.len() > this.capacity() {
             return Err(Error {
                 kind: ErrorKind::InsufficientSize,
                 pos: Self::DATA_OFFSET,
             });
         }
-        for x in unsafe { self_.data().get_unchecked(..self_.len()) } {
-            T::validate(MaybeUninitUnsized::from_sized(x))?;
+        for x in unsafe { this.data().get_unchecked(..this.len()) } {
+            unsafe { T::validate_unchecked(T::ptr_to_bytes(x.as_ptr())) }?;
         }
-        Ok(self_)
+        Ok(())
     }
 }
 
@@ -180,6 +203,7 @@ macro_rules! flat_vec {
         $crate::vec::FromArray([$($x),+])
     };
 }
+pub use flat_vec;
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
@@ -190,10 +214,7 @@ mod tests {
     #[test]
     fn data_offset() {
         let mut bytes = AlignedBytes::new(4 + 3 * 4, 4);
-        let flat_vec = FlatVec::<i32, u16>::from_mut_bytes(&mut bytes)
-            .unwrap()
-            .default_in_place()
-            .unwrap();
+        let flat_vec = FlatVec::<i32, u16>::default_in_place(&mut bytes).unwrap();
 
         assert_eq!(align_of_val(flat_vec), FlatVec::<i32, u16>::ALIGN);
     }
@@ -201,10 +222,7 @@ mod tests {
     #[test]
     fn align() {
         let mut bytes = AlignedBytes::new(4 + 3 * 2, 4);
-        let flat_vec = FlatVec::<i16, u32>::from_mut_bytes(&mut bytes)
-            .unwrap()
-            .default_in_place()
-            .unwrap();
+        let flat_vec = FlatVec::<i16, u32>::default_in_place(&mut bytes).unwrap();
 
         assert_eq!(align_of_val(flat_vec), 4);
         assert_eq!(flat_vec.capacity(), 2);
@@ -214,10 +232,7 @@ mod tests {
     #[test]
     fn len_cap() {
         let mut bytes = AlignedBytes::new(4 + 3 * 4, 4);
-        let flat_vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
-            .unwrap()
-            .default_in_place()
-            .unwrap();
+        let flat_vec = FlatVec::<i32, u32>::default_in_place(&mut bytes).unwrap();
         assert_eq!(flat_vec.capacity(), 3);
         assert_eq!(flat_vec.len(), 0);
     }
@@ -225,10 +240,7 @@ mod tests {
     #[test]
     fn size() {
         let mut bytes = AlignedBytes::new(4 + 3 * 4, 4);
-        let flat_vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
-            .unwrap()
-            .default_in_place()
-            .unwrap();
+        let flat_vec = FlatVec::<i32, u32>::default_in_place(&mut bytes).unwrap();
         assert_eq!(FlatVec::<i32, u32>::DATA_OFFSET, flat_vec.size());
 
         for i in 0.. {
@@ -243,10 +255,7 @@ mod tests {
     #[test]
     fn extend_from_slice() {
         let mut bytes = AlignedBytes::new(4 * 6, 4);
-        let vec = FlatVec::<i32, u32>::from_mut_bytes(&mut bytes)
-            .unwrap()
-            .default_in_place()
-            .unwrap();
+        let vec = FlatVec::<i32, u32>::default_in_place(&mut bytes).unwrap();
         assert_eq!(vec.capacity(), 5);
         assert_eq!(vec.len(), 0);
         assert_eq!(vec.remaining(), 5);
@@ -265,22 +274,13 @@ mod tests {
     #[test]
     fn eq() {
         let mut mem_a = AlignedBytes::new(4 * 5, 4);
-        let vec_a = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_a)
-            .unwrap()
-            .new_in_place(flat_vec![1, 2, 3, 4])
-            .unwrap();
+        let vec_a = FlatVec::<i32, u32>::new_in_place(&mut mem_a, flat_vec![1, 2, 3, 4]).unwrap();
 
         let mut mem_b = AlignedBytes::new(4 * 5, 4);
-        let vec_b = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_b)
-            .unwrap()
-            .new_in_place(flat_vec![1, 2, 3, 4])
-            .unwrap();
+        let vec_b = FlatVec::<i32, u32>::new_in_place(&mut mem_b, flat_vec![1, 2, 3, 4]).unwrap();
 
         let mut mem_c = AlignedBytes::new(4 * 3, 4);
-        let vec_c = FlatVec::<i32, u32>::from_mut_bytes(&mut mem_c)
-            .unwrap()
-            .new_in_place(flat_vec![1, 2])
-            .unwrap();
+        let vec_c = FlatVec::<i32, u32>::new_in_place(&mut mem_c, flat_vec![1, 2]).unwrap();
 
         assert_eq!(vec_a, vec_b);
         assert_ne!(vec_a, vec_c);

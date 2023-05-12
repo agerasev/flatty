@@ -23,14 +23,14 @@ use syn::{parse_macro_input, Data, DeriveInput, Ident};
 /// or
 ///
 /// ```rust_no_check
-/// #[flatty::flat(sized = false, enum_type = "u32")]
+/// #[flatty::flat(sized = false, tag_type = "u32")]
 /// enum ... { ... }
 /// ```
 ///
 /// # Arguments
 ///
 /// + `sized: bool`, optional, `true` by default. Whether structure is sized or not.
-/// + `enum_type: str`, for `enum` declaration only, optional, `"u8"` by default.
+/// + `tag_type: str`, for `enum` declaration only, optional, `"u8"` by default.
 ///   The type used for enum variant index. Possible valiues: `"u8"`, `"u16"`, `"u32"`.
 /// + `portable: bool`, optional, `false` by default. Whether structure should implement `Portable`.
 /// + `default: bool`, optional, `false` by default. Whether to create default constructors (see `FlatDefault`).
@@ -44,11 +44,11 @@ pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     match &input.data {
         Data::Struct(_) => {
-            assert!(ctx.info.enum_type.is_none(), "`enum_type` is not allowed for `struct`",);
+            assert!(ctx.info.tag_type.is_none(), "`tag_type` is not allowed for `struct`",);
         }
         Data::Enum(_) => {
-            if ctx.info.enum_type.is_none() {
-                ctx.info.enum_type = Some(Ident::new("u8", Span::call_site()));
+            if ctx.info.tag_type.is_none() {
+                ctx.info.tag_type = Some(Ident::new("u8", Span::call_site()));
             }
 
             ctx.idents.tag = Some(Ident::new(&format!("{}Tag", input.ident), input.ident.span()));
@@ -110,7 +110,7 @@ pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
         Data::Enum(_) => {
             let tag_struct = items::tag::struct_(&ctx, &input, ctx.info.sized);
             if ctx.info.sized {
-                let enum_type = ctx.info.enum_type.as_ref().unwrap();
+                let tag_type = ctx.info.tag_type.as_ref().unwrap();
                 let derive_default = if ctx.info.default {
                     quote! { #[derive(Default)] }
                 } else {
@@ -119,7 +119,7 @@ pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 quote! {
                     #derive_default
-                    #[repr(C, #enum_type)]
+                    #[repr(C, #tag_type)]
                     #input
 
                     #tag_struct

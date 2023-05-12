@@ -15,12 +15,12 @@ fn test() {
         thread::spawn(move || {
             let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
 
-            writer.new_message().default().unwrap().write().unwrap();
+            writer.alloc_message().default().unwrap().write().unwrap();
 
             {
                 writer
-                    .new_message()
-                    .emplace(TestMsgInitB(le::I32::from(123456)))
+                    .alloc_message()
+                    .new_in_place(TestMsgInitB(le::I32::from(123456)))
                     .unwrap()
                     .write()
                     .unwrap();
@@ -28,8 +28,8 @@ fn test() {
 
             {
                 writer
-                    .new_message()
-                    .emplace(TestMsgInitC(FromIterator((0..7).map(le::I32::from))))
+                    .alloc_message()
+                    .new_in_place(TestMsgInitC(FromIterator((0..7).map(le::I32::from))))
                     .unwrap()
                     .write()
                     .unwrap();

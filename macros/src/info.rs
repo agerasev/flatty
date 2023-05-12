@@ -9,7 +9,7 @@ use syn::{
 #[derive(Clone, Debug)]
 pub struct Info {
     pub sized: bool,
-    pub enum_type: Option<Ident>,
+    pub tag_type: Option<Ident>,
     pub portable: bool,
     pub default: bool,
 }
@@ -51,7 +51,7 @@ impl Parse for Info {
             } else {
                 true
             },
-            enum_type: if let Some(lit) = params.remove("enum_type") {
+            tag_type: if let Some(lit) = params.remove("tag_type") {
                 Some(parse_lit_ident(lit)?)
             } else {
                 None

@@ -36,7 +36,7 @@ pub fn min_size_const(_ctx: &Context, input: &DeriveInput) -> TokenStream {
                 }
             });
             quote! {
-                ::flatty::utils::ceil_mul(Self::DATA_OFFSET + #contents, <Self as ::flatty::FlatBase>::ALIGN)
+                ::flatty::utils::ceil_mul(Self::DATA_OFFSET + #contents, <Self as ::flatty::traits::FlatBase>::ALIGN)
             }
         }
         Data::Union(..) => unimplemented!(),
@@ -65,7 +65,7 @@ fn size_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 let var_name = &variant.ident;
                 let value = if !variant.fields.is_empty() {
                     let type_list = type_list(variant.fields.iter());
-                    quote! { unsafe { iter::RefIter::new_unchecked(&self.data, iter::type_list!(#type_list)).fold_size(0) } }
+                    quote! { unsafe { iter::BytesIter::new_unchecked(&self.data, iter::type_list!(#type_list)).fold_size(0) } }
                 } else {
                     quote! { 0 }
                 };
@@ -104,11 +104,14 @@ pub fn self_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
 
     match &input.data {
         Data::Enum(data) => {
-            let enum_type = ctx.info.enum_type.as_ref().unwrap();
+            let tag_type = ctx.info.tag_type.as_ref().unwrap();
 
             items = quote! {
                 #items
-                const DATA_OFFSET: usize = ::flatty::utils::ceil_mul(<#enum_type as ::flatty::FlatSized>::SIZE, <Self as ::flatty::FlatBase>::ALIGN);
+                const DATA_OFFSET: usize = ::flatty::utils::ceil_mul(
+                    <#tag_type as ::flatty::traits::FlatSized>::SIZE,
+                    <Self as ::flatty::traits::FlatBase>::ALIGN,
+                );
             };
 
             if !ctx.info.sized {
@@ -130,7 +133,10 @@ pub fn self_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     let type_list = type_list(data.fields.iter().take(len - 1));
                     let last_ty = &data.fields.iter().last().unwrap().ty;
                     quote! {
-                        ::flatty::utils::ceil_mul(::flatty::utils::iter::fold_size!(0; #type_list), <#last_ty as ::flatty::FlatBase>::ALIGN)
+                        ::flatty::utils::ceil_mul(
+                            ::flatty::utils::iter::fold_size!(0; #type_list),
+                            <#last_ty as ::flatty::traits::FlatBase>::ALIGN,
+                        )
                     }
                 } else {
                     quote! { 0 }
@@ -162,11 +168,11 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let generic_args = generic::args(&input.generics);
     let where_clause = generic::where_clause(
         input,
-        quote! { ::flatty::FlatBase + Sized },
+        quote! { ::flatty::traits::FlatBase + Sized },
         if ctx.info.sized {
             None
         } else {
-            Some(quote! { ::flatty::FlatBase })
+            Some(quote! { ::flatty::traits::FlatBase })
         },
     );
 
@@ -175,7 +181,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let size_method = size_method(ctx, input);
 
     quote! {
-        unsafe impl<#generic_params> ::flatty::FlatBase for #self_ident<#generic_args>
+        unsafe impl<#generic_params> ::flatty::traits::FlatBase for #self_ident<#generic_args>
         #where_clause
         {
             #align_const

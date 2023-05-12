@@ -39,7 +39,7 @@
 //! For enum you may explicitly set the type of tag (default value is [`u8`]).
 //!
 //! ```rust
-//! #[flatty::flat(enum_type = "u32")]
+//! #[flatty::flat(tag_type = "u32")]
 //! enum SizedEnum {
 //!     A,
 //!     B(u16, u8),
@@ -78,13 +78,19 @@
 //!
 #![no_std]
 
-pub use flatty_base::*;
+pub use flatty_base::{
+    emplacer::{self, Emplacer},
+    error::{self, Error},
+    traits::{self, Flat, FlatDefault, FlatSized},
+    utils,
+    vec::{self, flat_vec, FlatVec},
+};
 pub use flatty_macros::flat;
 pub use flatty_portable as portable;
 
 pub use portable::Portable;
 
 pub mod prelude {
-    pub use flatty_base::prelude::*;
+    pub use flatty_base::traits::*;
     pub use flatty_portable::prelude::*;
 }

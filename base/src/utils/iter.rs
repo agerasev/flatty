@@ -1,13 +1,11 @@
 use crate::{
-    error::ErrorKind,
-    mem::MaybeUninitUnsized,
-    prelude::*,
+    error::{Error, ErrorKind},
+    traits::*,
     utils::{ceil_mul, max},
-    Error,
 };
 use core::marker::PhantomData;
 
-pub trait TypeIter {
+pub trait TypeIter: Clone {
     type Item: Flat + ?Sized;
     fn align(&self) -> usize;
     fn min_size(&self, pos: usize) -> usize;
@@ -29,9 +27,14 @@ pub trait TypeIter {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct SingleType<T: Flat + ?Sized> {
     _phantom: PhantomData<T>,
+}
+impl<T: Flat + ?Sized> Clone for SingleType<T> {
+    fn clone(&self) -> Self {
+        Self { _phantom: PhantomData }
+    }
 }
 impl<T: Flat + ?Sized> SingleType<T> {
     #[allow(clippy::new_without_default)]
@@ -49,10 +52,18 @@ impl<T: Flat + ?Sized> TypeIter for SingleType<T> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct TwoOrMoreTypes<T: Flat + Sized, I: TypeIter> {
     _phantom: PhantomData<T>,
     next: I,
+}
+impl<T: Flat + Sized, I: TypeIter> Clone for TwoOrMoreTypes<T, I> {
+    fn clone(&self) -> Self {
+        Self {
+            _phantom: PhantomData,
+            next: self.next.clone(),
+        }
+    }
 }
 impl<T: Flat + Sized, I: TypeIter> TwoOrMoreTypes<T, I> {
     pub fn new(next: I) -> Self {
@@ -102,67 +113,107 @@ impl<T: Flat + ?Sized> PosIter<SingleType<T>> {
     }
 }
 
+pub trait Data<'a>: Sized + 'a {
+    fn bytes(&self) -> &'_ [u8];
+    type Output<T: Flat + ?Sized + 'a>: Sized;
+    fn split(self, pos: usize) -> (Self, Self);
+    fn value<T: Flat + ?Sized + 'a>(self) -> Self::Output<T>;
+}
+
+impl<'a> Data<'a> for &'a [u8] {
+    fn bytes(&self) -> &'_ [u8] {
+        self
+    }
+    type Output<T: Flat + ?Sized + 'a> = &'a [u8];
+    fn split(self, pos: usize) -> (Self, Self) {
+        self.split_at(pos)
+    }
+    fn value<T: Flat + ?Sized + 'a>(self) -> Self::Output<T> {
+        self
+    }
+}
+
+impl<'a> Data<'a> for &'a mut [u8] {
+    fn bytes(&self) -> &'_ [u8] {
+        self
+    }
+    type Output<T: Flat + ?Sized + 'a> = &'a mut [u8];
+    fn split(self, pos: usize) -> (Self, Self) {
+        self.split_at_mut(pos)
+    }
+    fn value<T: Flat + ?Sized + 'a>(self) -> Self::Output<T> {
+        self
+    }
+}
+
 #[derive(Clone, Debug)]
-pub struct RefIter<'a, I: TypeIter> {
-    data: &'a [u8],
-    iter: PosIter<I>,
-}
-impl<'a, I: TypeIter> RefIter<'a, I> {
-    pub fn new(data: &'a [u8], iter: I) -> Result<Self, Error> {
-        iter.check_align_and_min_size(data)?;
-        Ok(unsafe { Self::new_unchecked(data, iter) })
-    }
-    /// # Safety
-    ///
-    /// `data` must be aligned and have sufficient size.
-    pub unsafe fn new_unchecked(data: &'a [u8], iter: I) -> Self {
-        Self {
-            data,
-            iter: PosIter::new(iter),
-        }
-    }
-    pub fn pos(&self) -> usize {
-        self.iter.pos()
-    }
-    pub fn value(&self) -> &MaybeUninitUnsized<I::Item> {
-        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data) }
+pub struct RefData<'a>(&'a [u8]);
+impl<'a> RefData<'a> {
+    pub unsafe fn new(data: &'a [u8]) -> Self {
+        Self(data)
     }
 }
-impl<'a, T: Flat + Sized, I: TypeIter> RefIter<'a, TwoOrMoreTypes<T, I>> {
-    pub fn next(self) -> (RefIter<'a, I>, &'a MaybeUninitUnsized<T>) {
-        let prev_pos = self.iter.pos();
-        let iter = self.iter.next();
-        let next_pos = iter.pos();
-        let (prev_data, next_data) = self.data.split_at(next_pos - prev_pos);
-        (RefIter { data: next_data, iter }, unsafe {
-            MaybeUninitUnsized::from_bytes_unchecked(prev_data)
-        })
+impl<'a> Data<'a> for RefData<'a> {
+    fn bytes(&self) -> &'_ [u8] {
+        self.0.bytes()
     }
-}
-impl<'a, T: Flat + ?Sized> RefIter<'a, SingleType<T>> {
-    pub fn assert_last(&self) {
-        self.iter.assert_last()
+    type Output<T: Flat + ?Sized + 'a> = &'a T;
+    fn split(self, pos: usize) -> (Self, Self) {
+        let (a, b) = Data::split(self.0, pos);
+        (Self(a), Self(b))
     }
-    pub fn finalize(self) -> &'a MaybeUninitUnsized<T> {
-        unsafe { MaybeUninitUnsized::from_bytes_unchecked(self.data) }
+    fn value<T: Flat + ?Sized + 'a>(self) -> Self::Output<T> {
+        unsafe { T::from_bytes_unchecked(self.0.value::<T>()) }
     }
 }
 
 #[derive(Debug)]
-pub struct MutIter<'a, I: TypeIter> {
-    data: &'a mut [u8],
+pub struct MutData<'a>(&'a mut [u8]);
+impl<'a> MutData<'a> {
+    pub unsafe fn new(data: &'a mut [u8]) -> Self {
+        Self(data)
+    }
+}
+impl<'a> Data<'a> for MutData<'a> {
+    fn bytes(&self) -> &'_ [u8] {
+        self.0.bytes()
+    }
+    type Output<T: Flat + ?Sized + 'a> = &'a mut T;
+    fn split(self, pos: usize) -> (Self, Self) {
+        let (a, b) = Data::split(self.0, pos);
+        (Self(a), Self(b))
+    }
+    fn value<T: Flat + ?Sized + 'a>(self) -> Self::Output<T> {
+        unsafe { T::from_mut_bytes_unchecked(self.0.value::<T>()) }
+    }
+}
+
+#[derive(Debug)]
+pub struct DataIter<'a, D: Data<'a>, I: TypeIter> {
+    _ghost: PhantomData<&'a ()>,
+    data: D,
     iter: PosIter<I>,
 }
-impl<'a, I: TypeIter> MutIter<'a, I> {
-    pub fn new(data: &'a mut [u8], iter: I) -> Result<Self, Error> {
-        iter.check_align_and_min_size(data)?;
+impl<'a, D: Data<'a> + Clone, I: TypeIter> Clone for DataIter<'a, D, I> {
+    fn clone(&self) -> Self {
+        Self {
+            _ghost: self._ghost,
+            data: self.data.clone(),
+            iter: self.iter.clone(),
+        }
+    }
+}
+impl<'a, D: Data<'a>, I: TypeIter> DataIter<'a, D, I> {
+    pub fn new(data: D, iter: I) -> Result<Self, Error> {
+        iter.check_align_and_min_size(data.bytes())?;
         Ok(unsafe { Self::new_unchecked(data, iter) })
     }
     /// # Safety
     ///
     /// `data` must be aligned and have sufficient size.
-    pub unsafe fn new_unchecked(data: &'a mut [u8], iter: I) -> Self {
+    pub unsafe fn new_unchecked(data: D, iter: I) -> Self {
         Self {
+            _ghost: PhantomData,
             data,
             iter: PosIter::new(iter),
         }
@@ -170,43 +221,58 @@ impl<'a, I: TypeIter> MutIter<'a, I> {
     pub fn pos(&self) -> usize {
         self.iter.pos()
     }
+    pub fn value(self) -> D::Output<I::Item> {
+        self.data.value()
+    }
 }
-impl<'a, T: Flat + Sized, I: TypeIter> MutIter<'a, TwoOrMoreTypes<T, I>> {
-    pub fn next(self) -> (MutIter<'a, I>, &'a mut MaybeUninitUnsized<T>) {
+impl<'a, D: Data<'a>, T: Flat + Sized, I: TypeIter> DataIter<'a, D, TwoOrMoreTypes<T, I>> {
+    pub fn next(self) -> (DataIter<'a, D, I>, D::Output<T>) {
         let prev_pos = self.iter.pos();
         let iter = self.iter.next();
         let next_pos = iter.pos();
-        let (prev_data, next_data) = self.data.split_at_mut(next_pos - prev_pos);
-        (MutIter { data: next_data, iter }, unsafe {
-            MaybeUninitUnsized::from_mut_bytes_unchecked(prev_data)
-        })
+        let (prev_data, next_data) = self.data.split(next_pos - prev_pos);
+        (
+            DataIter {
+                _ghost: PhantomData,
+                data: next_data,
+                iter,
+            },
+            prev_data.value(),
+        )
     }
 }
-impl<'a, T: Flat + ?Sized> MutIter<'a, SingleType<T>> {
+impl<'a, D: Data<'a>, T: Flat + ?Sized> DataIter<'a, D, SingleType<T>> {
     pub fn assert_last(&self) {
         self.iter.assert_last()
     }
-    pub fn finalize(self) -> &'a mut MaybeUninitUnsized<T> {
-        unsafe { MaybeUninitUnsized::from_mut_bytes_unchecked(self.data) }
+    pub fn finalize(self) -> D::Output<T> {
+        self.data.value()
     }
 }
+
+pub type BytesIter<'a, I> = DataIter<'a, &'a [u8], I>;
+pub type BytesMutIter<'a, I> = DataIter<'a, &'a mut [u8], I>;
+pub type RefIter<'a, I> = DataIter<'a, RefData<'a>, I>;
+pub type MutIter<'a, I> = DataIter<'a, MutData<'a>, I>;
 
 pub trait ValidateIter {
     fn validate_all(self) -> Result<(), Error>;
 }
-impl<'a, T: Flat + Sized + 'a, I: TypeIter> ValidateIter for RefIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: Flat + Sized + 'a, I: TypeIter> ValidateIter for BytesIter<'a, TwoOrMoreTypes<T, I>>
 where
-    RefIter<'a, I>: ValidateIter,
+    BytesIter<'a, I>: ValidateIter,
+    I::Item: 'a,
 {
     fn validate_all(self) -> Result<(), Error> {
-        T::validate(self.value()).map_err(|e| e.offset(self.pos()))?;
+        unsafe { T::validate_unchecked(self.clone().value()) }.map_err(|e| e.offset(self.pos()))?;
         self.next().0.validate_all()
     }
 }
-impl<'a, T: Flat + ?Sized> ValidateIter for RefIter<'a, SingleType<T>> {
+
+impl<'a, T: Flat + ?Sized> ValidateIter for BytesIter<'a, SingleType<T>> {
     fn validate_all(self) -> Result<(), Error> {
         self.assert_last();
-        T::validate(self.value()).map_err(|e| e.offset(self.pos()))?;
+        unsafe { T::validate_unchecked(self.clone().value()) }.map_err(|e| e.offset(self.pos()))?;
         Ok(())
     }
 }
@@ -217,17 +283,18 @@ pub trait FoldSizeIter {
     /// Internal data must be valid.
     unsafe fn fold_size(self, size: usize) -> usize;
 }
-impl<'a, T: Flat + Sized + 'a, I: TypeIter> FoldSizeIter for RefIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: Flat + Sized + 'a, I: TypeIter> FoldSizeIter for BytesIter<'a, TwoOrMoreTypes<T, I>>
 where
-    RefIter<'a, I>: FoldSizeIter,
+    BytesIter<'a, I>: FoldSizeIter,
+    I::Item: 'a,
 {
     unsafe fn fold_size(self, size: usize) -> usize {
         self.next().0.fold_size(ceil_mul(size, T::ALIGN) + T::SIZE)
     }
 }
-impl<'a, T: Flat + ?Sized> FoldSizeIter for RefIter<'a, SingleType<T>> {
+impl<'a, T: Flat + ?Sized> FoldSizeIter for BytesIter<'a, SingleType<T>> {
     unsafe fn fold_size(self, size: usize) -> usize {
-        ceil_mul(size, T::ALIGN) + self.finalize().assume_init().size()
+        ceil_mul(size, T::ALIGN) + (&*T::ptr_from_bytes(self.finalize())).size()
     }
 }
 
@@ -251,12 +318,12 @@ macro_rules! type_list {
 macro_rules! fold_size {
     ($accum:expr; $first_type:ty, $($types:ty),+ $(,)?) => {
         $crate::utils::iter::fold_size!(
-            $crate::utils::ceil_mul($accum, <$first_type as $crate::FlatBase>::ALIGN) + <$first_type as $crate::FlatSized>::SIZE;
+            $crate::utils::ceil_mul($accum, <$first_type as $crate::traits::FlatBase>::ALIGN) + <$first_type as $crate::traits::FlatSized>::SIZE;
             $( $types ),*
         )
     };
     ($accum:expr; $type:ty $(,)?) => {
-        $crate::utils::ceil_mul($accum, <$type as $crate::FlatBase>::ALIGN) + <$type as $crate::FlatSized>::SIZE
+        $crate::utils::ceil_mul($accum, <$type as $crate::traits::FlatBase>::ALIGN) + <$type as $crate::traits::FlatSized>::SIZE
     };
 }
 
@@ -265,12 +332,12 @@ macro_rules! fold_size {
 macro_rules! fold_min_size {
     ($accum:expr; $first_type:ty, $($types:ty),+ $(,)?) => {
         $crate::utils::iter::fold_min_size!(
-            $crate::utils::ceil_mul($accum, <$first_type as $crate::FlatBase>::ALIGN) + <$first_type as $crate::FlatSized>::SIZE;
+            $crate::utils::ceil_mul($accum, <$first_type as $crate::traits::FlatBase>::ALIGN) + <$first_type as $crate::traits::FlatSized>::SIZE;
             $( $types ),*
         )
     };
     ($accum:expr; $type:ty $(,)?) => {
-        $crate::utils::ceil_mul($accum, <$type as $crate::FlatBase>::ALIGN) + <$type as $crate::FlatBase>::MIN_SIZE
+        $crate::utils::ceil_mul($accum, <$type as $crate::traits::FlatBase>::ALIGN) + <$type as $crate::traits::FlatBase>::MIN_SIZE
     };
 }
 

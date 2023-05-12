@@ -1,6 +1,7 @@
 #[cfg(feature = "std")]
 pub mod alloc;
 pub mod iter;
+pub mod mem;
 
 /// `const` version of [`usize::max`].
 pub const fn max(a: usize, b: usize) -> usize {

@@ -1,6 +1,6 @@
 [package]
 name = "flatty-io"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 edition.workspace = true
 
 description = "Flat message transfer"
@@ -13,7 +13,7 @@ default = ["async"]
 async = ["futures"]
 
 [dependencies]
-flatty.workspace = true
+flatty = { workspace = true, features = ["std"] }
 futures = { version = "0.3.25", optional = true }
 
 [dependencies.derive_more]

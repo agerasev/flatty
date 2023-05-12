@@ -35,10 +35,6 @@ Flat type can be dynamically sized (like `FlatVec`), in that case it exploits Ru
 
 Rust cannot construct DST in usual manner on stack because its size isn't known at compile time. Instead we may initialize such types onto given memory area. To do this we can use so-called emplacer - something that can initialize object onto given memory. For sized types its instance is also emplacer.
 
-### `MaybeUninitUnsized`
-
-It's like `MaybeUninit` but for unsized flat types. It checks that underlying memory is properly aligned and large enough to contain minimally-sized instance of the type, but its contents is uninitialized.
-
 ### `Portable`
 
 Flat type guarantee that it has the same binary representation on the platforms with same byte order, alignment and address width. If you need stronger guarantees you may use `Portable` types - they have the same binary representation on *any* platform and always aligned to byte. To make own flat type portable use `#[flat(portable = true)]`. Also this can be used to created packed flat types without alignment issues. 
