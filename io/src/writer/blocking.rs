@@ -22,7 +22,7 @@ impl<M: Portable + ?Sized, W: Write> Writer<M, W> {
         }
     }
 
-    pub fn new_message(&mut self) -> UninitWriteGuard<'_, M, W> {
+    pub fn alloc_message(&mut self) -> UninitWriteGuard<'_, M, W> {
         CommonUninitWriteGuard::new(self).into()
     }
 }
@@ -55,20 +55,22 @@ impl<'a, M: Portable + ?Sized, W: Write> UninitWriteGuard<'a, M, W> {
     /// # Safety
     ///
     /// Underlying message data must be initialized.
-    pub unsafe fn assume_init(self) -> WriteGuard<'a, M, W> {
-        CommonUninitWriteGuard::from(self).assume_init().into()
+    pub unsafe fn assume_valid(self) -> WriteGuard<'a, M, W> {
+        CommonUninitWriteGuard::from(self).assume_valid().into()
     }
 
-    pub fn emplace(self, emplacer: impl Emplacer<M>) -> Result<WriteGuard<'a, M, W>, flatty::Error> {
+    pub fn new_in_place(self, emplacer: impl Emplacer<M>) -> Result<WriteGuard<'a, M, W>, flatty::Error> {
         CommonUninitWriteGuard::from(self)
-            .emplace(emplacer)
+            .new_in_place(emplacer)
             .map(|common| common.into())
     }
 }
 
 impl<'a, M: Portable + FlatDefault + ?Sized, W: Write> UninitWriteGuard<'a, M, W> {
     pub fn default(self) -> Result<WriteGuard<'a, M, W>, flatty::Error> {
-        CommonUninitWriteGuard::from(self).default().map(|common| common.into())
+        CommonUninitWriteGuard::from(self)
+            .default_in_place()
+            .map(|common| common.into())
     }
 }
 
