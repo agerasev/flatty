@@ -39,7 +39,7 @@ macro_rules! offset_wide_ptr {
             wptr as *const u8,
             ::core::ptr::NonNull::new_unchecked(wptr as *mut [u8]).len(),
         );
-        ::core::ptr::slice_from_raw_parts(ptr.offset($count), len) as *const $Type
+        ::core::ptr::slice_from_raw_parts(ptr.offset($count as isize), len) as *const $Type
     }};
 }
 pub use offset_wide_ptr;

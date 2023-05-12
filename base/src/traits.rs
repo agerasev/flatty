@@ -38,7 +38,10 @@ pub unsafe trait FlatUnsized: FlatBase {
     ///
     /// Modification of returned bytes must not make `self` invalid.
     unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
-        unsafe { &mut *(Self::ptr_to_bytes(self as *const _) as *const _ as *mut _) }
+        #[allow(clippy::cast_ref_to_mut)]
+        unsafe {
+            &mut *(Self::ptr_to_bytes(self as *const _) as *const _ as *mut _)
+        }
     }
 
     /// Create a new instance of `Self` initializing raw memory into default state of `Self`.
