@@ -2,7 +2,7 @@ use crate::{
     error::{Error, ErrorKind},
     traits::FlatBase,
 };
-use core::slice;
+use core::{ptr, ptr::NonNull};
 
 /// Check that memory size and alignment are suitable for `Self`.
 pub fn check_align_and_min_size<T: FlatBase + ?Sized>(bytes: &[u8]) -> Result<(), Error> {
@@ -21,25 +21,26 @@ pub fn check_align_and_min_size<T: FlatBase + ?Sized>(bytes: &[u8]) -> Result<()
     }
 }
 
-pub unsafe fn offset_bytes_start(bytes: &[u8], count: isize) -> &[u8] {
-    let (ptr, len) = (bytes.as_ptr(), bytes.len());
-    slice::from_raw_parts(ptr.offset(count), (len as isize - count) as usize)
+pub unsafe fn slice_ptr_len<T>(slice: *mut [T]) -> usize {
+    unsafe { NonNull::new_unchecked(slice) }.len()
 }
 
-pub unsafe fn set_bytes_len(bytes: &[u8], len: usize) -> &[u8] {
-    slice::from_raw_parts(bytes.as_ptr(), len)
+pub unsafe fn set_slice_ptr_len<T>(bytes: *mut [T], len: usize) -> *mut [T] {
+    ptr::slice_from_raw_parts_mut(bytes as *mut T, len)
+}
+
+pub unsafe fn offset_slice_ptr_start<T>(slice: *mut [T], count: isize) -> *mut [T] {
+    let (ptr, len) = (slice as *mut T, slice_ptr_len(slice));
+    ptr::slice_from_raw_parts_mut(ptr.offset(count), (len as isize - count) as usize)
 }
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! offset_wide_ptr {
+macro_rules! cast_wide_ptr_with_offset {
     ($Type:ty, $ptr:expr, $count:expr $(,)?) => {{
-        let wptr = $ptr as *const [u8];
-        let (ptr, len) = (
-            wptr as *const u8,
-            ::core::ptr::NonNull::new_unchecked(wptr as *mut [u8]).len(),
-        );
-        ::core::ptr::slice_from_raw_parts(ptr.offset($count as isize), len) as *const $Type
+        let wptr = $ptr as *mut [u8];
+        let (ptr, len) = (wptr as *mut u8, ::core::ptr::NonNull::new_unchecked(wptr as *mut [u8]).len());
+        ::core::ptr::slice_from_raw_parts_mut(ptr.offset($count as isize), len) as *mut $Type
     }};
 }
-pub use offset_wide_ptr;
+pub use cast_wide_ptr_with_offset;

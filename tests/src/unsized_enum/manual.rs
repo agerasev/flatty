@@ -7,7 +7,7 @@ use flatty::{
     utils::{
         ceil_mul, floor_mul,
         iter::{self, prelude::*},
-        mem::set_bytes_len,
+        mem::{set_slice_ptr_len, slice_ptr_len},
         min,
     },
     FlatVec,
@@ -257,12 +257,12 @@ unsafe impl FlatBase for UnsizedEnum {
 unsafe impl FlatUnsized for UnsizedEnum {
     type AlignAs = UnsizedEnumAlignAs;
 
-    fn ptr_from_bytes(bytes: &[u8]) -> *const Self {
-        unsafe { set_bytes_len(bytes, floor_mul(bytes.len() - Self::DATA_OFFSET, Self::ALIGN)) as *const [u8] as *const Self }
+    unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self {
+        set_slice_ptr_len(bytes, floor_mul(slice_ptr_len(bytes) - Self::DATA_OFFSET, Self::ALIGN)) as *mut Self
     }
-    unsafe fn ptr_to_bytes<'a>(this: *const Self) -> &'a [u8] {
-        let bytes = &*(this as *const [u8]);
-        set_bytes_len(bytes, Self::DATA_OFFSET + bytes.len())
+    unsafe fn ptr_to_bytes(this: *mut Self) -> *mut [u8] {
+        let bytes = this as *mut [u8];
+        set_slice_ptr_len(bytes, Self::DATA_OFFSET + slice_ptr_len(bytes))
     }
 }
 

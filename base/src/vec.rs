@@ -2,13 +2,9 @@ use crate::{
     emplacer::Emplacer,
     error::{Error, ErrorKind},
     traits::{Flat, FlatBase, FlatDefault, FlatSized, FlatUnsized, FlatValidate},
-    utils::{floor_mul, max},
+    utils::{floor_mul, max, mem::slice_ptr_len},
 };
-use core::{
-    mem::MaybeUninit,
-    ptr::{self, NonNull},
-    slice,
-};
+use core::{mem::MaybeUninit, ptr};
 use stavec::GenericVec;
 
 pub use stavec::traits::{Length, Slot};
@@ -83,14 +79,13 @@ where
 {
     type AlignAs = FlatVecAlignAs<T, L>;
 
-    fn ptr_from_bytes(bytes: &[u8]) -> *const Self {
-        let meta = floor_mul(bytes.len() - Self::DATA_OFFSET, Self::ALIGN) / T::SIZE;
-        ptr::slice_from_raw_parts(bytes.as_ptr(), meta) as *const Self
+    unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self {
+        let meta = floor_mul(slice_ptr_len(bytes) - Self::DATA_OFFSET, Self::ALIGN) / T::SIZE;
+        ptr::slice_from_raw_parts_mut(bytes as *mut u8, meta) as *mut Self
     }
-    unsafe fn ptr_to_bytes<'a>(this: *const Self) -> &'a [u8] {
-        let meta = unsafe { NonNull::new_unchecked(this as *mut [T]) }.len();
-        let len = Self::DATA_OFFSET + meta * T::SIZE;
-        slice::from_raw_parts(this as *const u8, len)
+    unsafe fn ptr_to_bytes(this: *mut Self) -> *mut [u8] {
+        let len = Self::DATA_OFFSET + slice_ptr_len(this as *mut [T]) * T::SIZE;
+        ptr::slice_from_raw_parts_mut(this as *mut u8, len)
     }
 }
 
@@ -177,7 +172,7 @@ where
             });
         }
         for x in unsafe { this.data().get_unchecked(..this.len()) } {
-            unsafe { T::validate_unchecked(T::ptr_to_bytes(x.as_ptr())) }?;
+            unsafe { T::validate_ptr(x.as_ptr()) }?;
         }
         Ok(())
     }

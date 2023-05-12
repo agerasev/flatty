@@ -294,7 +294,7 @@ where
 }
 impl<'a, T: Flat + ?Sized> FoldSizeIter for BytesIter<'a, SingleType<T>> {
     unsafe fn fold_size(self, size: usize) -> usize {
-        ceil_mul(size, T::ALIGN) + (*T::ptr_from_bytes(self.finalize())).size()
+        ceil_mul(size, T::ALIGN) + (*T::ptr_from_bytes(self.finalize() as *const _ as *mut _)).size()
     }
 }
 

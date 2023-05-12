@@ -1,7 +1,7 @@
 use crate::{emplacer::Emplacer, error::Error, utils::mem::check_align_and_min_size};
 use core::{
     mem::{align_of, size_of},
-    slice,
+    ptr,
 };
 
 /// Basic flat type preoperties.
@@ -22,26 +22,23 @@ pub unsafe trait FlatUnsized: FlatBase {
     /// Sized type that has the same alignment as `Self`.
     type AlignAs: Sized;
 
-    fn ptr_from_bytes(bytes: &[u8]) -> *const Self;
-    unsafe fn ptr_to_bytes<'a>(this: *const Self) -> &'a [u8];
+    unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self;
+    unsafe fn ptr_to_bytes(this: *mut Self) -> *mut [u8];
 
     unsafe fn from_bytes_unchecked(bytes: &[u8]) -> &Self {
-        &*Self::ptr_from_bytes(bytes)
+        &*Self::ptr_from_bytes(bytes as *const _ as *mut _)
     }
     unsafe fn from_mut_bytes_unchecked(bytes: &mut [u8]) -> &mut Self {
-        &mut *(Self::ptr_from_bytes(bytes) as *mut _)
+        &mut *Self::ptr_from_bytes(bytes)
     }
     fn as_bytes(&self) -> &[u8] {
-        unsafe { Self::ptr_to_bytes(self as *const _) }
+        unsafe { &*Self::ptr_to_bytes(self as *const _ as *mut _) }
     }
     /// # Safety
     ///
     /// Modification of returned bytes must not make `self` invalid.
     unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
-        #[allow(clippy::cast_ref_to_mut)]
-        unsafe {
-            &mut *(Self::ptr_to_bytes(self as *const _) as *const _ as *mut _)
-        }
+        unsafe { &mut *Self::ptr_to_bytes(self as *mut _) }
     }
 
     /// Create a new instance of `Self` initializing raw memory into default state of `Self`.
@@ -63,7 +60,7 @@ pub unsafe trait FlatValidate: FlatUnsized {
     unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error>;
 
     unsafe fn validate_ptr(this: *const Self) -> Result<(), Error> {
-        unsafe { Self::validate_unchecked(Self::ptr_to_bytes(this)) }
+        unsafe { Self::validate_unchecked(&*Self::ptr_to_bytes(this as *mut _)) }
     }
 
     /// Check that memory contents of `this` is valid for `Self`.
@@ -122,11 +119,11 @@ unsafe impl<T: FlatSized> FlatBase for T {
 unsafe impl<T: FlatSized> FlatUnsized for T {
     type AlignAs = T;
 
-    fn ptr_from_bytes(bytes: &[u8]) -> *const Self {
-        bytes.as_ptr() as *const Self
+    unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self {
+        bytes as *mut Self
     }
-    unsafe fn ptr_to_bytes<'a>(this: *const Self) -> &'a [u8] {
-        slice::from_raw_parts(this as *const u8, Self::SIZE)
+    unsafe fn ptr_to_bytes(this: *mut Self) -> *mut [u8] {
+        ptr::slice_from_raw_parts_mut(this as *mut u8, Self::SIZE)
     }
 }
 

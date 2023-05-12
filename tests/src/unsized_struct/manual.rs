@@ -5,7 +5,7 @@ use flatty::{
     utils::{
         ceil_mul,
         iter::{self, prelude::*},
-        mem::{offset_bytes_start, offset_wide_ptr},
+        mem::{cast_wide_ptr_with_offset, offset_slice_ptr_start},
     },
     Emplacer, Error, FlatVec,
 };
@@ -61,18 +61,20 @@ unsafe impl FlatBase for UnsizedStruct {
 unsafe impl FlatUnsized for UnsizedStruct {
     type AlignAs = AlignAs;
 
-    fn ptr_from_bytes(bytes: &[u8]) -> *const Self {
-        unsafe {
-            offset_wide_ptr!(
-                Self,
-                FlatVec::<u64, u32>::ptr_from_bytes(offset_bytes_start(bytes, Self::LAST_FIELD_OFFSET as isize)),
-                -(Self::LAST_FIELD_OFFSET as isize),
-            )
-        }
+    unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self {
+        cast_wide_ptr_with_offset!(
+            Self,
+            FlatVec::<u64, u32>::ptr_from_bytes(offset_slice_ptr_start(bytes, Self::LAST_FIELD_OFFSET as isize)),
+            -(Self::LAST_FIELD_OFFSET as isize),
+        )
     }
-    unsafe fn ptr_to_bytes<'a>(this: *const Self) -> &'a [u8] {
-        offset_bytes_start(
-            FlatVec::<u64, u32>::ptr_to_bytes(offset_wide_ptr!(FlatVec::<u64, u32>, this, Self::LAST_FIELD_OFFSET as isize)),
+    unsafe fn ptr_to_bytes(this: *mut Self) -> *mut [u8] {
+        offset_slice_ptr_start(
+            FlatVec::<u64, u32>::ptr_to_bytes(cast_wide_ptr_with_offset!(
+                FlatVec::<u64, u32>,
+                this,
+                Self::LAST_FIELD_OFFSET as isize
+            )),
             -(Self::LAST_FIELD_OFFSET as isize),
         )
     }
