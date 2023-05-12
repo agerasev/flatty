@@ -39,7 +39,7 @@
 //! For enum you may explicitly set the type of tag (default value is [`u8`]).
 //!
 //! ```rust
-//! #[flatty::flat(enum_type = "u32")]
+//! #[flatty::flat(tag_type = "u32")]
 //! enum SizedEnum {
 //!     A,
 //!     B(u16, u8),

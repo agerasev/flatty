@@ -104,12 +104,12 @@ pub fn self_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
 
     match &input.data {
         Data::Enum(data) => {
-            let enum_type = ctx.info.enum_type.as_ref().unwrap();
+            let tag_type = ctx.info.tag_type.as_ref().unwrap();
 
             items = quote! {
                 #items
                 const DATA_OFFSET: usize = ::flatty::utils::ceil_mul(
-                    <#enum_type as ::flatty::traits::FlatSized>::SIZE,
+                    <#tag_type as ::flatty::traits::FlatSized>::SIZE,
                     <Self as ::flatty::traits::FlatBase>::ALIGN,
                 );
             };

@@ -17,7 +17,7 @@ pub unsafe trait FlatBase {
 
 /// Dynamically-sized flat type. Like `?Sized` but for `Flat`.
 ///
-/// *For now has to be implemented for all [`Flat`](`crate::Flat`) types because there is no mutually exclusive traits in Rust yet.*
+/// *For now has to be implemented for all [`Flat`] types because there is no mutually exclusive traits in Rust yet.*
 pub unsafe trait FlatUnsized: FlatBase {
     /// Sized type that has the same alignment as `Self`.
     type AlignAs: Sized;
@@ -88,7 +88,7 @@ pub unsafe trait FlatValidate: FlatUnsized {
 /// By implementing this trait by yourself you guarantee:
 ///
 /// + `Self` has stable binary representation that will not change in future.
-///   (But the representation could be differ across different platforms. If you need stronger guarantees see [`Portable`](`crate::Portable`).)
+///   (But the representation could be differ across different platforms. If you need stronger guarantees consider using `Portable` types.)
 /// + `Self` don't own any resources outside of it.
 /// + `Self` could be trivially copied as bytes. (We cannot require `Self: `[`Copy`] because it `?Sized`.)
 /// + All methods of dependent traits have proper implemetation and will not cause an Undefined Behaviour.
