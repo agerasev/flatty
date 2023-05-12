@@ -27,15 +27,29 @@ Also the crate can be used without `std` and even `alloc`.
 
 ## Concepts
 
+### Conversion
+
+Binary representation can be obtained from instances of flat type using `as_bytes` (and unsafe `as_mut_bytes`). Also bytes can be converted to flat types, see [in-place initialization](#in-place-initialization) and [validation](#validation).
+
 ### [DST](https://doc.rust-lang.org/reference/dynamically-sized-types.html)
 
 Flat type can be dynamically sized (like `FlatVec`), in that case it exploits Rust's ability to operate `?Sized` types. User-defined flat struct can also be unsized (only last field is allowed to be unsized). Even flat enum can be unsized, but Rust doesn't natively support them yet so its contents could be accessed only via `as_ref`/`as_mut` methods returning a regular enum containing references to original enum contents.
 
-### `Emplacer`
+### In-place initialization
 
-Rust cannot construct DST in usual manner on stack because its size isn't known at compile time. Instead we may initialize such types onto given memory area. To do this we can use so-called emplacer - something that can initialize object onto given memory. For sized types its instance is also emplacer.
+Sized types can be instantiated as usual Rust type. But in case of DST Rust cannot construct it in usual manner on stack because its size isn't known at compile time. Instead we may initialize such types onto given memory area.
 
-### `Portable`
+To do this we can use so-called emplacer - something that can initialize object onto given memory. For sized types its instance is also emplacer.
+
+Emplacer could be applied to raw bytes using `new_in_place` or replace existing struct contents using `assign_in_place`. Also some types has default emplacer and could be initialized in default state by `default_in_place`.
+
+### Validation
+
+Not any combination of bytes are valid representation of flat type. For example, `Bool` has only two valid states: `0` and `1`, or `FlatVec` length must not be greater than its capacity. `valiadte` can be used to check that data is valid for specific flat type, or `from_bytes`/`from_mut_bytes` also perform such check.
+
+When you trust your data, then you can omit validation using unsafe `from_bytes_unchecked`/`from_mut_bytes_unchecked`, but this will cause an UB if data is invalid. 
+
+### Portability
 
 Flat type guarantee that it has the same binary representation on the platforms with same byte order, alignment and address width. If you need stronger guarantees you may use `Portable` types - they have the same binary representation on *any* platform and always aligned to byte. To make own flat type portable use `#[flat(portable = true)]`. Also this can be used to created packed flat types without alignment issues. 
 
