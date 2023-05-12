@@ -101,11 +101,11 @@ impl<T: Flat + ?Sized> PosIter<SingleType<T>> {
 }
 
 #[derive(Clone, Debug)]
-pub struct DataIter<'a, I: TypeIter> {
+pub struct RefIter<'a, I: TypeIter> {
     data: &'a [u8],
     iter: PosIter<I>,
 }
-impl<'a, I: TypeIter> DataIter<'a, I> {
+impl<'a, I: TypeIter> RefIter<'a, I> {
     pub fn new(data: &'a [u8], iter: I) -> Result<Self, Error> {
         iter.check_align_and_min_size(data)?;
         Ok(unsafe { Self::new_unchecked(data, iter) })
@@ -126,16 +126,16 @@ impl<'a, I: TypeIter> DataIter<'a, I> {
         self.data
     }
 }
-impl<'a, T: Flat + Sized, I: TypeIter> DataIter<'a, TwoOrMoreTypes<T, I>> {
-    pub fn next(self) -> (DataIter<'a, I>, &'a [u8]) {
+impl<'a, T: Flat + Sized, I: TypeIter> RefIter<'a, TwoOrMoreTypes<T, I>> {
+    pub fn next(self) -> (RefIter<'a, I>, &'a [u8]) {
         let prev_pos = self.iter.pos();
         let iter = self.iter.next();
         let next_pos = iter.pos();
         let (prev_data, next_data) = self.data.split_at(next_pos - prev_pos);
-        (DataIter { data: next_data, iter }, prev_data)
+        (RefIter { data: next_data, iter }, prev_data)
     }
 }
-impl<'a, T: Flat + ?Sized> DataIter<'a, SingleType<T>> {
+impl<'a, T: Flat + ?Sized> RefIter<'a, SingleType<T>> {
     pub fn assert_last(&self) {
         self.iter.assert_last()
     }
@@ -144,19 +144,63 @@ impl<'a, T: Flat + ?Sized> DataIter<'a, SingleType<T>> {
     }
 }
 
+#[derive(Debug)]
+pub struct MutIter<'a, I: TypeIter> {
+    data: &'a mut [u8],
+    iter: PosIter<I>,
+}
+impl<'a, I: TypeIter> MutIter<'a, I> {
+    pub fn new(data: &'a mut [u8], iter: I) -> Result<Self, Error> {
+        iter.check_align_and_min_size(data)?;
+        Ok(unsafe { Self::new_unchecked(data, iter) })
+    }
+    /// # Safety
+    ///
+    /// `data` must be aligned and have sufficient size.
+    pub unsafe fn new_unchecked(data: &'a mut [u8], iter: I) -> Self {
+        Self {
+            data,
+            iter: PosIter::new(iter),
+        }
+    }
+    pub fn pos(&self) -> usize {
+        self.iter.pos()
+    }
+    pub fn value(&self) -> &[u8] {
+        self.data
+    }
+}
+impl<'a, T: Flat + Sized, I: TypeIter> MutIter<'a, TwoOrMoreTypes<T, I>> {
+    pub fn next(self) -> (MutIter<'a, I>, &'a mut [u8]) {
+        let prev_pos = self.iter.pos();
+        let iter = self.iter.next();
+        let next_pos = iter.pos();
+        let (prev_data, next_data) = self.data.split_at_mut(next_pos - prev_pos);
+        (MutIter { data: next_data, iter }, prev_data)
+    }
+}
+impl<'a, T: Flat + ?Sized> MutIter<'a, SingleType<T>> {
+    pub fn assert_last(&self) {
+        self.iter.assert_last()
+    }
+    pub fn finalize(self) -> &'a mut [u8] {
+        self.data
+    }
+}
+
 pub trait ValidateIter {
     fn validate_all(self) -> Result<(), Error>;
 }
-impl<'a, T: Flat + Sized + 'a, I: TypeIter> ValidateIter for DataIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: Flat + Sized + 'a, I: TypeIter> ValidateIter for RefIter<'a, TwoOrMoreTypes<T, I>>
 where
-    DataIter<'a, I>: ValidateIter,
+    RefIter<'a, I>: ValidateIter,
 {
     fn validate_all(self) -> Result<(), Error> {
         unsafe { T::validate_unchecked(self.value()) }.map_err(|e| e.offset(self.pos()))?;
         self.next().0.validate_all()
     }
 }
-impl<'a, T: Flat + ?Sized> ValidateIter for DataIter<'a, SingleType<T>> {
+impl<'a, T: Flat + ?Sized> ValidateIter for RefIter<'a, SingleType<T>> {
     fn validate_all(self) -> Result<(), Error> {
         self.assert_last();
         unsafe { T::validate_unchecked(self.value()) }.map_err(|e| e.offset(self.pos()))?;
@@ -170,15 +214,15 @@ pub trait FoldSizeIter {
     /// Internal data must be valid.
     unsafe fn fold_size(self, size: usize) -> usize;
 }
-impl<'a, T: Flat + Sized + 'a, I: TypeIter> FoldSizeIter for DataIter<'a, TwoOrMoreTypes<T, I>>
+impl<'a, T: Flat + Sized + 'a, I: TypeIter> FoldSizeIter for RefIter<'a, TwoOrMoreTypes<T, I>>
 where
-    DataIter<'a, I>: FoldSizeIter,
+    RefIter<'a, I>: FoldSizeIter,
 {
     unsafe fn fold_size(self, size: usize) -> usize {
         self.next().0.fold_size(ceil_mul(size, T::ALIGN) + T::SIZE)
     }
 }
-impl<'a, T: Flat + ?Sized> FoldSizeIter for DataIter<'a, SingleType<T>> {
+impl<'a, T: Flat + ?Sized> FoldSizeIter for RefIter<'a, SingleType<T>> {
     unsafe fn fold_size(self, size: usize) -> usize {
         ceil_mul(size, T::ALIGN) + (&*T::ptr_from_bytes(self.finalize())).size()
     }

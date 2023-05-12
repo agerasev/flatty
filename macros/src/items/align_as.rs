@@ -7,7 +7,7 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     pub fn collect_fields<I: FieldIter>(fields: &I) -> TokenStream {
         fields.iter().fold(quote! {}, |a, f| {
             let ty = &f.ty;
-            quote! { #a <#ty as ::flatty::FlatUnsized>::AlignAs, }
+            quote! { #a <#ty as ::flatty::traits::FlatUnsized>::AlignAs, }
         })
     }
 

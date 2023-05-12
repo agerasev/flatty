@@ -30,13 +30,13 @@ unsafe impl FlatValidate for SizedEnum {
         let bytes = unsafe { bytes.get_unchecked(data_offset..) };
         match tag {
             0 => Ok(()),
-            1 => unsafe { iter::DataIter::new_unchecked(bytes, iter::type_list!(u16, u8)) }
+            1 => unsafe { iter::RefIter::new_unchecked(bytes, iter::type_list!(u16, u8)) }
                 .validate_all()
                 .map_err(|e| e.offset(data_offset)),
-            2 => unsafe { iter::DataIter::new_unchecked(bytes, iter::type_list!(u8, u16)) }
+            2 => unsafe { iter::RefIter::new_unchecked(bytes, iter::type_list!(u8, u16)) }
                 .validate_all()
                 .map_err(|e| e.offset(data_offset)),
-            3 => unsafe { iter::DataIter::new_unchecked(bytes, iter::type_list!(u32)) }
+            3 => unsafe { iter::RefIter::new_unchecked(bytes, iter::type_list!(u32)) }
                 .validate_all()
                 .map_err(|e| e.offset(data_offset)),
             _ => Err(Error {

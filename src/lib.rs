@@ -80,10 +80,10 @@
 
 pub use flatty_base::{
     emplacer::{self, Emplacer},
-    error,
+    error::{self, Error},
     traits::{self, Flat, FlatDefault, FlatSized},
     utils,
-    vec::FlatVec,
+    vec::{self, flat_vec, FlatVec},
 };
 pub use flatty_macros::flat;
 pub use flatty_portable as portable;

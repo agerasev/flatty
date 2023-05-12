@@ -185,7 +185,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         for (i, f) in fields.iter().enumerate() {
             let item = get_item(i, f);
 
-            let uninit_ident = Ident::new(&format!("__u_{}", i), Span::call_site());
+            let uninit_ident = Ident::new(&format!("__b_{}", i), Span::call_site());
             let step = if i + 1 < len {
                 quote! { let (iter, #uninit_ident) = iter.next(); }
             } else {
@@ -195,7 +195,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
             items = quote! {
                 #items
                 #step
-                #item.emplace(#uninit_ident)?;
+                #item.emplace_unchecked(#uninit_ident)?;
             }
         }
         items
@@ -217,7 +217,6 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 quote! { self.#item }
             });
             quote! {
-                let bytes = uninit.as_mut_bytes();
                 let offset = 0;
                 #body
             }
@@ -255,7 +254,6 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 quote! {
                     #accum
                     #init_ident::#ident #pat => {
-                        let mut bytes = uninit.as_mut_bytes();
                         #tag
                         let offset = <#self_ident<#self_args>>::DATA_OFFSET;
                         bytes = unsafe{ bytes.get_unchecked_mut(offset..) };
@@ -324,14 +322,14 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 }
 
                 #[allow(non_camel_case_types)]
-                impl<#all_params> ::flatty::Emplacer<#self_ident<#self_args>> for #var_init_ident<#args>
+                unsafe impl<#all_params> ::flatty::Emplacer<#self_ident<#self_args>> for #var_init_ident<#args>
                 #where_clause
                 {
-                    fn emplace<'__flatty_a>(
+                    fn emplace_unchecked<'__flatty_a>(
                         self,
-                        uninit: &'__flatty_a mut ::flatty::mem::Unvalidated<#self_ident<#self_args>>,
-                    ) -> Result<&'__flatty_a mut #self_ident<#self_args>, ::flatty::Error> {
-                        <#init_ident<#init_args> as From<Self>>::from(self).emplace(uninit)
+                        bytes: &'__flatty_a mut [u8],
+                    ) -> Result<(), ::flatty::Error> {
+                        <#init_ident<#init_args> as From<Self>>::from(self).emplace_unchecked(bytes)
                     }
                 }
             }
@@ -344,16 +342,16 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         #impls
 
         #[allow(non_camel_case_types)]
-        impl<#all_params> ::flatty::Emplacer<#self_ident<#self_args>> for #init_ident<#init_args>
+        unsafe impl<#all_params> ::flatty::Emplacer<#self_ident<#self_args>> for #init_ident<#init_args>
         #where_clause
         {
-            fn emplace<'__flatty_a>(
+            unsafe fn emplace_unchecked<'__flatty_a>(
                 self,
-                uninit: &'__flatty_a mut ::flatty::mem::Unvalidated<#self_ident<#self_args>>,
-            ) -> Result<&'__flatty_a mut #self_ident<#self_args>, ::flatty::Error> {
+                bytes: &'__flatty_a mut [u8],
+            ) -> Result<(), ::flatty::Error> {
                 use ::flatty::{prelude::*, utils::iter::{prelude::*, self}};
                 #body
-                Ok(unsafe { uninit.assume_init_mut() })
+                Ok(())
             }
         }
     }

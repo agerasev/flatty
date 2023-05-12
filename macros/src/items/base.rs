@@ -36,7 +36,7 @@ pub fn min_size_const(_ctx: &Context, input: &DeriveInput) -> TokenStream {
                 }
             });
             quote! {
-                ::flatty::utils::ceil_mul(Self::DATA_OFFSET + #contents, <Self as ::flatty::FlatBase>::ALIGN)
+                ::flatty::utils::ceil_mul(Self::DATA_OFFSET + #contents, <Self as ::flatty::traits::FlatBase>::ALIGN)
             }
         }
         Data::Union(..) => unimplemented!(),
@@ -133,7 +133,10 @@ pub fn self_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     let type_list = type_list(data.fields.iter().take(len - 1));
                     let last_ty = &data.fields.iter().last().unwrap().ty;
                     quote! {
-                        ::flatty::utils::ceil_mul(::flatty::utils::iter::fold_size!(0; #type_list), <#last_ty as ::flatty::FlatBase>::ALIGN)
+                        ::flatty::utils::ceil_mul(
+                            ::flatty::utils::iter::fold_size!(0; #type_list),
+                            <#last_ty as ::flatty::traits::FlatBase>::ALIGN,
+                        )
                     }
                 } else {
                     quote! { 0 }
@@ -165,11 +168,11 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let generic_args = generic::args(&input.generics);
     let where_clause = generic::where_clause(
         input,
-        quote! { ::flatty::FlatBase + Sized },
+        quote! { ::flatty::traits::FlatBase + Sized },
         if ctx.info.sized {
             None
         } else {
-            Some(quote! { ::flatty::FlatBase })
+            Some(quote! { ::flatty::traits::FlatBase })
         },
     );
 
@@ -178,7 +181,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let size_method = size_method(ctx, input);
 
     quote! {
-        unsafe impl<#generic_params> ::flatty::FlatBase for #self_ident<#generic_args>
+        unsafe impl<#generic_params> ::flatty::traits::FlatBase for #self_ident<#generic_args>
         #where_clause
         {
             #align_const

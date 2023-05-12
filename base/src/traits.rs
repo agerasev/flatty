@@ -1,4 +1,4 @@
-use crate::{emplacer::Emplacer, error::Error, utils::check::check_align_and_min_size};
+use crate::{emplacer::Emplacer, error::Error, utils::mem::check_align_and_min_size};
 use core::{
     mem::{align_of, size_of},
     slice,

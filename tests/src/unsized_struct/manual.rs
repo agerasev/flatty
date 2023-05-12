@@ -1,12 +1,11 @@
 use super::tests::generate_tests;
 use core::mem::align_of;
 use flatty::{
-    impl_unsized_uninit_cast,
-    mem::Unvalidated,
     prelude::*,
     utils::{
         ceil_mul,
         iter::{self, prelude::*},
+        mem::{offset_bytes_start, offset_wide_ptr},
     },
     Emplacer, Error, FlatVec,
 };
@@ -28,22 +27,21 @@ struct UnsizedStructInit<A, B, C> {
     c: C,
 }
 
-impl<A, B, C> Emplacer<UnsizedStruct> for UnsizedStructInit<A, B, C>
+unsafe impl<A, B, C> Emplacer<UnsizedStruct> for UnsizedStructInit<A, B, C>
 where
     A: Emplacer<u8>,
     B: Emplacer<u16>,
     C: Emplacer<FlatVec<u64, u32>>,
 {
-    fn emplace(self, uninit: &mut Unvalidated<UnsizedStruct>) -> Result<&mut UnsizedStruct, Error> {
-        let iter =
-            unsafe { iter::MutIter::new_unchecked(uninit.as_mut_bytes(), iter::type_list!(u8, u16, FlatVec<u64, u32>)) };
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+        let iter = iter::MutIter::new_unchecked(bytes, iter::type_list!(u8, u16, FlatVec<u64, u32>));
         let (iter, u_a) = iter.next();
-        self.a.emplace(u_a)?;
+        self.a.emplace_unchecked(u_a)?;
         let (iter, u_b) = iter.next();
-        self.b.emplace(u_b)?;
+        self.b.emplace_unchecked(u_b)?;
         let u_c = iter.finalize();
-        self.c.emplace(u_c)?;
-        Ok(unsafe { uninit.assume_init_mut() })
+        self.c.emplace_unchecked(u_c)?;
+        Ok(())
     }
 }
 
@@ -63,23 +61,26 @@ unsafe impl FlatBase for UnsizedStruct {
 unsafe impl FlatUnsized for UnsizedStruct {
     type AlignAs = AlignAs;
 
-    fn ptr_metadata(this: &Unvalidated<Self>) -> usize {
-        FlatVec::<u64, u32>::ptr_metadata(unsafe {
-            Unvalidated::<FlatVec<u64, u32>>::from_bytes_unchecked(&this.as_bytes()[Self::LAST_FIELD_OFFSET..])
-        })
+    fn ptr_from_bytes(bytes: &[u8]) -> *const Self {
+        unsafe {
+            offset_wide_ptr!(
+                Self,
+                FlatVec::<u64, u32>::ptr_from_bytes(offset_bytes_start(bytes, Self::LAST_FIELD_OFFSET as isize)),
+                -(Self::LAST_FIELD_OFFSET as isize),
+            )
+        }
     }
-    fn bytes_len(this: &Self) -> usize {
-        Self::LAST_FIELD_OFFSET + FlatVec::<u64, u32>::bytes_len(&this.c)
+    unsafe fn ptr_to_bytes<'a>(this: *const Self) -> &'a [u8] {
+        offset_bytes_start(
+            FlatVec::<u64, u32>::ptr_to_bytes(offset_wide_ptr!(FlatVec::<u64, u32>, this, Self::LAST_FIELD_OFFSET as isize)),
+            -(Self::LAST_FIELD_OFFSET as isize),
+        )
     }
-
-    impl_unsized_uninit_cast!();
 }
 
-impl FlatValidate for UnsizedStruct {
-    fn validate(this: &Unvalidated<Self>) -> Result<&Self, Error> {
-        unsafe { iter::RefIter::new_unchecked(this.as_bytes(), iter::type_list!(u8, u16, FlatVec<u64, u32>)) }
-            .validate_all()?;
-        Ok(unsafe { this.assume_init() })
+unsafe impl FlatValidate for UnsizedStruct {
+    unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
+        unsafe { iter::RefIter::new_unchecked(bytes, iter::type_list!(u8, u16, FlatVec<u64, u32>)) }.validate_all()
     }
 }
 

@@ -14,7 +14,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         }
         let type_list = type_list(iter);
         quote! {
-            iter::DataIter::new_unchecked(#bytes, iter::type_list!(#type_list)).validate_all()
+            iter::RefIter::new_unchecked(#bytes, iter::type_list!(#type_list)).validate_all()
         }
     }
 
@@ -63,7 +63,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Union(_union_data) => unimplemented!(),
     };
     quote! {
-        unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), ::flatty::error::Error> {
+        unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), ::flatty::Error> {
             use ::flatty::{prelude::*, utils::iter::{prelude::*, self}};
             #body
         }

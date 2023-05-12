@@ -203,6 +203,7 @@ macro_rules! flat_vec {
         $crate::vec::FromArray([$($x),+])
     };
 }
+pub use flat_vec;
 
 #[cfg(all(test, feature = "std"))]
 mod tests {

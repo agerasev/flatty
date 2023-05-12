@@ -1,7 +1,7 @@
 use crate::{
     error::Error,
     traits::{FlatSized, FlatUnsized},
-    utils::check::check_align_and_min_size,
+    utils::mem::check_align_and_min_size,
 };
 
 /// In-place initializer of flat type.
