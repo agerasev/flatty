@@ -1,6 +1,6 @@
 [package]
 name = "flatty-io"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 edition.workspace = true
 
 description = "Flat message transfer"

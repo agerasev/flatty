@@ -1,15 +1,12 @@
 use super::common::*;
 use crate::{ReadError, Reader, Writer};
-use flatty::{
-    portable::{le, NativeCast},
-    vec::FromIterator,
-};
+use flatty::vec::FromIterator;
 use pipe::pipe;
 use std::thread;
 
 #[test]
 fn test() {
-    const MAX_SIZE: usize = 32;
+    const MAX_SIZE: usize = 36;
     let (cons, prod) = pipe();
     let (write, read) = (
         thread::spawn(move || {
@@ -20,7 +17,7 @@ fn test() {
             {
                 writer
                     .alloc_message()
-                    .new_in_place(TestMsgInitB(le::I32::from(123456)))
+                    .new_in_place(TestMsgInitB(123456))
                     .unwrap()
                     .write()
                     .unwrap();
@@ -29,7 +26,7 @@ fn test() {
             {
                 writer
                     .alloc_message()
-                    .new_in_place(TestMsgInitC(FromIterator((0..7).map(le::I32::from))))
+                    .new_in_place(TestMsgInitC(FromIterator(0..7)))
                     .unwrap()
                     .write()
                     .unwrap();
@@ -49,7 +46,7 @@ fn test() {
             {
                 let guard = reader.read_message().unwrap();
                 match guard.as_ref() {
-                    TestMsgRef::B(x) => assert_eq!(x.to_native(), 123456),
+                    TestMsgRef::B(x) => assert_eq!(*x, 123456),
                     _ => panic!(),
                 }
             }
@@ -58,7 +55,7 @@ fn test() {
                 let guard = reader.read_message().unwrap();
                 match guard.as_ref() {
                     TestMsgRef::C(v) => {
-                        assert!(v.iter().map(|x| x.to_native()).eq(0..7));
+                        assert!(v.iter().copied().eq(0..7));
                     }
                     _ => panic!(),
                 }

@@ -1,9 +1,9 @@
-use flatty::{flat, portable::le, FlatVec};
+use flatty::{flat, FlatVec};
 
-#[flat(sized = false, portable = true, default = true)]
+#[flat(sized = false, default = true)]
 pub enum TestMsg {
     #[default]
     A,
-    B(le::I32),
-    C(FlatVec<le::I32, le::U16>),
+    B(i32),
+    C(FlatVec<i32, u16>),
 }

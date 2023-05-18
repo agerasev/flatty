@@ -4,17 +4,17 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-pub trait CommonWriter<M: Portable + ?Sized>: Sized {
+pub trait CommonWriter<M: Flat + ?Sized>: Sized {
     fn buffer(&self) -> &[u8];
     fn buffer_mut(&mut self) -> &mut [u8];
 }
 
-pub struct CommonUninitWriteGuard<'a, M: Portable + ?Sized, O: CommonWriter<M>> {
+pub struct CommonUninitWriteGuard<'a, M: Flat + ?Sized, O: CommonWriter<M>> {
     owner: &'a mut O,
     _phantom: PhantomData<M>,
 }
 
-impl<'a, M: Portable + ?Sized, O: CommonWriter<M>> CommonUninitWriteGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, O: CommonWriter<M>> CommonUninitWriteGuard<'a, M, O> {
     pub fn new(owner: &'a mut O) -> Self {
         Self {
             owner,
@@ -38,30 +38,30 @@ impl<'a, M: Portable + ?Sized, O: CommonWriter<M>> CommonUninitWriteGuard<'a, M,
     }
 }
 
-impl<'a, M: Portable + FlatDefault + ?Sized, O: CommonWriter<M>> CommonUninitWriteGuard<'a, M, O> {
+impl<'a, M: Flat + FlatDefault + ?Sized, O: CommonWriter<M>> CommonUninitWriteGuard<'a, M, O> {
     pub fn default_in_place(self) -> Result<CommonWriteGuard<'a, M, O>, flatty::Error> {
         M::default_in_place(self.owner.buffer_mut())?;
         Ok(unsafe { self.assume_valid() })
     }
 }
 
-impl<'a, M: Portable + ?Sized, O: CommonWriter<M> + Unpin> Unpin for CommonUninitWriteGuard<'a, M, O> {}
+impl<'a, M: Flat + ?Sized, O: CommonWriter<M> + Unpin> Unpin for CommonUninitWriteGuard<'a, M, O> {}
 
-pub struct CommonWriteGuard<'a, M: Portable + ?Sized, O: CommonWriter<M>> {
+pub struct CommonWriteGuard<'a, M: Flat + ?Sized, O: CommonWriter<M>> {
     pub(crate) owner: &'a mut O,
     _phantom: PhantomData<M>,
 }
 
-impl<'a, M: Portable + ?Sized, O: CommonWriter<M> + Unpin> Unpin for CommonWriteGuard<'a, M, O> {}
+impl<'a, M: Flat + ?Sized, O: CommonWriter<M> + Unpin> Unpin for CommonWriteGuard<'a, M, O> {}
 
-impl<'a, M: Portable + ?Sized, O: CommonWriter<M>> Deref for CommonWriteGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, O: CommonWriter<M>> Deref for CommonWriteGuard<'a, M, O> {
     type Target = M;
     fn deref(&self) -> &M {
         unsafe { M::from_bytes_unchecked(self.owner.buffer()) }
     }
 }
 
-impl<'a, M: Portable + ?Sized, O: CommonWriter<M>> DerefMut for CommonWriteGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, O: CommonWriter<M>> DerefMut for CommonWriteGuard<'a, M, O> {
     fn deref_mut(&mut self) -> &mut M {
         unsafe { M::from_mut_bytes_unchecked(self.owner.buffer_mut()) }
     }

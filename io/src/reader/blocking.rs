@@ -1,13 +1,13 @@
 use super::{CommonReadGuard, CommonReader, ReadBuffer, ReadError};
-use flatty::Portable;
+use flatty::Flat;
 use std::io::Read;
 
-pub struct Reader<M: Portable + ?Sized, R: Read> {
+pub struct Reader<M: Flat + ?Sized, R: Read> {
     reader: R,
     buffer: ReadBuffer<M>,
 }
 
-impl<M: Portable + ?Sized, R: Read> Reader<M, R> {
+impl<M: Flat + ?Sized, R: Read> Reader<M, R> {
     pub fn new(reader: R, max_msg_size: usize) -> Self {
         Self {
             reader,
@@ -40,7 +40,7 @@ impl<M: Portable + ?Sized, R: Read> Reader<M, R> {
     }
 }
 
-impl<M: Portable + ?Sized, R: Read> CommonReader<M> for Reader<M, R> {
+impl<M: Flat + ?Sized, R: Read> CommonReader<M> for Reader<M, R> {
     fn buffer(&self) -> &ReadBuffer<M> {
         &self.buffer
     }

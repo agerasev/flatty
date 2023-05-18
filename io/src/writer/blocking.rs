@@ -1,23 +1,23 @@
 use super::{CommonUninitWriteGuard, CommonWriteGuard, CommonWriter};
 use derive_more::*;
-use flatty::{self, prelude::*, Emplacer};
+use flatty::{self, prelude::*, utils::alloc::AlignedBytes, Emplacer};
 use std::{
     io::{self, Write},
     marker::PhantomData,
     sync::{Arc, Mutex},
 };
 
-pub struct Writer<M: Portable + ?Sized, W: Write> {
+pub struct Writer<M: Flat + ?Sized, W: Write> {
     writer: Arc<Mutex<W>>,
-    buffer: Vec<u8>,
+    buffer: AlignedBytes,
     _phantom: PhantomData<M>,
 }
 
-impl<M: Portable + ?Sized, W: Write> Writer<M, W> {
+impl<M: Flat + ?Sized, W: Write> Writer<M, W> {
     pub fn new(writer: W, max_msg_size: usize) -> Self {
         Self {
             writer: Arc::new(Mutex::new(writer)),
-            buffer: vec![0; max_msg_size],
+            buffer: AlignedBytes::new(max_msg_size, M::ALIGN),
             _phantom: PhantomData,
         }
     }
@@ -27,17 +27,17 @@ impl<M: Portable + ?Sized, W: Write> Writer<M, W> {
     }
 }
 
-impl<M: Portable + ?Sized, W: Write> Clone for Writer<M, W> {
+impl<M: Flat + ?Sized, W: Write> Clone for Writer<M, W> {
     fn clone(&self) -> Self {
         Self {
             writer: self.writer.clone(),
-            buffer: vec![0; self.buffer.len()],
+            buffer: AlignedBytes::new(self.buffer.len(), M::ALIGN),
             _phantom: PhantomData,
         }
     }
 }
 
-impl<M: Portable + ?Sized, W: Write> CommonWriter<M> for Writer<M, W> {
+impl<M: Flat + ?Sized, W: Write> CommonWriter<M> for Writer<M, W> {
     fn buffer(&self) -> &[u8] {
         &self.buffer
     }
@@ -47,11 +47,11 @@ impl<M: Portable + ?Sized, W: Write> CommonWriter<M> for Writer<M, W> {
 }
 
 #[derive(From, Into, Deref, DerefMut)]
-pub struct UninitWriteGuard<'a, M: Portable + ?Sized, W: Write> {
+pub struct UninitWriteGuard<'a, M: Flat + ?Sized, W: Write> {
     inner: CommonUninitWriteGuard<'a, M, Writer<M, W>>,
 }
 
-impl<'a, M: Portable + ?Sized, W: Write> UninitWriteGuard<'a, M, W> {
+impl<'a, M: Flat + ?Sized, W: Write> UninitWriteGuard<'a, M, W> {
     /// # Safety
     ///
     /// Underlying message data must be initialized.
@@ -66,7 +66,7 @@ impl<'a, M: Portable + ?Sized, W: Write> UninitWriteGuard<'a, M, W> {
     }
 }
 
-impl<'a, M: Portable + FlatDefault + ?Sized, W: Write> UninitWriteGuard<'a, M, W> {
+impl<'a, M: Flat + FlatDefault + ?Sized, W: Write> UninitWriteGuard<'a, M, W> {
     pub fn default(self) -> Result<WriteGuard<'a, M, W>, flatty::Error> {
         CommonUninitWriteGuard::from(self)
             .default_in_place()
@@ -75,11 +75,11 @@ impl<'a, M: Portable + FlatDefault + ?Sized, W: Write> UninitWriteGuard<'a, M, W
 }
 
 #[derive(From, Into, Deref, DerefMut)]
-pub struct WriteGuard<'a, M: Portable + ?Sized, W: Write> {
+pub struct WriteGuard<'a, M: Flat + ?Sized, W: Write> {
     inner: CommonWriteGuard<'a, M, Writer<M, W>>,
 }
 
-impl<'a, M: Portable + ?Sized, W: Write> WriteGuard<'a, M, W> {
+impl<'a, M: Flat + ?Sized, W: Write> WriteGuard<'a, M, W> {
     pub fn write(self) -> Result<(), io::Error> {
         let mut guard = self.owner.writer.lock().unwrap();
         guard.write_all(&self.owner.buffer[..self.size()])
