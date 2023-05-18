@@ -44,3 +44,5 @@ impl DerefMut for AlignedBytes {
         unsafe { slice::from_raw_parts_mut(self.data, self.layout.size()) }
     }
 }
+
+unsafe impl Send for AlignedBytes {}
