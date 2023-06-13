@@ -81,7 +81,7 @@
 pub use flatty_base::{
     emplacer::{self, Emplacer},
     error::{self, Error},
-    traits::{self, Flat, FlatDefault, FlatSized},
+    traits::{Flat, FlatDefault, FlatSized},
     utils,
     vec::{self, flat_vec, FlatVec},
 };
@@ -90,7 +90,13 @@ pub use flatty_portable as portable;
 
 pub use portable::Portable;
 
-pub mod prelude {
+/// All traits.
+pub mod traits {
     pub use flatty_base::traits::*;
-    pub use flatty_portable::prelude::*;
+    pub use flatty_portable::traits::*;
+}
+
+/// Now it's just an alias to [`traits`].
+pub mod prelude {
+    pub use super::traits::*;
 }

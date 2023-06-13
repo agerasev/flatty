@@ -64,7 +64,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     };
     quote! {
         unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), ::flatty::Error> {
-            use ::flatty::{prelude::*, utils::iter::{prelude::*, self}};
+            use ::flatty::{traits::*, utils::iter::{prelude::*, self}};
             #body
         }
     }

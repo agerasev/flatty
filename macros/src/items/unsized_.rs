@@ -25,7 +25,7 @@ fn ptr_from_bytes_method(_ctx: &Context, input: &DeriveInput) -> TokenStream {
     };
     quote! {
         unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self {
-            use ::flatty::prelude::*;
+            use ::flatty::traits::*;
             #body
         }
     }
@@ -53,7 +53,7 @@ fn ptr_to_bytes_method(_ctx: &Context, input: &DeriveInput) -> TokenStream {
     };
     quote! {
         unsafe fn ptr_to_bytes(this: *mut Self) -> *mut [u8] {
-            use ::flatty::prelude::*;
+            use ::flatty::traits::*;
             #body
         }
     }

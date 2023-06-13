@@ -4,7 +4,7 @@ use core::{
     ptr,
 };
 
-/// Basic flat type preoperties.
+/// Basic flat type properties.
 pub unsafe trait FlatBase {
     /// Align of the type.
     const ALIGN: usize;
@@ -91,7 +91,7 @@ pub unsafe trait FlatValidate: FlatUnsized {
 ///   (But the representation could be differ across different platforms. If you need stronger guarantees consider using `Portable` types.)
 /// + `Self` don't own any resources outside of it.
 /// + `Self` could be trivially copied as bytes. (We cannot require `Self: `[`Copy`] because it `?Sized`.)
-/// + All methods of dependent traits have proper implemetation and will not cause an Undefined Behaviour.
+/// + All methods of dependent traits have proper implementation and will not cause an UB.
 pub unsafe trait Flat: FlatBase + FlatUnsized + FlatValidate {}
 
 /// Statically-sized flat type.

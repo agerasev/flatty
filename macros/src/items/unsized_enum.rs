@@ -168,7 +168,7 @@ fn gen_ref_impl(
         #where_clause
         {
             pub fn #ref_method_name(& #mut_ self) -> #ref_ident<'_, #generic_args> {
-                use ::flatty::{prelude::*, utils::iter::{prelude::*, self}};
+                use ::flatty::{traits::*, utils::iter::{prelude::*, self}};
                 match self.tag {
                     #match_body
                 }

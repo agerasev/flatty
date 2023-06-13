@@ -45,7 +45,7 @@ Emplacer could be applied to raw bytes using `new_in_place` or replace existing 
 
 ### Validation
 
-Not any combination of bytes are valid representation of flat type. For example, `Bool` has only two valid states: `0` and `1`, or `FlatVec` length must not be greater than its capacity. `valiadte` can be used to check that data is valid for specific flat type, or `from_bytes`/`from_mut_bytes` also perform such check.
+Not any combination of bytes are valid representation of flat type. For example, `Bool` has only two valid states: `0` and `1`, or `FlatVec` length must not be greater than its capacity. `validate` can be used to check that data is valid for specific flat type, or `from_bytes`/`from_mut_bytes` also perform such check.
 
 When you trust your data, then you can omit validation using unsafe `from_bytes_unchecked`/`from_mut_bytes_unchecked`, but this will cause an UB if data is invalid. 
 
