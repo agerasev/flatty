@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.1.0-alpha.7"
+version = "0.1.0-rc.0"
 edition = "2021"
 rust-version = "1.69"
 
@@ -8,10 +8,10 @@ repository = "https://github.com/agerasev/flatty.git"
 license = "MIT/Apache-2.0"
 
 [workspace.dependencies]
-flatty-macros = { path = "macros", version = "0.1.0-alpha.7" }
-flatty-base = { path = "base", version = "0.1.0-alpha.7", default-features = false }
-flatty-portable = { path = "portable", version = "0.1.0-alpha.7", default-features = false }
-flatty = { path = ".", version = "0.1.0-alpha.7", default-features = false }
+flatty-macros = { path = "macros", version = "0.1.0-rc.0" }
+flatty-base = { path = "base", version = "0.1.0-rc.0", default-features = false }
+flatty-portable = { path = "portable", version = "0.1.0-rc.0", default-features = false }
+flatty = { path = ".", version = "0.1.0-rc.0", default-features = false }
 
 [package]
 name = "flatty"
