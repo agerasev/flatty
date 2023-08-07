@@ -14,7 +14,7 @@ use num_traits::{Bounded, FromPrimitive, Num, NumCast, One, Signed, ToPrimitive,
 /// Parameters:
 /// + `BE`: Endianness. `false` => little-endian, `true` => big-endian.
 /// + `N`: Width in bytes.
-/// + `S`: Signedness. `false` => unsigned, `true` => signed.
+/// + `S`: Whether this type is signed (`true`) or unsigned (`false`).
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Int<const BE: bool, const N: usize, const S: bool> {

@@ -3,6 +3,7 @@ use crate::{AsyncReader, AsyncWriter, ReadError};
 use async_ringbuf::AsyncHeapRb;
 use flatty::vec::FromIterator;
 use futures::{executor::block_on, join};
+use ringbuf::traits::*;
 
 #[test]
 fn test() {

@@ -2,15 +2,15 @@
 //!
 //! # Main traits
 //!
-//! + [`Flat`] - type that occupies a single contiguous memory area. Guaranteed to have same binary representation on the same platform.
-//! + [`Portable`] - flat type that has stable platform-independent binary representation and therefore it can be safely transfered between different platforms (of different address width or even different endianness).
+//! + [`Flat`] - type that occupies a single contiguous memory area. Guaranteed to always have the same binary representation on the same platform.
+//! + [`Portable`] - flat type that has stable platform-independent binary representation and therefore it can be safely transfered between different platforms (of even different endianness).
 //!
 //! # Basic types
 //!
 //! ## Sized
 //!
 //! + Unit type (`()`).
-//! + Signed and unsigned integers ([`u8`], [`i8`], [`u16`], [`i16`], [`u32`], [`i32`], [`u64`], [`i64`], [`u128`], [`i128`]).
+//! + Signed and unsigned integers ([`u8`], [`i8`], [`u16`], [`i16`], [`u32`], [`i32`], [`u64`], [`i64`], [`u128`], [`i128`], [`usize`], [`isize`]).
 //! + Floating-point numbers ([`f32`], [`f64`]).
 //! + Array of some sized flat type ([`[T; N]`](`array`)` where T: `[`FlatSized`]).
 //!
@@ -81,7 +81,7 @@
 pub use flatty_base::{
     emplacer::{self, Emplacer},
     error::{self, Error},
-    traits::{self, Flat, FlatDefault, FlatSized},
+    traits::{Flat, FlatDefault, FlatSized},
     utils,
     vec::{self, flat_vec, FlatVec},
 };
@@ -90,7 +90,13 @@ pub use flatty_portable as portable;
 
 pub use portable::Portable;
 
-pub mod prelude {
+/// All traits.
+pub mod traits {
     pub use flatty_base::traits::*;
-    pub use flatty_portable::prelude::*;
+    pub use flatty_portable::traits::*;
+}
+
+/// Now it's just an alias to [`traits`].
+pub mod prelude {
+    pub use super::traits::*;
 }

@@ -1,9 +1,8 @@
 /// Flat type operation error.
-///
-/// Contains error kind and offset from the beginning of flat type memory where error occured.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error {
     pub kind: ErrorKind,
+    /// An offset from the beginning of flat type memory where error occur.
     pub pos: usize,
 }
 
@@ -23,6 +22,7 @@ pub enum ErrorKind {
 }
 
 impl Error {
+    /// Clone `self` and add `offset` to [`Self::pos`].
     pub fn offset(mut self, offset: usize) -> Self {
         self.pos += offset;
         self

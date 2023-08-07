@@ -347,7 +347,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 self,
                 __flatty_bytes: &'__flatty_a mut [u8],
             ) -> Result<(), ::flatty::Error> {
-                use ::flatty::{prelude::*, utils::iter::{prelude::*, self}};
+                use ::flatty::{traits::*, utils::iter::{prelude::*, self}};
                 #body
                 Ok(())
             }

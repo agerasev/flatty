@@ -9,7 +9,7 @@ mod tests;
 
 use flatty_base::traits::Flat;
 
-/// Type that can be safely transefered between different machines.
+/// Type that can be safely transfered between different machines.
 ///
 /// # Safety
 ///
@@ -41,7 +41,7 @@ pub mod be {
     pub use int::be::*;
 }
 
-pub mod prelude {
+pub mod traits {
     pub use super::{NativeCast, Portable};
 }
 

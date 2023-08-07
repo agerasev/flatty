@@ -87,7 +87,7 @@ fn size_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     };
     quote! {
         fn size(&self) -> usize {
-            use ::flatty::{prelude::*, utils::ceil_mul};
+            use ::flatty::{traits::*, utils::ceil_mul};
             ceil_mul(#value, Self::ALIGN)
         }
     }

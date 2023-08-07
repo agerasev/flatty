@@ -8,7 +8,7 @@ use crate::{
 pub unsafe trait Emplacer<T: FlatUnsized + ?Sized>: Sized {
     unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error>;
 
-    /// Apply initializer for uninitizalized memory.
+    /// Apply initializer for uninitialized memory.
     fn emplace(self, bytes: &mut [u8]) -> Result<(), Error> {
         check_align_and_min_size::<T>(bytes)?;
         unsafe { self.emplace_unchecked(bytes) }
