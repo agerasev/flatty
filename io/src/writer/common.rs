@@ -22,6 +22,13 @@ impl<'a, M: Flat + ?Sized, O: CommonWriter<M>> CommonUninitWriteGuard<'a, M, O> 
         }
     }
 
+    pub fn buffer(&self) -> &[u8] {
+        self.owner.buffer()
+    }
+    pub fn buffer_mut(&mut self) -> &mut [u8] {
+        self.owner.buffer_mut()
+    }
+
     /// # Safety
     ///
     /// Underlying message data must be initialized.
