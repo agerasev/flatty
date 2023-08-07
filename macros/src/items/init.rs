@@ -176,8 +176,8 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         let mut items = if len > 0 {
             let type_list = type_list(fields.iter());
             quote! {
-                let iter = iter::BytesMutIter::new(bytes, iter::type_list!(#type_list))
-                    .map_err(|e| e.offset(offset))?;
+                let iter = iter::BytesMutIter::new(__flatty_bytes, iter::type_list!(#type_list))
+                    .map_err(|e| e.offset(__flatty_offset))?;
             }
         } else {
             quote! {}
@@ -217,7 +217,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 quote! { self.#item }
             });
             quote! {
-                let offset = 0;
+                let __flatty_offset = 0;
                 #body
             }
         }
@@ -235,7 +235,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     }
                 };
                 let set_tag = quote! {
-                    #tag_ident::#ident.emplace_unchecked(bytes)?;
+                    #tag_ident::#ident.emplace_unchecked(__flatty_bytes)?;
                 };
                 let body = collect_fields(&var.fields, get_item);
                 let pat_body = var
@@ -253,8 +253,8 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     #accum
                     #init_ident::#ident #pat => {
                         #set_tag
-                        let offset = <#self_ident<#self_args>>::DATA_OFFSET;
-                        let bytes = bytes.get_unchecked_mut(offset..);
+                        let __flatty_offset = <#self_ident<#self_args>>::DATA_OFFSET;
+                        let __flatty_bytes = __flatty_bytes.get_unchecked_mut(__flatty_offset..);
                         #body
                     }
                 }
@@ -325,9 +325,9 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 {
                     unsafe fn emplace_unchecked<'__flatty_a>(
                         self,
-                        bytes: &'__flatty_a mut [u8],
+                        __flatty_bytes: &'__flatty_a mut [u8],
                     ) -> Result<(), ::flatty::Error> {
-                        <#init_ident<#init_args> as ::flatty::Emplacer<#self_ident<#self_args>>>::emplace_unchecked(self.into(), bytes)
+                        <#init_ident<#init_args> as ::flatty::Emplacer<#self_ident<#self_args>>>::emplace_unchecked(self.into(), __flatty_bytes)
                     }
                 }
             }
@@ -345,7 +345,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         {
             unsafe fn emplace_unchecked<'__flatty_a>(
                 self,
-                bytes: &'__flatty_a mut [u8],
+                __flatty_bytes: &'__flatty_a mut [u8],
             ) -> Result<(), ::flatty::Error> {
                 use ::flatty::{prelude::*, utils::iter::{prelude::*, self}};
                 #body

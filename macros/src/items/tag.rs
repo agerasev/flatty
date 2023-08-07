@@ -25,10 +25,10 @@ pub fn struct_(ctx: &Context, input: &DeriveInput, local: bool) -> TokenStream {
             }
 
             unsafe impl ::flatty::traits::FlatValidate for #tag {
-                unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), ::flatty::Error> {
+                unsafe fn validate_unchecked(__flatty_bytes: &[u8]) -> Result<(), ::flatty::Error> {
                     use ::flatty::{prelude::*, error::{Error, ErrorKind}};
-                    <#tag_type>::validate_unchecked(bytes)?;
-                    let tag = <#tag_type>::from_bytes_unchecked(bytes);
+                    <#tag_type>::validate_unchecked(__flatty_bytes)?;
+                    let tag = <#tag_type>::from_bytes_unchecked(__flatty_bytes);
                     if *tag < #var_count {
                         Ok(())
                     } else {

@@ -7,8 +7,8 @@ enum UnsizedEnum {
     A,
     B(u8, u16),
     C {
-        a: u8,
-        b: FlatVec<u8, u16>,
+        offset: u32,
+        bytes: FlatVec<u8, u16>,
     },
 }
 

@@ -19,12 +19,12 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     }
 
     let body = match &input.data {
-        Data::Struct(struct_data) => collect_fields(&struct_data.fields, quote! { bytes }),
+        Data::Struct(struct_data) => collect_fields(&struct_data.fields, quote! { __flatty_bytes }),
         Data::Enum(enum_data) => {
             let tag_type = ctx.idents.tag.as_ref().unwrap();
             let validate_tag = quote! {
-                <#tag_type>::validate_unchecked(bytes)?;
-                <#tag_type>::from_bytes_unchecked(bytes)
+                <#tag_type>::validate_unchecked(__flatty_bytes)?;
+                <#tag_type>::from_bytes_unchecked(__flatty_bytes)
             };
             let variants = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
                 let items = collect_fields(&variant.fields, quote! { data });
@@ -51,7 +51,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 use ::flatty::error::{Error, ErrorKind};
 
                 let tag = { #validate_tag };
-                let data = unsafe { bytes.get_unchecked(Self::DATA_OFFSET..) };
+                let data = unsafe { __flatty_bytes.get_unchecked(Self::DATA_OFFSET..) };
 
                 #size_check
 
@@ -63,7 +63,7 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Union(_union_data) => unimplemented!(),
     };
     quote! {
-        unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), ::flatty::Error> {
+        unsafe fn validate_unchecked(__flatty_bytes: &[u8]) -> Result<(), ::flatty::Error> {
             use ::flatty::{prelude::*, utils::iter::{prelude::*, self}};
             #body
         }

@@ -12,19 +12,19 @@ fn ptr_from_bytes_method(_ctx: &Context, input: &DeriveInput) -> TokenStream {
                 use ::flatty::utils::mem::{offset_slice_ptr_start, cast_wide_ptr_with_offset};
                 cast_wide_ptr_with_offset!(
                     Self,
-                    <#last_ty as FlatUnsized>::ptr_from_bytes(offset_slice_ptr_start(bytes, Self::LAST_FIELD_OFFSET as isize)),
+                    <#last_ty as FlatUnsized>::ptr_from_bytes(offset_slice_ptr_start(__flatty_bytes, Self::LAST_FIELD_OFFSET as isize)),
                     -(Self::LAST_FIELD_OFFSET as isize),
                 )
             }
         }
         Data::Enum(..) => quote! {
             use ::flatty::utils::{floor_mul, mem::{set_slice_ptr_len, slice_ptr_len}};
-            set_slice_ptr_len(bytes, floor_mul(slice_ptr_len(bytes) - Self::DATA_OFFSET, Self::ALIGN)) as *mut Self
+            set_slice_ptr_len(__flatty_bytes, floor_mul(slice_ptr_len(__flatty_bytes) - Self::DATA_OFFSET, Self::ALIGN)) as *mut Self
         },
         Data::Union(..) => unimplemented!(),
     };
     quote! {
-        unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self {
+        unsafe fn ptr_from_bytes(__flatty_bytes: *mut [u8]) -> *mut Self {
             use ::flatty::prelude::*;
             #body
         }
@@ -46,8 +46,8 @@ fn ptr_to_bytes_method(_ctx: &Context, input: &DeriveInput) -> TokenStream {
         }
         Data::Enum(..) => quote! {
             use ::flatty::utils::mem::{set_slice_ptr_len, slice_ptr_len};
-            let bytes = this as *mut [u8];
-            set_slice_ptr_len(bytes, Self::DATA_OFFSET + slice_ptr_len(bytes))
+            let __flatty_bytes = this as *mut [u8];
+            set_slice_ptr_len(__flatty_bytes, Self::DATA_OFFSET + slice_ptr_len(__flatty_bytes))
         },
         Data::Union(..) => unimplemented!(),
     };
