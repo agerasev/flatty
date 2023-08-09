@@ -8,7 +8,7 @@ use std::{
 };
 
 pub trait AsyncReader<M: Flat + ?Sized>: CommonReader<M> {
-    type ReadFuture<'a>: Future<Output = Result<ReadGuard<'a, M, Self>, ReadError>>
+    type ReadFuture<'a>: Future<Output = Result<Self::ReadGuard<'a>, ReadError>>
     where
         Self: 'a;
 
@@ -44,7 +44,7 @@ impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Reader<M, R> {
         poll
     }
 
-    fn take_message(&mut self) -> ReadGuard<'_, M, Self> {
+    fn take_message(&mut self) -> ReadGuard<'_, M, R> {
         ReadGuard::new(self)
     }
 }
@@ -65,7 +65,7 @@ pub struct ReadFuture<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
 impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for ReadFuture<'a, M, R> {}
 
 impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for ReadFuture<'a, M, R> {
-    type Output = Result<ReadGuard<'a, M, Reader<M, R>>, ReadError>;
+    type Output = Result<ReadGuard<'a, M, R>, ReadError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let owner = self.owner.take().unwrap();

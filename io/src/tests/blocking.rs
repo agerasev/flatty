@@ -1,13 +1,13 @@
 use super::common::*;
-use crate::{prelude::*, ReadError, Reader};
+use crate::{prelude::*, ReadError};
 use flatty::vec::FromIterator;
 use pipe::pipe;
 use std::thread;
 
 #[cfg(feature = "test_shared")]
-use crate::BlockingSharedWriter as Writer;
+use crate::{BlockingSharedReader as Reader, BlockingSharedWriter as Writer};
 #[cfg(not(feature = "test_shared"))]
-use crate::Writer;
+use crate::{Reader, Writer};
 
 #[test]
 fn test() {

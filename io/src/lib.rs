@@ -3,7 +3,7 @@ pub mod writer;
 
 //#[cfg(feature = "async")]
 //pub use reader::AsyncReader;
-pub use reader::{ReadError, ReadGuard, Reader};
+pub use reader::{BlockingSharedReader, ReadError, ReadGuard, Reader};
 #[cfg(feature = "async")]
 pub use writer::AsyncSharedWriter;
 pub use writer::{BlockingSharedWriter, UninitWriteGuard, WriteGuard, Writer};
