@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::{prelude::*, AsyncReader, ReadError};
+use crate::{prelude::*, ReadError, Reader};
 use async_ringbuf::AsyncHeapRb;
 use flatty::vec::FromIterator;
 use futures::{executor::block_on, join};
@@ -42,7 +42,7 @@ fn test() {
                 }
             },
             async move {
-                let mut reader = AsyncReader::<TestMsg, _>::new(cons, MAX_SIZE);
+                let mut reader = Reader::<TestMsg, _>::new(cons, MAX_SIZE);
 
                 {
                     let guard = reader.read_message().await.unwrap();

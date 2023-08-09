@@ -105,17 +105,40 @@ impl<M: Flat + ?Sized> ReadBuffer<M> {
     }
 }
 
-pub trait CommonReader<M: Flat + ?Sized> {
+pub trait CommonReader<M: Flat + ?Sized>: Sized {
     fn buffer(&self) -> &ReadBuffer<M>;
     fn buffer_mut(&mut self) -> &mut ReadBuffer<M>;
 }
 
-pub struct CommonReadGuard<'a, M: Flat + ?Sized, O: CommonReader<M>> {
+pub struct Reader<M: Flat + ?Sized, R> {
+    pub(super) reader: R,
+    pub(super) buffer: ReadBuffer<M>,
+}
+
+impl<M: Flat + ?Sized, R> Reader<M, R> {
+    pub fn new(reader: R, max_msg_size: usize) -> Self {
+        Self {
+            reader,
+            buffer: ReadBuffer::new(max_msg_size),
+        }
+    }
+}
+
+impl<M: Flat + ?Sized, R> CommonReader<M> for Reader<M, R> {
+    fn buffer(&self) -> &ReadBuffer<M> {
+        &self.buffer
+    }
+    fn buffer_mut(&mut self) -> &mut ReadBuffer<M> {
+        &mut self.buffer
+    }
+}
+
+pub struct ReadGuard<'a, M: Flat + ?Sized, O: CommonReader<M>> {
     owner: &'a mut O,
     _phantom: PhantomData<M>,
 }
 
-impl<'a, M: Flat + ?Sized, O: CommonReader<M>> CommonReadGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, O: CommonReader<M>> ReadGuard<'a, M, O> {
     pub fn new(owner: &'a mut O) -> Self {
         Self {
             owner,
@@ -124,14 +147,14 @@ impl<'a, M: Flat + ?Sized, O: CommonReader<M>> CommonReadGuard<'a, M, O> {
     }
 }
 
-impl<'a, M: Flat + ?Sized, O: CommonReader<M>> Drop for CommonReadGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, O: CommonReader<M>> Drop for ReadGuard<'a, M, O> {
     fn drop(&mut self) {
         let size = self.size();
         self.owner.buffer_mut().skip_occupied(size);
     }
 }
 
-impl<'a, M: Flat + ?Sized, O: CommonReader<M>> Deref for CommonReadGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, O: CommonReader<M>> Deref for ReadGuard<'a, M, O> {
     type Target = M;
     fn deref(&self) -> &M {
         self.owner.buffer().message().unwrap()

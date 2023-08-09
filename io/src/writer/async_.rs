@@ -17,7 +17,7 @@ use std::{
     },
 };
 
-pub trait AsyncWriter: CommonWriter {
+pub trait AsyncWriter<M: Flat + ?Sized>: CommonWriter<M> {
     fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>>;
 }
 
@@ -25,7 +25,7 @@ pub trait AsyncWriteGuard<'a> {
     fn write(self) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + 'a>>;
 }
 
-impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter for Writer<M, W> {
+impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M> for Writer<M, W> {
     fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>> {
         Box::pin(async move {
             assert!(!self.poisoned);
@@ -76,7 +76,7 @@ impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> Clone for AsyncSharedWriter<M, W> 
     }
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> CommonWriter for AsyncSharedWriter<M, W> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> CommonWriter<M> for AsyncSharedWriter<M, W> {
     fn buffer(&self) -> &[u8] {
         &self.buffer
     }
@@ -89,7 +89,7 @@ impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> CommonWriter for AsyncSharedWriter
     }
 }
 
-impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter for AsyncSharedWriter<M, W> {
+impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M> for AsyncSharedWriter<M, W> {
     fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>> {
         Box::pin(async move {
             let mut guard = self.base.write.lock().await;
@@ -104,8 +104,11 @@ impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter for AsyncSharedWri
     }
 }
 
-impl<'a, M: Flat + ?Sized, O: AsyncWriter> AsyncWriteGuard<'a> for WriteGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, O: AsyncWriter<M>> AsyncWriteGuard<'a> for WriteGuard<'a, M, O> {
     fn write(self) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + 'a>> {
         self.owner.write_buffer(self.size())
     }
 }
+
+impl<'a, M: Flat + ?Sized, O: AsyncWriter<M>> Unpin for UninitWriteGuard<'a, M, O> {}
+impl<'a, M: Flat + ?Sized, O: AsyncWriter<M>> Unpin for WriteGuard<'a, M, O> {}

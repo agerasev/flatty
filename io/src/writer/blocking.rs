@@ -11,7 +11,7 @@ use std::{
     },
 };
 
-pub trait BlockingWriter: CommonWriter {
+pub trait BlockingWriter<M: Flat + ?Sized>: CommonWriter<M> {
     fn write_buffer(&mut self, count: usize) -> io::Result<()>;
 }
 
@@ -19,7 +19,7 @@ pub trait BlockingWriteGuard<'a> {
     fn write(self) -> Result<(), io::Error>;
 }
 
-impl<'a, M: Flat + ?Sized, W: Write> BlockingWriter for Writer<M, W> {
+impl<'a, M: Flat + ?Sized, W: Write> BlockingWriter<M> for Writer<M, W> {
     fn write_buffer(&mut self, count: usize) -> io::Result<()> {
         assert!(!self.poisoned);
         let res = self.write.write_all(&self.buffer[..count]);
@@ -68,7 +68,7 @@ impl<M: Flat + ?Sized, W: Write> Clone for BlockingSharedWriter<M, W> {
     }
 }
 
-impl<M: Flat + ?Sized, W: Write> CommonWriter for BlockingSharedWriter<M, W> {
+impl<M: Flat + ?Sized, W: Write> CommonWriter<M> for BlockingSharedWriter<M, W> {
     fn buffer(&self) -> &[u8] {
         &self.buffer
     }
@@ -81,7 +81,7 @@ impl<M: Flat + ?Sized, W: Write> CommonWriter for BlockingSharedWriter<M, W> {
     }
 }
 
-impl<'a, M: Flat + ?Sized, W: Write> BlockingWriter for BlockingSharedWriter<M, W> {
+impl<'a, M: Flat + ?Sized, W: Write> BlockingWriter<M> for BlockingSharedWriter<M, W> {
     fn write_buffer(&mut self, count: usize) -> io::Result<()> {
         let mut guard = self.base.write.lock().unwrap();
         assert!(!self.base.poisoned.load(Ordering::Relaxed));
@@ -94,7 +94,7 @@ impl<'a, M: Flat + ?Sized, W: Write> BlockingWriter for BlockingSharedWriter<M, 
     }
 }
 
-impl<'a, M: Flat + ?Sized, O: BlockingWriter> BlockingWriteGuard<'a> for WriteGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, O: BlockingWriter<M>> BlockingWriteGuard<'a> for WriteGuard<'a, M, O> {
     fn write(self) -> Result<(), io::Error> {
         self.owner.write_buffer(self.size())
     }

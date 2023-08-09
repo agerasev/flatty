@@ -1,21 +1,13 @@
-use super::{CommonReadGuard, CommonReader, ReadBuffer, ReadError};
+use super::{CommonReader, ReadError, ReadGuard, Reader};
 use flatty::Flat;
 use std::io::Read;
 
-pub struct Reader<M: Flat + ?Sized, R: Read> {
-    reader: R,
-    buffer: ReadBuffer<M>,
+pub trait BlockingReader<M: Flat + ?Sized>: CommonReader<M> {
+    fn read_message(&mut self) -> Result<ReadGuard<'_, M, Self>, ReadError>;
 }
 
-impl<M: Flat + ?Sized, R: Read> Reader<M, R> {
-    pub fn new(reader: R, max_msg_size: usize) -> Self {
-        Self {
-            reader,
-            buffer: ReadBuffer::new(max_msg_size),
-        }
-    }
-
-    pub fn read_message(&mut self) -> Result<ReadGuard<'_, M, R>, ReadError> {
+impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for Reader<M, R> {
+    fn read_message(&mut self) -> Result<ReadGuard<'_, M, Self>, ReadError> {
         loop {
             match self.buffer.next_message() {
                 Some(result) => break result.map(|_| ()),
@@ -39,14 +31,3 @@ impl<M: Flat + ?Sized, R: Read> Reader<M, R> {
         .map(|()| ReadGuard::new(self))
     }
 }
-
-impl<M: Flat + ?Sized, R: Read> CommonReader<M> for Reader<M, R> {
-    fn buffer(&self) -> &ReadBuffer<M> {
-        &self.buffer
-    }
-    fn buffer_mut(&mut self) -> &mut ReadBuffer<M> {
-        &mut self.buffer
-    }
-}
-
-pub type ReadGuard<'a, M, R> = CommonReadGuard<'a, M, Reader<M, R>>;
