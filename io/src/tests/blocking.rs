@@ -1,8 +1,13 @@
 use super::common::*;
-use crate::{ReadError, Reader, Writer};
+use crate::{prelude::*, ReadError, Reader};
 use flatty::vec::FromIterator;
 use pipe::pipe;
 use std::thread;
+
+#[cfg(feature = "test_shared")]
+use crate::BlockingSharedWriter as Writer;
+#[cfg(not(feature = "test_shared"))]
+use crate::Writer;
 
 #[test]
 fn test() {
@@ -12,7 +17,7 @@ fn test() {
         thread::spawn(move || {
             let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
 
-            writer.alloc_message().default().unwrap().write().unwrap();
+            writer.alloc_message().default_in_place().unwrap().write().unwrap();
 
             {
                 writer

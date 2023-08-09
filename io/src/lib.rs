@@ -1,17 +1,16 @@
-mod reader;
-mod writer;
-
-pub mod details {
-    pub use super::reader::*;
-    pub use super::writer::*;
-}
+pub mod reader;
+pub mod writer;
 
 #[cfg(feature = "async")]
 pub use reader::AsyncReader;
-pub use reader::{ReadError, Reader};
+pub use reader::{ReadError, ReadGuard, Reader};
 #[cfg(feature = "async")]
-pub use writer::AsyncWriter;
-pub use writer::Writer;
+pub use writer::AsyncSharedWriter;
+pub use writer::{BlockingSharedWriter, UninitWriteGuard, WriteGuard, Writer};
+
+pub mod prelude {
+    pub use super::writer::{AsyncWriteGuard, BlockingWriteGuard};
+}
 
 #[cfg(test)]
 mod tests;

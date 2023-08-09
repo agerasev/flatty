@@ -1,9 +1,14 @@
 use super::common::*;
-use crate::{AsyncReader, AsyncWriter, ReadError};
+use crate::{prelude::*, AsyncReader, ReadError};
 use async_ringbuf::AsyncHeapRb;
 use flatty::vec::FromIterator;
 use futures::{executor::block_on, join};
 use ringbuf::traits::*;
+
+#[cfg(feature = "test_shared")]
+use crate::AsyncSharedWriter as Writer;
+#[cfg(not(feature = "test_shared"))]
+use crate::Writer;
 
 #[test]
 fn test() {
@@ -12,9 +17,9 @@ fn test() {
         let (prod, cons) = AsyncHeapRb::<u8>::new(17).split();
         join!(
             async move {
-                let mut writer = AsyncWriter::<TestMsg, _>::new(prod, MAX_SIZE);
+                let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
 
-                writer.alloc_message().default().unwrap().write().await.unwrap();
+                writer.alloc_message().default_in_place().unwrap().write().await.unwrap();
 
                 {
                     writer

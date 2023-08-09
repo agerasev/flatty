@@ -1,87 +1,111 @@
-use super::{CommonUninitWriteGuard, CommonWriteGuard, CommonWriter};
-use derive_more::*;
-use flatty::{self, prelude::*, utils::alloc::AlignedBytes, Emplacer};
+use crate::UninitWriteGuard;
+
+use super::{CommonWriter, WriteGuard, Writer};
+use flatty::{self, prelude::*, utils::alloc::AlignedBytes};
 use futures::{
     io::{AsyncWrite, AsyncWriteExt},
     lock::Mutex,
 };
-use std::{io, marker::PhantomData, sync::Arc};
+use std::{
+    future::Future,
+    io,
+    marker::PhantomData,
+    pin::Pin,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
-pub struct AsyncWriter<M: Flat + ?Sized, W: AsyncWrite + Unpin> {
-    writer: Arc<Mutex<W>>,
+pub trait AsyncWriter: CommonWriter {
+    fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>>;
+}
+
+pub trait AsyncWriteGuard<'a> {
+    fn write(self) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + 'a>>;
+}
+
+impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter for Writer<M, W> {
+    fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>> {
+        Box::pin(async move {
+            assert!(!self.poisoned);
+            let res = self.write.write_all(&self.buffer[..count]).await;
+            if res.is_err() {
+                self.poisoned = true;
+            }
+            res
+        })
+    }
+}
+
+struct Base<W: AsyncWrite + Unpin> {
+    write: Mutex<W>,
+    poisoned: AtomicBool,
+}
+
+pub struct AsyncSharedWriter<M: Flat + ?Sized, W: AsyncWrite + Unpin> {
+    base: Arc<Base<W>>,
     buffer: AlignedBytes,
     _phantom: PhantomData<M>,
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M, W> {
-    pub fn new(writer: W, max_msg_size: usize) -> Self {
+impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncSharedWriter<M, W> {
+    pub fn new(write: W, max_msg_size: usize) -> Self {
         Self {
-            writer: Arc::new(Mutex::new(writer)),
+            base: Arc::new(Base {
+                write: Mutex::new(write),
+                poisoned: AtomicBool::new(false),
+            }),
             buffer: AlignedBytes::new(max_msg_size, M::ALIGN),
             _phantom: PhantomData,
         }
     }
 
-    pub fn alloc_message(&mut self) -> AsyncUninitWriteGuard<'_, M, W> {
-        CommonUninitWriteGuard::new(self).into()
+    pub fn alloc_message(&mut self) -> UninitWriteGuard<'_, M, Self> {
+        UninitWriteGuard::new(self)
     }
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> Clone for AsyncWriter<M, W> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> Clone for AsyncSharedWriter<M, W> {
     fn clone(&self) -> Self {
         Self {
-            writer: self.writer.clone(),
+            base: self.base.clone(),
             buffer: AlignedBytes::new(self.buffer.len(), M::ALIGN),
             _phantom: PhantomData,
         }
     }
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> CommonWriter<M> for AsyncWriter<M, W> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> CommonWriter for AsyncSharedWriter<M, W> {
     fn buffer(&self) -> &[u8] {
         &self.buffer
     }
     fn buffer_mut(&mut self) -> &mut [u8] {
         &mut self.buffer
     }
-}
 
-#[derive(From, Into, Deref, DerefMut)]
-pub struct AsyncUninitWriteGuard<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> {
-    inner: CommonUninitWriteGuard<'a, M, AsyncWriter<M, W>>,
-}
-
-impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncUninitWriteGuard<'a, M, W> {
-    /// # Safety
-    ///
-    /// Underlying message data must be initialized.
-    pub unsafe fn assume_valid(self) -> AsyncWriteGuard<'a, M, W> {
-        CommonUninitWriteGuard::from(self).assume_valid().into()
-    }
-
-    pub fn new_in_place(self, emplacer: impl Emplacer<M>) -> Result<AsyncWriteGuard<'a, M, W>, flatty::Error> {
-        CommonUninitWriteGuard::from(self)
-            .new_in_place(emplacer)
-            .map(|common| common.into())
+    fn poisoned(&self) -> bool {
+        self.base.poisoned.load(Ordering::Relaxed)
     }
 }
 
-impl<'a, M: Flat + FlatDefault + ?Sized, W: AsyncWrite + Unpin> AsyncUninitWriteGuard<'a, M, W> {
-    pub fn default(self) -> Result<AsyncWriteGuard<'a, M, W>, flatty::Error> {
-        CommonUninitWriteGuard::from(self)
-            .default_in_place()
-            .map(|common| common.into())
+impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter for AsyncSharedWriter<M, W> {
+    fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>> {
+        Box::pin(async move {
+            let mut guard = self.base.write.lock().await;
+            assert!(!self.base.poisoned.load(Ordering::Relaxed));
+            let res = guard.write_all(&self.buffer[..count]).await;
+            if res.is_err() {
+                self.base.poisoned.store(true, Ordering::Relaxed);
+            }
+            drop(guard);
+            res
+        })
     }
 }
 
-#[derive(From, Into, Deref, DerefMut)]
-pub struct AsyncWriteGuard<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> {
-    inner: CommonWriteGuard<'a, M, AsyncWriter<M, W>>,
-}
-
-impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriteGuard<'a, M, W> {
-    pub async fn write(self) -> Result<(), io::Error> {
-        let mut guard = self.owner.writer.lock().await;
-        guard.write_all(&self.owner.buffer[..self.size()]).await
+impl<'a, M: Flat + ?Sized, O: AsyncWriter> AsyncWriteGuard<'a> for WriteGuard<'a, M, O> {
+    fn write(self) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + 'a>> {
+        self.owner.write_buffer(self.size())
     }
 }
