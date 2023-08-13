@@ -1,8 +1,9 @@
+use owning_ref::OwningRefMut;
 use std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, MutexGuard,
     },
 };
 
@@ -12,9 +13,15 @@ pub trait EptHandle: Sized {
     fn wake(&self);
 }
 
-#[derive(Clone)]
+pub type FilterFn<M> = dyn Fn(&M) -> bool;
+
 pub struct Filter<M: ?Sized> {
-    pred: Option<Arc<dyn Fn(&M) -> bool>>,
+    pred: Option<Arc<FilterFn<M>>>,
+}
+impl<M: ?Sized> Clone for Filter<M> {
+    fn clone(&self) -> Self {
+        Filter { pred: self.pred.clone() }
+    }
 }
 impl<M: ?Sized> Default for Filter<M> {
     fn default() -> Self {
@@ -22,7 +29,7 @@ impl<M: ?Sized> Default for Filter<M> {
     }
 }
 impl<M: ?Sized> Filter<M> {
-    pub fn new(pred: Arc<dyn Fn(&M) -> bool>) -> Self {
+    pub fn new(pred: Arc<FilterFn<M>>) -> Self {
         Self { pred: Some(pred) }
     }
     pub fn check(&self, value: &M) -> bool {
@@ -33,21 +40,15 @@ impl<M: ?Sized> Filter<M> {
     }
 }
 
+#[derive(Default)]
 pub struct Endpoint<M: ?Sized, H: EptHandle> {
     pub filter: Filter<M>,
-    pub handle: Option<H>,
-}
-impl<M: ?Sized, H: EptHandle> Default for Endpoint<M, H> {
-    fn default() -> Self {
-        Self {
-            filter: Filter::default(),
-            handle: None,
-        }
-    }
+    pub handle: H,
 }
 
+type EptMap<M, H> = HashMap<EptId, Endpoint<M, H>>;
 pub struct EndpointTable<M: ?Sized, H: EptHandle> {
-    endpoints: Mutex<HashMap<EptId, Endpoint<M, H>>>,
+    endpoints: Mutex<EptMap<M, H>>,
     counter: AtomicUsize,
 }
 impl<M: ?Sized, H: EptHandle> Default for EndpointTable<M, H> {
@@ -58,6 +59,7 @@ impl<M: ?Sized, H: EptHandle> Default for EndpointTable<M, H> {
         }
     }
 }
+
 impl<M: ?Sized, H: EptHandle> EndpointTable<M, H> {
     pub fn insert(&self, ept: Endpoint<M, H>) -> EptId {
         let id = self.counter.fetch_add(1, Ordering::Relaxed);
@@ -67,16 +69,16 @@ impl<M: ?Sized, H: EptHandle> EndpointTable<M, H> {
     pub fn remove(&self, id: EptId) {
         assert!(self.endpoints.lock().unwrap().remove(&id).is_some());
     }
-    pub fn register(&self, id: EptId, handle: H) {
-        self.endpoints.lock().unwrap().get_mut(&id).unwrap().handle = Some(handle);
+    pub fn get(&self, id: EptId) -> Option<OwningRefMut<MutexGuard<'_, EptMap<M, H>>, Endpoint<M, H>>> {
+        OwningRefMut::new(self.endpoints.lock().unwrap())
+            .try_map_mut(move |o| o.get_mut(&id).ok_or(()))
+            .ok()
     }
     pub fn wake(&self, value: &M) {
         let guard = self.endpoints.lock().unwrap();
         for (_, ept) in guard.iter() {
             if ept.filter.check(value) {
-                if let Some(h) = &ept.handle {
-                    h.wake();
-                }
+                ept.handle.wake();
             }
         }
     }

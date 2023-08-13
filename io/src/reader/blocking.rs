@@ -6,8 +6,7 @@ use flatty::Flat;
 use std::{
     io::Read,
     ops::Deref,
-    sync::{Arc, Mutex, MutexGuard},
-    thread::{self, Thread},
+    sync::{Arc, Condvar, Mutex, MutexGuard},
 };
 
 pub trait BlockingReader<M: Flat + ?Sized>: CommonReader<M> {
@@ -40,15 +39,15 @@ impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for Reader<M, R> {
     }
 }
 
-impl EptHandle for Thread {
+impl EptHandle for Condvar {
     fn wake(&self) {
-        self.unpark();
+        self.notify_one();
     }
 }
 
 pub struct SharedData<M: Flat + ?Sized, R: Read> {
     reader: Mutex<Reader<M, R>>,
-    table: EndpointTable<M, Thread>,
+    table: EndpointTable<M, Condvar>,
 }
 
 pub struct BlockingSharedReader<M: Flat + ?Sized, R: Read> {
@@ -60,7 +59,10 @@ pub struct BlockingSharedReader<M: Flat + ?Sized, R: Read> {
 impl<M: Flat + ?Sized, R: Read> BlockingSharedReader<M, R> {
     pub fn new(read: R, max_msg_size: usize) -> Self {
         let table = EndpointTable::default();
-        let ept = Endpoint::default();
+        let ept = Endpoint {
+            filter: Filter::default(),
+            handle: Condvar::new(),
+        };
         let id = table.insert(ept);
         Self {
             shared: Arc::new(SharedData {
@@ -75,11 +77,16 @@ impl<M: Flat + ?Sized, R: Read> BlockingSharedReader<M, R> {
 
 impl<M: Flat + ?Sized, R: Read> Clone for BlockingSharedReader<M, R> {
     fn clone(&self) -> Self {
-        let ept = Endpoint::default();
+        let old_ept = self.shared.table.get(self.id).unwrap();
+        let filter = old_ept.filter.clone();
+        let ept = Endpoint {
+            filter: filter.clone(),
+            handle: Condvar::new(),
+        };
         let id = self.shared.table.insert(ept);
         Self {
             shared: self.shared.clone(),
-            filter: Filter::default(),
+            filter,
             id,
         }
     }
@@ -97,9 +104,8 @@ impl<M: Flat + ?Sized, R: Read> CommonReader<M> for BlockingSharedReader<M, R> {
 
 impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for BlockingSharedReader<M, R> {
     fn read_message(&mut self) -> Result<Self::ReadGuard<'_>, ReadError> {
-        self.shared.table.register(self.id, thread::current());
+        let mut reader = self.shared.reader.lock().unwrap();
         loop {
-            let mut reader = self.shared.reader.lock().unwrap();
             let msg = reader.read_message()?;
             if self.filter.check(&msg) {
                 msg.retain();
@@ -107,12 +113,9 @@ impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for BlockingSharedReader<M, R>
             } else {
                 self.shared.table.wake(&msg);
                 msg.retain();
-                drop(reader);
-                // FIXME: Use CondVar
-                thread::park();
+                reader = self.shared.table.get(self.id).unwrap().handle.wait(reader).unwrap();
             }
         }
-        // TODO: Unregister on exit
     }
 }
 

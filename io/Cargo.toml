@@ -16,11 +16,7 @@ test_shared = []
 [dependencies]
 flatty = { workspace = true, features = ["std"] }
 futures = { version = "0.3.25", optional = true }
-
-[dependencies.derive_more]
-version = "0.99.17"
-default-features = false
-features = ["from", "into", "deref", "deref_mut"]
+owning_ref = "0.4.1"
 
 [dev-dependencies]
 pipe = "0.4.0"
