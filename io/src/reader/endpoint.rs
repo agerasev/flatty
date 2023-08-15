@@ -78,20 +78,16 @@ impl<M: ?Sized, H: EptHandle> EndpointTable<M, H> {
     }
     pub fn wake(&self, value: &M) {
         let guard = self.endpoints.lock().unwrap();
-        for (id, ept) in guard.iter() {
+        for (_, ept) in guard.iter() {
             if ept.filter.check(value) {
-                println!("@ wake {}", id);
                 ept.handle.wake();
             }
         }
     }
-    pub fn wake_all(&self, self_id: EptId) {
+    pub fn wake_all(&self) {
         let guard = self.endpoints.lock().unwrap();
-        for (id, ept) in guard.iter() {
-            if self_id != *id {
-                println!("@ wake {}", id);
-                ept.handle.wake();
-            }
+        for (_, ept) in guard.iter() {
+            ept.handle.wake();
         }
     }
 }

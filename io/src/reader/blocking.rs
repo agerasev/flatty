@@ -97,7 +97,7 @@ impl<M: Flat + ?Sized, R: Read> Clone for BlockingSharedReader<M, R> {
         let handle = Arc::new(Condvar::new());
         let ept = Endpoint {
             filter: filter.clone(),
-            handle: Arc::new(Condvar::new()),
+            handle: handle.clone(),
         };
         let id = self.shared.table.insert(ept);
         Self {
@@ -123,30 +123,23 @@ impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for BlockingSharedReader<M, R>
     fn read_message(&mut self) -> Result<Self::ReadGuard<'_>, ReadError> {
         let mut reader = self.shared.reader.lock().unwrap();
         loop {
-            println!("{}: loop", self.id);
             let msg = match reader.read_message() {
                 Ok(msg) => msg,
                 Err(e) => {
-                    self.shared.table.wake_all(self.id);
+                    self.shared.table.wake_all();
                     break Err(e);
                 }
             };
-            println!("{}: read msg", self.id);
             if self.filter.check(&msg) {
                 msg.retain();
-                println!("{}: filter self", self.id);
                 break Ok(BlockingSharedReadGuard {
                     shared: self.shared.as_ref(),
                     reader,
-                    id: self.id,
                 });
             } else {
-                println!("{}: filter other", self.id);
                 self.shared.table.wake(&msg);
                 msg.retain();
-                println!("{}: wait", self.id);
                 reader = self.handle.wait(reader).unwrap();
-                println!("{}: wake up", self.id);
             }
         }
     }
@@ -155,7 +148,6 @@ impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for BlockingSharedReader<M, R>
 pub struct BlockingSharedReadGuard<'a, M: Flat + ?Sized, R: Read> {
     shared: Pin<&'a SharedData<M, R>>,
     reader: MutexGuard<'a, Reader<M, R>>,
-    id: EptId,
 }
 
 impl<'a, M: Flat + ?Sized, R: Read> Drop for BlockingSharedReadGuard<'a, M, R> {
@@ -165,7 +157,7 @@ impl<'a, M: Flat + ?Sized, R: Read> Drop for BlockingSharedReadGuard<'a, M, R> {
         if let Some(res) = self.reader.buffer.next_message() {
             match res {
                 Ok(msg) => self.shared.table.wake(msg),
-                Err(_) => self.shared.table.wake_all(self.id),
+                Err(_) => self.shared.table.wake_all(),
             }
         }
     }

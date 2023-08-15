@@ -71,6 +71,49 @@ fn unique() {
 }
 
 #[test]
+fn condvar() {
+    use std::sync::{Arc, Condvar, Mutex};
+
+    const ATTEMPTS: usize = 256;
+
+    let mutex = Arc::new(Mutex::<usize>::new(0));
+    let cvs = (Arc::new(Condvar::new()), Arc::new(Condvar::new()));
+
+    let threads = [
+        thread::spawn({
+            let mutex = mutex.clone();
+            let cvs = (cvs.1.clone(), cvs.0.clone());
+            move || {
+                let mut guard = mutex.lock().unwrap();
+                for i in 0..ATTEMPTS {
+                    guard = cvs.0.wait(guard).unwrap();
+                    assert_eq!(*guard, 2 * i);
+                    *guard += 1;
+                    cvs.1.notify_one();
+                }
+            }
+        }),
+        thread::spawn({
+            move || {
+                sleep(TIMEOUT);
+                cvs.1.notify_one();
+
+                let mut guard = mutex.lock().unwrap();
+                for i in 0..ATTEMPTS {
+                    guard = cvs.0.wait(guard).unwrap();
+                    assert_eq!(*guard, 2 * i + 1);
+                    *guard += 1;
+                    cvs.1.notify_one();
+                }
+            }
+        }),
+    ];
+    for t in threads {
+        t.join().unwrap();
+    }
+}
+
+#[test]
 fn shared_writer() {
     let (cons, prod) = pipe();
     let mut writer = BlockingSharedWriter::<TestMsg, _>::new(prod, MAX_SIZE);
@@ -129,72 +172,72 @@ fn shared_writer() {
 
 #[test]
 fn shared_reader() {
+    const ATTEMPTS: usize = 16;
+
     let (cons, prod) = pipe();
     let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
     let reader = BlockingSharedReader::<TestMsg, _>::new(cons, MAX_SIZE);
 
     let (write, reads) = (
         thread::spawn(move || {
-            writer
-                .alloc_message()
-                .new_in_place(TestMsgInitB(123456))
-                .unwrap()
-                .write()
-                .unwrap();
-            println!("Write B");
+            for i in 0..ATTEMPTS {
+                writer
+                    .alloc_message()
+                    .new_in_place(TestMsgInitB(i as i32))
+                    .unwrap()
+                    .write()
+                    .unwrap();
 
-            writer
-                .alloc_message()
-                .new_in_place(TestMsgInitC(FromIterator(0..7)))
-                .unwrap()
-                .write()
-                .unwrap();
-            println!("Write C");
+                writer
+                    .alloc_message()
+                    .new_in_place(TestMsgInitC(FromIterator((1..8).map(|x| x * (i + 1) as i32))))
+                    .unwrap()
+                    .write()
+                    .unwrap();
+            }
         }),
         [
             thread::spawn({
                 let mut reader = reader.clone().filter(|m| m.tag() == TestMsgTag::B);
                 move || {
-                    println!("Start B");
                     sleep(TIMEOUT);
 
-                    match reader.read_message().unwrap().as_ref() {
-                        TestMsgRef::B(x) => {
-                            println!("Read B");
-                            assert_eq!(*x, 123456);
+                    for i in 0..ATTEMPTS {
+                        match reader.read_message().unwrap().as_ref() {
+                            TestMsgRef::B(x) => {
+                                assert_eq!(*x, i as i32);
+                            }
+                            _ => panic!(),
                         }
-                        _ => panic!(),
                     }
 
                     match reader.read_message().err().unwrap() {
                         ReadError::Eof => (),
                         _ => panic!(),
                     }
-                    println!("Eof B");
                 }
             }),
             thread::spawn({
                 let mut reader = reader.filter(|m| m.tag() == TestMsgTag::C);
                 move || {
-                    println!("Start C");
-                    match reader.read_message().unwrap().as_ref() {
-                        TestMsgRef::C(v) => {
-                            println!("Read C");
-                            assert!(v.iter().copied().eq(0..7));
+                    for i in 0..ATTEMPTS {
+                        match reader.read_message().unwrap().as_ref() {
+                            TestMsgRef::C(v) => {
+                                assert!(v.iter().copied().eq((1..8).map(|x| x * (i + 1) as i32)));
+                            }
+                            _ => panic!(),
                         }
-                        _ => panic!(),
                     }
 
                     match reader.read_message().err().unwrap() {
                         ReadError::Eof => (),
                         _ => panic!(),
                     }
-                    println!("Eof C");
                 }
             }),
         ],
     );
-    println!("Spawned");
+
     for read in reads {
         read.join().unwrap();
     }
