@@ -25,7 +25,7 @@ pub trait AsyncWriteGuard<'a> {
     fn write(self) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + 'a>>;
 }
 
-impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M> for Writer<M, W> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M> for Writer<M, W> {
     fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>> {
         Box::pin(async move {
             assert!(!self.poisoned);
@@ -89,7 +89,7 @@ impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> CommonWriter<M> for AsyncSharedWri
     }
 }
 
-impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M> for AsyncSharedWriter<M, W> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M> for AsyncSharedWriter<M, W> {
     fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>> {
         Box::pin(async move {
             let mut guard = self.base.write.lock().await;

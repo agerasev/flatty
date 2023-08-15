@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use owning_ref::OwningRefMut;
 use std::{
     collections::HashMap,
@@ -13,10 +15,8 @@ pub trait EptHandle: Sized {
     fn wake(&self);
 }
 
-pub type FilterFn<M> = dyn Fn(&M) -> bool;
-
 pub struct Filter<M: ?Sized> {
-    pred: Option<Arc<FilterFn<M>>>,
+    pred: Option<Arc<dyn Fn(&M) -> bool + Sync + Send>>,
 }
 impl<M: ?Sized> Clone for Filter<M> {
     fn clone(&self) -> Self {
@@ -29,8 +29,10 @@ impl<M: ?Sized> Default for Filter<M> {
     }
 }
 impl<M: ?Sized> Filter<M> {
-    pub fn new(pred: Arc<FilterFn<M>>) -> Self {
-        Self { pred: Some(pred) }
+    pub fn new<F: Fn(&M) -> bool + Sync + Send + 'static>(pred: F) -> Self {
+        Self {
+            pred: Some(Arc::new(pred)),
+        }
     }
     pub fn check(&self, value: &M) -> bool {
         match &self.pred {
@@ -76,8 +78,18 @@ impl<M: ?Sized, H: EptHandle> EndpointTable<M, H> {
     }
     pub fn wake(&self, value: &M) {
         let guard = self.endpoints.lock().unwrap();
-        for (_, ept) in guard.iter() {
+        for (id, ept) in guard.iter() {
             if ept.filter.check(value) {
+                println!("@ wake {}", id);
+                ept.handle.wake();
+            }
+        }
+    }
+    pub fn wake_all(&self, self_id: EptId) {
+        let guard = self.endpoints.lock().unwrap();
+        for (id, ept) in guard.iter() {
+            if self_id != *id {
+                println!("@ wake {}", id);
                 ept.handle.wake();
             }
         }

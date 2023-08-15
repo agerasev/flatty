@@ -19,7 +19,7 @@ pub trait BlockingWriteGuard<'a> {
     fn write(self) -> Result<(), io::Error>;
 }
 
-impl<'a, M: Flat + ?Sized, W: Write> BlockingWriter<M> for Writer<M, W> {
+impl<M: Flat + ?Sized, W: Write> BlockingWriter<M> for Writer<M, W> {
     fn write_buffer(&mut self, count: usize) -> io::Result<()> {
         assert!(!self.poisoned);
         let res = self.write.write_all(&self.buffer[..count]);
@@ -81,7 +81,7 @@ impl<M: Flat + ?Sized, W: Write> CommonWriter<M> for BlockingSharedWriter<M, W> 
     }
 }
 
-impl<'a, M: Flat + ?Sized, W: Write> BlockingWriter<M> for BlockingSharedWriter<M, W> {
+impl<M: Flat + ?Sized, W: Write> BlockingWriter<M> for BlockingSharedWriter<M, W> {
     fn write_buffer(&mut self, count: usize) -> io::Result<()> {
         let mut guard = self.base.write.lock().unwrap();
         assert!(!self.base.poisoned.load(Ordering::Relaxed));
