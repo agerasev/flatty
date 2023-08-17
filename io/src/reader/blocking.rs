@@ -46,7 +46,7 @@ impl EptHandle for Arc<Condvar> {
     }
 }
 
-pub struct SharedData<M: Flat + ?Sized, R: Read> {
+struct SharedData<M: Flat + ?Sized, R: Read> {
     reader: Mutex<Reader<M, R>>,
     table: EndpointTable<M, Arc<Condvar>>,
 }
@@ -133,7 +133,7 @@ impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for BlockingSharedReader<M, R>
             if self.filter.check(&msg) {
                 msg.retain();
                 break Ok(BlockingSharedReadGuard {
-                    shared: self.shared.as_ref(),
+                    shared: &self.shared,
                     reader,
                 });
             } else {
@@ -146,7 +146,7 @@ impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for BlockingSharedReader<M, R>
 }
 
 pub struct BlockingSharedReadGuard<'a, M: Flat + ?Sized, R: Read> {
-    shared: Pin<&'a SharedData<M, R>>,
+    shared: &'a SharedData<M, R>,
     reader: MutexGuard<'a, Reader<M, R>>,
 }
 
