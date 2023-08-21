@@ -5,7 +5,7 @@ use core::{
 };
 
 /// Basic flat type properties.
-pub unsafe trait FlatBase {
+pub unsafe trait FlatBase: Send + Sync {
     /// Align of the type.
     const ALIGN: usize;
     /// Minimal size of an instance of the type.

@@ -5,7 +5,7 @@ use flatty_base::{
     vec::{FlatVec, Length},
 };
 
-unsafe impl<T> Portable for PhantomData<T> {}
+unsafe impl<T: Flat> Portable for PhantomData<T> {}
 
 unsafe impl<T: Portable + Flat + Sized, const N: usize> Portable for [T; N] {}
 

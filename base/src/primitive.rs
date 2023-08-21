@@ -41,12 +41,12 @@ impl_flat_prim!(isize);
 impl_flat_prim!(f32);
 impl_flat_prim!(f64);
 
-unsafe impl<T> FlatValidate for PhantomData<T> {
+unsafe impl<T: Flat> FlatValidate for PhantomData<T> {
     unsafe fn validate_unchecked(_: &[u8]) -> Result<(), Error> {
         Ok(())
     }
 }
-unsafe impl<T> Flat for PhantomData<T> {}
+unsafe impl<T: Flat> Flat for PhantomData<T> {}
 
 unsafe impl<T: Flat, const N: usize> FlatValidate for [T; N] {
     unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
