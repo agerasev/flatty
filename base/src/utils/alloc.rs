@@ -46,3 +46,4 @@ impl DerefMut for AlignedBytes {
 }
 
 unsafe impl Send for AlignedBytes {}
+unsafe impl Sync for AlignedBytes {}
