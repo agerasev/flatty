@@ -193,35 +193,27 @@ impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for SharedReadFuture<'a,
                     Poll::Pending => (false, SharedReadState::Lock(lock)),
                     Poll::Ready(reader) => (true, SharedReadState::Read(reader)),
                 },
-                SharedReadState::Read(mut reader) => {
-                    let verdict = reader
-                        .read_message()
-                        .poll_unpin(cx)
-                        .map_ok(|msg| {
-                            let own = self.owner.filter.check(&msg);
-                            if !own {
-                                self.owner.shared.table.wake(&msg);
-                            };
+                SharedReadState::Read(mut reader) => match reader.poll_read_message(cx) {
+                    Poll::Pending => (false, SharedReadState::Read(reader)),
+                    Poll::Ready(Err(e)) => {
+                        self.owner.shared.table.wake_all();
+                        return Poll::Ready(Err(e));
+                    }
+                    Poll::Ready(Ok(())) => {
+                        let msg = reader.take_message();
+                        if self.owner.filter.check(&msg) {
                             msg.retain();
-                            own
-                        })
-                        .map_err(|e| {
-                            self.owner.shared.table.wake_all();
-                            e
-                        });
-
-                    match verdict {
-                        Poll::Pending => (false, SharedReadState::Read(reader)),
-                        Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-                        Poll::Ready(Ok(true)) => {
                             return Poll::Ready(Ok(AsyncSharedReadGuard {
                                 shared: &self.owner.shared,
                                 reader,
-                            }))
+                            }));
+                        } else {
+                            self.owner.shared.table.wake(&msg);
+                            msg.retain();
+                            (false, SharedReadState::Wait)
                         }
-                        Poll::Ready(Ok(false)) => (false, SharedReadState::Wait),
                     }
-                }
+                },
             };
         }
         assert!(self.state.replace(state).is_none());

@@ -115,6 +115,7 @@ async fn shared_writer() {
                         assert_eq!(*x, 123456);
                     }
                     TestMsgRef::C(v) => {
+                        println!("@ {:?}", v);
                         assert!(v.iter().copied().eq(0..7));
                     }
                     _ => panic!(),

@@ -1,8 +1,16 @@
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes, Emplacer};
 use std::{
+    io,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+
+#[derive(Debug)]
+pub enum WriteError {
+    Io(io::Error),
+    /// Stream has been closed.
+    Eof,
+}
 
 pub trait CommonWriter<M: Flat + ?Sized>: Sized {
     fn buffer(&self) -> &[u8];

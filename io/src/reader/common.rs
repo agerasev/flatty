@@ -1,6 +1,14 @@
 use super::buffer::ReadBuffer;
 use flatty::Flat;
-use std::{mem::forget, ops::Deref};
+use std::{io, mem::forget, ops::Deref};
+
+#[derive(Debug)]
+pub enum ReadError {
+    Io(io::Error),
+    Parse(flatty::Error),
+    /// Stream has been closed.
+    Eof,
+}
 
 pub trait CommonReader<M: Flat + ?Sized>: Sized {
     type ReadGuard<'a>: Sized

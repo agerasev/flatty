@@ -1,13 +1,7 @@
 use flatty::{utils::alloc::AlignedBytes, Flat};
-use std::{io, marker::PhantomData, ops::Range};
+use std::{marker::PhantomData, ops::Range};
 
-#[derive(Debug)]
-pub enum ReadError {
-    Io(io::Error),
-    Parse(flatty::Error),
-    /// Stream has been closed.
-    Eof,
-}
+use crate::ReadError;
 
 pub struct ReadBuffer<M: Flat + ?Sized> {
     buffer: AlignedBytes,

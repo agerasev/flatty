@@ -1,9 +1,9 @@
 use crate::UninitWriteGuard;
 
-use super::{CommonWriter, WriteGuard, Writer};
+use super::{CommonWriter, WriteError, WriteGuard, Writer};
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes};
 use std::{
-    io::{self, Write},
+    io::Write,
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -12,21 +12,35 @@ use std::{
 };
 
 pub trait BlockingWriter<M: Flat + ?Sized>: CommonWriter<M> {
-    fn write_buffer(&mut self, count: usize) -> io::Result<()>;
+    fn write_buffer(&mut self, count: usize) -> Result<(), WriteError>;
 }
 
 pub trait BlockingWriteGuard<'a> {
-    fn write(self) -> Result<(), io::Error>;
+    fn write(self) -> Result<(), WriteError>;
 }
 
 impl<M: Flat + ?Sized, W: Write> BlockingWriter<M> for Writer<M, W> {
-    fn write_buffer(&mut self, count: usize) -> io::Result<()> {
+    fn write_buffer(&mut self, count: usize) -> Result<(), WriteError> {
         assert!(!self.poisoned);
-        let res = self.write.write_all(&self.buffer[..count]);
-        if res.is_err() {
-            self.poisoned = true;
+        let mut data = &self.buffer[..count];
+        loop {
+            match self.write.write(data) {
+                Ok(n) => {
+                    if n > 0 {
+                        data = &data[n..];
+                        if data.is_empty() {
+                            break Ok(());
+                        }
+                    } else {
+                        break Err(WriteError::Eof);
+                    }
+                }
+                Err(e) => {
+                    self.poisoned = true;
+                    break Err(WriteError::Io(e));
+                }
+            }
         }
-        res
     }
 }
 
@@ -82,20 +96,34 @@ impl<M: Flat + ?Sized, W: Write> CommonWriter<M> for BlockingSharedWriter<M, W> 
 }
 
 impl<M: Flat + ?Sized, W: Write> BlockingWriter<M> for BlockingSharedWriter<M, W> {
-    fn write_buffer(&mut self, count: usize) -> io::Result<()> {
+    fn write_buffer(&mut self, count: usize) -> Result<(), WriteError> {
         let mut guard = self.base.write.lock().unwrap();
         assert!(!self.base.poisoned.load(Ordering::Relaxed));
-        let res = guard.write_all(&self.buffer[..count]);
-        if res.is_err() {
-            self.base.poisoned.store(true, Ordering::Relaxed);
+
+        let mut data = &self.buffer[..count];
+        loop {
+            match guard.write(data) {
+                Ok(n) => {
+                    if n > 0 {
+                        data = &data[n..];
+                        if data.is_empty() {
+                            break Ok(());
+                        }
+                    } else {
+                        break Err(WriteError::Eof);
+                    }
+                }
+                Err(e) => {
+                    self.base.poisoned.store(true, Ordering::Relaxed);
+                    break Err(WriteError::Io(e));
+                }
+            }
         }
-        drop(guard);
-        res
     }
 }
 
 impl<'a, M: Flat + ?Sized, O: BlockingWriter<M>> BlockingWriteGuard<'a> for WriteGuard<'a, M, O> {
-    fn write(self) -> Result<(), io::Error> {
+    fn write(self) -> Result<(), WriteError> {
         self.owner.write_buffer(self.size())
     }
 }
