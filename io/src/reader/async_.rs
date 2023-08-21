@@ -179,50 +179,52 @@ pub struct SharedReadFuture<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
 
 impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for SharedReadFuture<'a, M, R> {}
 
-macro_rules! ready_or_break {
-    ($poll:expr) => {
-        match $poll {
-            Poll::Pending => break,
-            Poll::Ready(output) => output,
-        }
-    };
-}
-
 impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for SharedReadFuture<'a, M, R> {
     type Output = Result<AsyncSharedReadGuard<'a, M, R>, ReadError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.owner.shared.table.get(self.owner.id).unwrap().handle = cx.waker().clone();
-        loop {
-            let state = match self.state.take().unwrap() {
-                SharedReadState::Wait => SharedReadState::Lock(self.owner.shared.reader.lock()),
-                SharedReadState::Lock(mut lock) => SharedReadState::Read(ready_or_break!(lock.poll_unpin(cx))),
+        let mut state = self.state.take().unwrap();
+        let mut poll = true;
+        while poll {
+            (poll, state) = match state {
+                SharedReadState::Wait => (true, SharedReadState::Lock(self.owner.shared.reader.lock())),
+                SharedReadState::Lock(mut lock) => match lock.poll_unpin(cx) {
+                    Poll::Pending => (false, SharedReadState::Lock(lock)),
+                    Poll::Ready(reader) => (true, SharedReadState::Read(reader)),
+                },
                 SharedReadState::Read(mut reader) => {
-                    let msg = match ready_or_break!(reader.read_message().poll_unpin(cx)) {
-                        Ok(msg) => msg,
-                        Err(err) => {
+                    let verdict = reader
+                        .read_message()
+                        .poll_unpin(cx)
+                        .map_ok(|msg| {
+                            let own = self.owner.filter.check(&msg);
+                            if !own {
+                                self.owner.shared.table.wake(&msg);
+                            };
+                            msg.retain();
+                            own
+                        })
+                        .map_err(|e| {
                             self.owner.shared.table.wake_all();
-                            return Poll::Ready(Err(err));
+                            e
+                        });
+
+                    match verdict {
+                        Poll::Pending => (false, SharedReadState::Read(reader)),
+                        Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                        Poll::Ready(Ok(true)) => {
+                            return Poll::Ready(Ok(AsyncSharedReadGuard {
+                                shared: &self.owner.shared,
+                                reader,
+                            }))
                         }
-                    };
-                    if self.owner.filter.check(&msg) {
-                        msg.retain();
-                        return Poll::Ready(Ok(AsyncSharedReadGuard {
-                            shared: &self.owner.shared,
-                            reader,
-                        }));
-                    } else {
-                        self.owner.shared.table.wake(&msg);
-                        msg.retain();
-                        SharedReadState::Wait
+                        Poll::Ready(Ok(false)) => (false, SharedReadState::Wait),
                     }
                 }
             };
-            assert!(self.state.replace(state).is_none());
-            if let SharedReadState::Wait = self.state.as_ref().unwrap() {
-                break;
-            }
         }
+        assert!(self.state.replace(state).is_none());
         Poll::Pending
     }
 }

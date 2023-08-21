@@ -1,21 +1,11 @@
 use super::common::*;
-use crate::{prelude::*, BlockingSharedReader, BlockingSharedWriter, ReadError};
+use crate::{prelude::*, BlockingSharedReader, BlockingSharedWriter, ReadError, Reader, Writer};
 use flatty::vec::FromIterator;
 use ringbuf_blocking::{traits::*, BlockingHeapRb};
 use std::{
     mem::replace,
-    thread::{self, sleep},
-    time::Duration,
+    thread::{sleep, spawn},
 };
-
-#[cfg(feature = "test_shared")]
-use crate::{BlockingSharedReader as Reader, BlockingSharedWriter as Writer};
-#[cfg(not(feature = "test_shared"))]
-use crate::{Reader, Writer};
-
-const MAX_SIZE: usize = 36;
-
-const TIMEOUT: Duration = Duration::from_millis(10);
 
 fn pipe() -> BlockingHeapRb<u8> {
     BlockingHeapRb::new(17)
@@ -25,7 +15,7 @@ fn pipe() -> BlockingHeapRb<u8> {
 fn unique() {
     let (prod, cons) = pipe().split();
     let (write, read) = (
-        thread::spawn(move || {
+        spawn(move || {
             let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
 
             writer.alloc_message().default_in_place().unwrap().write().unwrap();
@@ -44,7 +34,7 @@ fn unique() {
                 .write()
                 .unwrap();
         }),
-        thread::spawn(move || {
+        spawn(move || {
             let mut reader = Reader::<TestMsg, _>::new(cons, MAX_SIZE);
 
             match reader.read_message().unwrap().as_ref() {
@@ -75,49 +65,6 @@ fn unique() {
 }
 
 #[test]
-fn condvar() {
-    use std::sync::{Arc, Condvar, Mutex};
-
-    const ATTEMPTS: usize = 256;
-
-    let mutex = Arc::new(Mutex::<usize>::new(0));
-    let cvs = (Arc::new(Condvar::new()), Arc::new(Condvar::new()));
-
-    let threads = [
-        thread::spawn({
-            let mutex = mutex.clone();
-            let cvs = (cvs.1.clone(), cvs.0.clone());
-            move || {
-                let mut guard = mutex.lock().unwrap();
-                for i in 0..ATTEMPTS {
-                    guard = cvs.0.wait(guard).unwrap();
-                    assert_eq!(*guard, 2 * i);
-                    *guard += 1;
-                    cvs.1.notify_one();
-                }
-            }
-        }),
-        thread::spawn({
-            move || {
-                sleep(TIMEOUT);
-                cvs.1.notify_one();
-
-                let mut guard = mutex.lock().unwrap();
-                for i in 0..ATTEMPTS {
-                    guard = cvs.0.wait(guard).unwrap();
-                    assert_eq!(*guard, 2 * i + 1);
-                    *guard += 1;
-                    cvs.1.notify_one();
-                }
-            }
-        }),
-    ];
-    for t in threads {
-        t.join().unwrap();
-    }
-}
-
-#[test]
 fn shared_writer() {
     let (prod, cons) = pipe().split();
     let mut writer = BlockingSharedWriter::<TestMsg, _>::new(prod, MAX_SIZE);
@@ -125,7 +72,7 @@ fn shared_writer() {
 
     let (writes, read) = (
         [
-            thread::spawn({
+            spawn({
                 let mut writer = writer.clone();
                 move || {
                     writer
@@ -136,7 +83,7 @@ fn shared_writer() {
                         .unwrap();
                 }
             }),
-            thread::spawn(move || {
+            spawn(move || {
                 writer
                     .alloc_message()
                     .new_in_place(TestMsgInitC(FromIterator(0..7)))
@@ -145,7 +92,7 @@ fn shared_writer() {
                     .unwrap();
             }),
         ],
-        thread::spawn(move || {
+        spawn(move || {
             let mut prev = TestMsgTag::A;
             for _ in 0..2 {
                 let message = reader.read_message().unwrap();
@@ -183,7 +130,7 @@ fn shared_reader() {
     let reader = BlockingSharedReader::<TestMsg, _>::new(cons, MAX_SIZE);
 
     let (write, reads) = (
-        thread::spawn(move || {
+        spawn(move || {
             for i in 0..ATTEMPTS {
                 writer
                     .alloc_message()
@@ -201,7 +148,7 @@ fn shared_reader() {
             }
         }),
         [
-            thread::spawn({
+            spawn({
                 let mut reader = reader.clone().filter(|m| m.tag() == TestMsgTag::B);
                 move || {
                     sleep(TIMEOUT);
@@ -221,7 +168,7 @@ fn shared_reader() {
                     }
                 }
             }),
-            thread::spawn({
+            spawn({
                 let mut reader = reader.filter(|m| m.tag() == TestMsgTag::C);
                 move || {
                     for i in 0..ATTEMPTS {

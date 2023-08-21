@@ -18,15 +18,15 @@ use std::{
 };
 
 pub trait AsyncWriter<M: Flat + ?Sized>: CommonWriter<M> {
-    fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>>;
+    fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + Send + '_>>;
 }
 
 pub trait AsyncWriteGuard<'a> {
-    fn write(self) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + 'a>>;
+    fn write(self) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + Send + 'a>>;
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M> for Writer<M, W> {
-    fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Send + Unpin> AsyncWriter<M> for Writer<M, W> {
+    fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + Send + '_>> {
         Box::pin(async move {
             assert!(!self.poisoned);
             let res = self.write.write_all(&self.buffer[..count]).await;
@@ -89,8 +89,8 @@ impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> CommonWriter<M> for AsyncSharedWri
     }
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M> for AsyncSharedWriter<M, W> {
-    fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + '_>> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Send + Unpin> AsyncWriter<M> for AsyncSharedWriter<M, W> {
+    fn write_buffer(&mut self, count: usize) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + Send + '_>> {
         Box::pin(async move {
             let mut guard = self.base.write.lock().await;
             assert!(!self.base.poisoned.load(Ordering::Relaxed));
@@ -105,7 +105,7 @@ impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncWriter<M> for AsyncSharedWrit
 }
 
 impl<'a, M: Flat + ?Sized, O: AsyncWriter<M>> AsyncWriteGuard<'a> for WriteGuard<'a, M, O> {
-    fn write(self) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + 'a>> {
+    fn write(self) -> Pin<Box<dyn Future<Output = Result<(), io::Error>> + Send + 'a>> {
         self.owner.write_buffer(self.size())
     }
 }
