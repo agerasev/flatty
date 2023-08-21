@@ -1,7 +1,23 @@
 #![allow(dead_code)]
 
-use flatty::{flat, Flat, FlatVec};
+use flatty::{flat, traits::FlatValidate, Flat, FlatVec};
 use std::marker::PhantomData;
+
+#[derive(Clone, Copy, Debug)]
+struct Unused<T>(PhantomData<T>);
+unsafe impl<T> Send for Unused<T> {}
+unsafe impl<T> Sync for Unused<T> {}
+unsafe impl<T> Flat for Unused<T> {}
+unsafe impl<T> FlatValidate for Unused<T> {
+    unsafe fn validate_unchecked(_: &[u8]) -> Result<(), flatty::Error> {
+        Ok(())
+    }
+}
+impl<T> Default for Unused<T> {
+    fn default() -> Self {
+        Unused(PhantomData)
+    }
+}
 
 #[flat]
 #[derive(Default)]
@@ -12,7 +28,7 @@ where
 {
     a: S,
     b: [T; N],
-    c: PhantomData<&'a U>,
+    c: Unused<&'a U>,
 }
 
 #[flat]
@@ -28,7 +44,7 @@ where
     B([T; N]),
     C {
         x: T,
-        _p: PhantomData<&'a U>,
+        _p: Unused<&'a U>,
     },
     D(GenericSizedStruct<'a, S, T, U, N>),
     #[default]
@@ -42,7 +58,7 @@ where
     [T; N]: Default,
 {
     a: [T; N],
-    b: PhantomData<&'a U>,
+    b: Unused<&'a U>,
     c: FlatVec<T>,
 }
 
@@ -58,7 +74,7 @@ where
     B([T; N], FlatVec<T>),
     C {
         x: T,
-        _p: PhantomData<&'a U>,
+        _p: Unused<&'a U>,
     },
     D(GenericUnsizedStruct<'a, T, U, N>),
     #[default]

@@ -20,7 +20,7 @@ pub unsafe trait FlatBase: Send + Sync {
 /// *For now has to be implemented for all [`Flat`] types because there is no mutually exclusive traits in Rust yet.*
 pub unsafe trait FlatUnsized: FlatBase {
     /// Sized type that has the same alignment as `Self`.
-    type AlignAs: Sized;
+    type AlignAs: Sized + Send + Sync;
 
     unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self;
     unsafe fn ptr_to_bytes(this: *mut Self) -> *mut [u8];
