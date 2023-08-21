@@ -1,7 +1,7 @@
 use super::common::*;
 use crate::{prelude::*, BlockingSharedReader, BlockingSharedWriter, ReadError};
 use flatty::vec::FromIterator;
-use pipe::pipe;
+use ringbuf_blocking::{traits::*, BlockingHeapRb};
 use std::{
     mem::replace,
     thread::{self, sleep},
@@ -17,9 +17,13 @@ const MAX_SIZE: usize = 36;
 
 const TIMEOUT: Duration = Duration::from_millis(10);
 
+fn pipe() -> BlockingHeapRb<u8> {
+    BlockingHeapRb::new(17)
+}
+
 #[test]
 fn unique() {
-    let (cons, prod) = pipe();
+    let (prod, cons) = pipe().split();
     let (write, read) = (
         thread::spawn(move || {
             let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
@@ -115,7 +119,7 @@ fn condvar() {
 
 #[test]
 fn shared_writer() {
-    let (cons, prod) = pipe();
+    let (prod, cons) = pipe().split();
     let mut writer = BlockingSharedWriter::<TestMsg, _>::new(prod, MAX_SIZE);
     let mut reader = Reader::<TestMsg, _>::new(cons, MAX_SIZE);
 
@@ -174,7 +178,7 @@ fn shared_writer() {
 fn shared_reader() {
     const ATTEMPTS: usize = 16;
 
-    let (cons, prod) = pipe();
+    let (prod, cons) = pipe().split();
     let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
     let reader = BlockingSharedReader::<TestMsg, _>::new(cons, MAX_SIZE);
 
