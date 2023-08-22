@@ -1,17 +1,19 @@
 [workspace.package]
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 edition = "2021"
 rust-version = "1.69"
 
 authors = ["Alexey Gerasev <alexey.gerasev@gmail.com>"]
-repository = "https://github.com/agerasev/flatty.git"
+homepage = "https://gitlab.com/agerasev/flatty"
+repository = "https://gitlab.com/agerasev/flatty.git"
 license = "MIT/Apache-2.0"
+readme = "README.md"
 
 [workspace.dependencies]
-flatty-macros = { path = "macros", version = "0.1.0-rc.1" }
-flatty-base = { path = "base", version = "0.1.0-rc.1", default-features = false }
-flatty-portable = { path = "portable", version = "0.1.0-rc.1", default-features = false }
-flatty = { path = ".", version = "0.1.0-rc.1", default-features = false }
+flatty-macros = { path = "macros", version = "0.1.0-rc.2" }
+flatty-base = { path = "base", version = "0.1.0-rc.2", default-features = false }
+flatty-portable = { path = "portable", version = "0.1.0-rc.2", default-features = false }
+flatty = { path = ".", version = "0.1.0-rc.2", default-features = false }
 
 [package]
 name = "flatty"
@@ -21,11 +23,11 @@ rust-version.workspace = true
 
 description = "Flat message buffers"
 authors.workspace = true
+homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-readme = "README.md"
+readme.workspace = true
 documentation = "https://docs.rs/flatty"
-homepage = "https://github.com/agerasev/flatty"
 
 [features]
 default = ["std"]

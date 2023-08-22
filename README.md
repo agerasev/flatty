@@ -2,17 +2,17 @@
 
 [![Crates.io][crates_badge]][crates]
 [![Docs.rs][docs_badge]][docs]
-[![Github Actions][github_badge]][github]
+[![Gitlab CI][gitlab_badge]][gitlab]
 [![License][license_badge]][license]
 
 [crates_badge]: https://img.shields.io/crates/v/flatty.svg
 [docs_badge]: https://docs.rs/flatty/badge.svg
-[github_badge]: https://github.com/agerasev/flatty/actions/workflows/test.yml/badge.svg
+[gitlab_badge]: https://gitlab.com/agerasev/flatty/badges/master/pipeline.svg
 [license_badge]: https://img.shields.io/crates/l/flatty.svg
 
 [crates]: https://crates.io/crates/flatty
 [docs]: https://docs.rs/flatty
-[github]: https://github.com/agerasev/flatty/actions/workflows/test.yml
+[gitlab]: https://gitlab.com/agerasev/flatty/-/pipelines?scope=branches&ref=master
 [license]: #license
 
 Flat message buffers with direct mapping to Rust types without packing/unpacking.

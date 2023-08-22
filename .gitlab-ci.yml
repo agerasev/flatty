@@ -1,0 +1,12 @@
+default:
+  image: rust
+
+test-all:
+  stage: test
+  script:
+    - cargo test --all
+
+check-all-no-default-features:
+  stage: test
+  script:
+    - cargo check --all --no-default-features
