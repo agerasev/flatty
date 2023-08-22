@@ -11,17 +11,14 @@ license.workspace = true
 [features]
 default = ["async"]
 async = ["futures"]
+test_shared = []
 
 [dependencies]
 flatty = { workspace = true, features = ["std"] }
 futures = { version = "0.3.25", optional = true }
-
-[dependencies.derive_more]
-version = "0.99.17"
-default-features = false
-features = ["from", "into", "deref", "deref_mut"]
+owning_ref = "0.4.1"
 
 [dev-dependencies]
-pipe = "0.4.0"
-async-ringbuf = "0.2.0-rc.0"
-ringbuf = "0.4.0-rc.0"
+async-std = { version = "1.12.0", features = ["attributes"] }
+async-ringbuf = "0.2.0-rc.3"
+ringbuf-blocking = "0.1.0-rc.1"

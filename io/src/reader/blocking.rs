@@ -1,21 +1,21 @@
-use super::{CommonReadGuard, CommonReader, ReadBuffer, ReadError};
+use super::{
+    endpoint::{Endpoint, EndpointTable, EptHandle, EptId, Filter},
+    CommonReader, ReadError, ReadGuard, Reader,
+};
 use flatty::Flat;
-use std::io::Read;
+use std::{
+    io::Read,
+    ops::Deref,
+    pin::Pin,
+    sync::{Arc, Condvar, Mutex, MutexGuard},
+};
 
-pub struct Reader<M: Flat + ?Sized, R: Read> {
-    reader: R,
-    buffer: ReadBuffer<M>,
+pub trait BlockingReader<M: Flat + ?Sized>: CommonReader<M> {
+    fn read_message(&mut self) -> Result<Self::ReadGuard<'_>, ReadError>;
 }
 
-impl<M: Flat + ?Sized, R: Read> Reader<M, R> {
-    pub fn new(reader: R, max_msg_size: usize) -> Self {
-        Self {
-            reader,
-            buffer: ReadBuffer::new(max_msg_size),
-        }
-    }
-
-    pub fn read_message(&mut self) -> Result<ReadGuard<'_, M, R>, ReadError> {
+impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for Reader<M, R> {
+    fn read_message(&mut self) -> Result<Self::ReadGuard<'_>, ReadError> {
         loop {
             match self.buffer.next_message() {
                 Some(result) => break result.map(|_| ()),
@@ -40,13 +40,132 @@ impl<M: Flat + ?Sized, R: Read> Reader<M, R> {
     }
 }
 
-impl<M: Flat + ?Sized, R: Read> CommonReader<M> for Reader<M, R> {
-    fn buffer(&self) -> &ReadBuffer<M> {
-        &self.buffer
-    }
-    fn buffer_mut(&mut self) -> &mut ReadBuffer<M> {
-        &mut self.buffer
+impl EptHandle for Arc<Condvar> {
+    fn wake(&self) {
+        self.notify_one();
     }
 }
 
-pub type ReadGuard<'a, M, R> = CommonReadGuard<'a, M, Reader<M, R>>;
+struct SharedData<M: Flat + ?Sized, R: Read> {
+    reader: Mutex<Reader<M, R>>,
+    table: EndpointTable<M, Arc<Condvar>>,
+}
+
+pub struct BlockingSharedReader<M: Flat + ?Sized, R: Read> {
+    shared: Pin<Arc<SharedData<M, R>>>,
+    filter: Filter<M>,
+    handle: Arc<Condvar>,
+    id: EptId,
+}
+
+impl<M: Flat + ?Sized + 'static, R: Read> BlockingSharedReader<M, R> {
+    pub fn new(read: R, max_msg_size: usize) -> Self {
+        let table = EndpointTable::default();
+        let filter = Filter::default();
+        let handle = Arc::new(Condvar::new());
+        let ept = Endpoint {
+            filter: filter.clone(),
+            handle: handle.clone(),
+        };
+        let id = table.insert(ept);
+        Self {
+            shared: Arc::pin(SharedData {
+                reader: Mutex::new(Reader::new(read, max_msg_size)),
+                table,
+            }),
+            filter,
+            handle,
+            id,
+        }
+    }
+    pub fn filter<F: Fn(&M) -> bool + Sync + Send + 'static>(mut self, f: F) -> Self {
+        let mut ept = self.shared.table.get(self.id).unwrap();
+        let filter = Filter::new({
+            let g = ept.filter.clone();
+            move |m| g.check(m) && f(m)
+        });
+        ept.filter = filter.clone();
+        drop(ept);
+        self.filter = filter;
+        self
+    }
+}
+
+impl<M: Flat + ?Sized, R: Read> Clone for BlockingSharedReader<M, R> {
+    fn clone(&self) -> Self {
+        let filter = self.shared.table.get(self.id).unwrap().filter.clone();
+        let handle = Arc::new(Condvar::new());
+        let ept = Endpoint {
+            filter: filter.clone(),
+            handle: handle.clone(),
+        };
+        let id = self.shared.table.insert(ept);
+        Self {
+            shared: self.shared.clone(),
+            filter,
+            handle,
+            id,
+        }
+    }
+}
+
+impl<M: Flat + ?Sized, R: Read> Drop for BlockingSharedReader<M, R> {
+    fn drop(&mut self) {
+        self.shared.table.remove(self.id);
+    }
+}
+
+impl<M: Flat + ?Sized, R: Read> CommonReader<M> for BlockingSharedReader<M, R> {
+    type ReadGuard<'a> = BlockingSharedReadGuard<'a, M, R> where Self: 'a;
+}
+
+impl<M: Flat + ?Sized, R: Read> BlockingReader<M> for BlockingSharedReader<M, R> {
+    fn read_message(&mut self) -> Result<Self::ReadGuard<'_>, ReadError> {
+        let mut reader = self.shared.reader.lock().unwrap();
+        loop {
+            let msg = match reader.read_message() {
+                Ok(msg) => msg,
+                Err(e) => {
+                    self.shared.table.wake_all();
+                    break Err(e);
+                }
+            };
+            if self.filter.check(&msg) {
+                msg.retain();
+                break Ok(BlockingSharedReadGuard {
+                    shared: &self.shared,
+                    reader,
+                });
+            } else {
+                self.shared.table.wake(&msg);
+                msg.retain();
+                reader = self.handle.wait(reader).unwrap();
+            }
+        }
+    }
+}
+
+pub struct BlockingSharedReadGuard<'a, M: Flat + ?Sized, R: Read> {
+    shared: &'a SharedData<M, R>,
+    reader: MutexGuard<'a, Reader<M, R>>,
+}
+
+impl<'a, M: Flat + ?Sized, R: Read> Drop for BlockingSharedReadGuard<'a, M, R> {
+    fn drop(&mut self) {
+        let size = self.size();
+        self.reader.buffer.skip_occupied(size);
+        if let Some(res) = self.reader.buffer.next_message() {
+            match res {
+                Ok(msg) => self.shared.table.wake(msg),
+                Err(_) => self.shared.table.wake_all(),
+            }
+        }
+    }
+}
+
+impl<'a, M: Flat + ?Sized, R: Read> Deref for BlockingSharedReadGuard<'a, M, R> {
+    type Target = M;
+    fn deref(&self) -> &M {
+        self.reader.buffer.message().unwrap()
+    }
+}
