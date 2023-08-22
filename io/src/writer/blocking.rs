@@ -1,6 +1,4 @@
-use crate::UninitWriteGuard;
-
-use super::{CommonWriter, WriteError, WriteGuard, Writer};
+use super::{CommonWriter, UninitWriteGuard, WriteError, WriteGuard, Writer};
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes};
 use std::{
     io::Write,
