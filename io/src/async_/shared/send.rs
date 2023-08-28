@@ -1,7 +1,4 @@
-use crate::{
-    async_::AsyncSender,
-    common::{CommonSender, SendError, UninitSendGuard},
-};
+use super::super::{AsyncSender, CommonSender, SendError, UninitSendGuard};
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes};
 use futures::{
     future::FusedFuture,

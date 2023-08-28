@@ -1,7 +1,4 @@
-use crate::{
-    blocking::BlockingSender,
-    common::{CommonSender, SendError, UninitSendGuard},
-};
+use super::super::{BlockingSender, CommonSender, SendError, UninitSendGuard};
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes};
 use std::{
     io::Write,

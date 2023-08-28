@@ -1,9 +1,6 @@
-use crate::{
-    blocking::BlockingReceiver,
-    common::{
-        shared::{Endpoint, EndpointTable, EptHandle, EptId, Filter},
-        CommonReceiver, Receiver, RecvError,
-    },
+use super::{
+    super::{BlockingReceiver, CommonReceiver, Receiver, RecvError},
+    Endpoint, EndpointTable, EptHandle, EptId, Filter,
 };
 use flatty::Flat;
 use std::{

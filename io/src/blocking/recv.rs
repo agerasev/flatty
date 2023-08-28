@@ -1,4 +1,4 @@
-use crate::common::{CommonReceiver, Receiver, RecvError, RecvGuard};
+use super::{CommonReceiver, Receiver, RecvError, RecvGuard};
 use flatty::Flat;
 use std::io::Read;
 

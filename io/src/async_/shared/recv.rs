@@ -1,9 +1,6 @@
-use crate::{
-    async_::AsyncReceiver,
-    common::{
-        shared::{Endpoint, EndpointTable, EptHandle, EptId, Filter},
-        CommonReceiver, Receiver, RecvError,
-    },
+use super::{
+    super::{AsyncReceiver, CommonReceiver, Receiver, RecvError},
+    Endpoint, EndpointTable, EptHandle, EptId, Filter,
 };
 use flatty::Flat;
 use futures::{

@@ -1,4 +1,4 @@
-use crate::common::{CommonSender, SendError, SendGuard, Sender};
+use super::{CommonSender, SendError, SendGuard, Sender};
 use flatty::{self, prelude::*};
 use std::io::Write;
 

@@ -1,7 +1,9 @@
+pub mod common;
+
 #[cfg(feature = "async")]
 pub mod async_;
+#[cfg(feature = "blocking")]
 pub mod blocking;
-pub mod common;
 
 #[cfg(test)]
 mod tests;
