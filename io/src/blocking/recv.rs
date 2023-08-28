@@ -1,33 +1,21 @@
-use super::{CommonReceiver, Receiver, RecvError, RecvGuard};
-use flatty::Flat;
-use std::io::Read;
+use super::{BufRecvGuard, BufferReceiver, Receiver, RecvError, RecvGuard};
+use flatty::{error::ErrorKind, Flat};
 
-pub trait BlockingReceiver<M: Flat + ?Sized>: CommonReceiver<M> {
-    fn recv(&mut self) -> Result<Self::RecvGuard<'_>, RecvError>;
+pub trait BlockingBufferReceiver: BufferReceiver {
+    fn recv(&mut self) -> Result<Self::Guard<'_>, Self::Error>;
 }
 
-impl<M: Flat + ?Sized, R: Read> BlockingReceiver<M> for Receiver<M, R> {
-    fn recv(&mut self) -> Result<Self::RecvGuard<'_>, RecvError> {
-        loop {
-            match self.buffer.next_message() {
-                Some(result) => break result.map(|_| ()),
-                None => {
-                    if self.buffer.vacant_len() == 0 {
-                        assert!(self.buffer.try_extend_vacant());
-                    }
-                }
+impl<M: Flat + ?Sized, B: BlockingBufferReceiver> Receiver<M, B> {
+    pub fn recv(&mut self) -> Result<RecvGuard<'_, M, B>, RecvError<B::Error>> {
+        let mut buffer = self.buf_recv.recv().map_err(RecvError::Buffer)?;
+        Ok(RecvGuard::new(loop {
+            match M::validate(&buffer) {
+                Err(e) => match e.kind {
+                    ErrorKind::InsufficientSize => buffer.extend().map_err(RecvError::Buffer)?,
+                    _ => return Err(RecvError::Parse(e)),
+                },
+                Ok(()) => break buffer,
             }
-            match self.reader.read(self.buffer.vacant_mut()) {
-                Ok(count) => {
-                    if count != 0 {
-                        self.buffer.take_vacant(count);
-                    } else {
-                        break Err(RecvError::Eof);
-                    }
-                }
-                Err(err) => break Err(RecvError::Io(err)),
-            }
-        }
-        .map(|()| RecvGuard::new(self))
+        }))
     }
 }

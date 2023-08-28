@@ -1,48 +1,52 @@
-use super::buffer::ReadBuffer;
+use core::{marker::PhantomData, mem::forget, ops::Deref};
 use flatty::Flat;
-use std::{io, mem::forget, ops::Deref};
 
-#[derive(Debug)]
-pub enum RecvError {
-    Io(io::Error),
-    Parse(flatty::Error),
-    /// Stream has been closed.
-    Eof,
-}
-
-pub trait CommonReceiver<M: Flat + ?Sized>: Sized {
-    type RecvGuard<'a>: Sized
+pub trait BufferReceiver {
+    type Error;
+    type Guard<'a>: BufRecvGuard<Error = Self::Error>
     where
         Self: 'a;
 }
 
-pub struct Receiver<M: Flat + ?Sized, R> {
-    pub(crate) reader: R,
-    pub(crate) buffer: ReadBuffer<M>,
+pub trait BufRecvGuard: Deref<Target = [u8]> {
+    type Error;
+    fn extend(&mut self) -> Result<(), Self::Error>;
+    fn skip(&mut self, count: usize);
 }
 
-impl<M: Flat + ?Sized, R> Receiver<M, R> {
-    pub fn new(reader: R, max_msg_size: usize) -> Self {
+#[derive(Debug)]
+pub enum RecvError<E> {
+    Buffer(E),
+    Parse(flatty::Error),
+}
+
+pub struct Receiver<M: Flat + ?Sized, B: BufferReceiver> {
+    pub(crate) buf_recv: B,
+    _ghost: PhantomData<M>,
+}
+
+impl<M: Flat + ?Sized, B: BufferReceiver> Receiver<M, B> {
+    pub fn new(buf_recv: B) -> Self {
         Self {
-            reader,
-            buffer: ReadBuffer::new(max_msg_size),
+            buf_recv,
+            _ghost: PhantomData,
         }
     }
 }
 
-impl<M: Flat + ?Sized, R> CommonReceiver<M> for Receiver<M, R> {
-    type RecvGuard<'a> = RecvGuard<'a, M, R> where Self: 'a;
+pub struct RecvGuard<'a, M: Flat + ?Sized, B: BufferReceiver + 'a> {
+    pub(crate) buffer: B::Guard<'a>,
+    _ghost: PhantomData<M>,
 }
 
-pub struct RecvGuard<'a, M: Flat + ?Sized, R> {
-    owner: &'a mut Receiver<M, R>,
-}
-
-impl<'a, M: Flat + ?Sized, R> RecvGuard<'a, M, R> {
-    pub(crate) fn new(owner: &'a mut Receiver<M, R>) -> Self {
-        Self { owner }
+impl<'a, M: Flat + ?Sized, B: BufferReceiver + 'a> RecvGuard<'a, M, B> {
+    pub(crate) fn new(buffer: B::Guard<'a>) -> Self {
+        Self {
+            buffer,
+            _ghost: PhantomData,
+        }
     }
-    /// Destroy guard but do not remove message from reader.
+    /// Destroy guard but do not remove message from receiver.
     ///
     /// Effect of this call is the same as leak of the guard.
     pub fn retain(self) {
@@ -50,16 +54,16 @@ impl<'a, M: Flat + ?Sized, R> RecvGuard<'a, M, R> {
     }
 }
 
-impl<'a, M: Flat + ?Sized, R> Drop for RecvGuard<'a, M, R> {
+impl<'a, M: Flat + ?Sized, B: BufferReceiver + 'a> Drop for RecvGuard<'a, M, B> {
     fn drop(&mut self) {
         let size = self.size();
-        self.owner.buffer.skip_occupied(size);
+        self.buffer.skip(size);
     }
 }
 
-impl<'a, M: Flat + ?Sized, R> Deref for RecvGuard<'a, M, R> {
+impl<'a, M: Flat + ?Sized, B: BufferReceiver + 'a> Deref for RecvGuard<'a, M, B> {
     type Target = M;
     fn deref(&self) -> &M {
-        self.owner.buffer.message().unwrap()
+        unsafe { M::from_bytes_unchecked(&self.buffer) }
     }
 }

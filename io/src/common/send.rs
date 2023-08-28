@@ -1,116 +1,93 @@
-use flatty::{self, prelude::*, utils::alloc::AlignedBytes, Emplacer};
+use flatty::{self, prelude::*, Emplacer};
 use std::{
-    io,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
-#[derive(Debug)]
-pub enum SendError {
-    Io(io::Error),
-    /// Stream has been closed.
-    Eof,
+pub trait BufferSender {
+    type Error;
+    type Guard<'a>: BufSendGuard<Error = Self::Error>
+    where
+        Self: 'a;
 }
 
-pub trait CommonSender<M: Flat + ?Sized>: Sized {
-    fn buffer(&self) -> &[u8];
-    fn buffer_mut(&mut self) -> &mut [u8];
-
-    fn poisoned(&self) -> bool;
+pub trait BufSendGuard: DerefMut<Target = [u8]> {
+    type Error;
 }
 
-pub struct Sender<M: Flat + ?Sized, W> {
-    pub(crate) write: W,
-    pub(crate) poisoned: bool,
-    pub(crate) buffer: AlignedBytes,
-    _phantom: PhantomData<M>,
+pub type SendError<E> = E;
+
+pub struct Sender<M: Flat + ?Sized, B: BufferSender> {
+    pub(crate) buf_send: B,
+    _ghost: PhantomData<M>,
 }
 
-impl<M: Flat + ?Sized, W> Sender<M, W> {
-    pub fn new(write: W, max_msg_size: usize) -> Self {
+impl<M: Flat + ?Sized, B: BufferSender> Sender<M, B> {
+    pub fn new(buf_send: B) -> Self {
         Self {
-            write,
-            poisoned: false,
-            buffer: AlignedBytes::new(max_msg_size, M::ALIGN),
-            _phantom: PhantomData,
+            buf_send,
+            _ghost: PhantomData,
+        }
+    }
+}
+
+pub struct UninitSendGuard<'a, M: Flat + ?Sized, B: BufferSender + 'a> {
+    buffer: B::Guard<'a>,
+    _ghost: PhantomData<M>,
+}
+
+impl<'a, M: Flat + ?Sized, B: BufferSender + 'a> UninitSendGuard<'a, M, B> {
+    pub(crate) fn new(buffer: B::Guard<'a>) -> Self {
+        Self {
+            buffer,
+            _ghost: PhantomData,
         }
     }
 
-    pub fn alloc(&mut self) -> UninitSendGuard<'_, M, Self> {
-        UninitSendGuard::new(self)
-    }
-}
-
-impl<M: Flat + ?Sized, W> CommonSender<M> for Sender<M, W> {
-    fn buffer(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         &self.buffer
     }
-    fn buffer_mut(&mut self) -> &mut [u8] {
+    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
         &mut self.buffer
-    }
-
-    fn poisoned(&self) -> bool {
-        self.poisoned
-    }
-}
-
-pub struct UninitSendGuard<'a, M: Flat + ?Sized, O: CommonSender<M>> {
-    owner: &'a mut O,
-    _phantom: PhantomData<M>,
-}
-
-impl<'a, M: Flat + ?Sized, O: CommonSender<M>> UninitSendGuard<'a, M, O> {
-    pub fn new(owner: &'a mut O) -> Self {
-        Self {
-            owner,
-            _phantom: PhantomData,
-        }
-    }
-
-    pub fn buffer(&self) -> &[u8] {
-        self.owner.buffer()
-    }
-    pub fn buffer_mut(&mut self) -> &mut [u8] {
-        self.owner.buffer_mut()
     }
 
     /// # Safety
     ///
     /// Underlying message data must be initialized.
-    pub unsafe fn assume_valid(self) -> SendGuard<'a, M, O> {
+    pub unsafe fn assume_valid(self) -> SendGuard<'a, M, B> {
         SendGuard {
-            owner: self.owner,
-            _phantom: PhantomData,
+            buffer: self.buffer,
+            _ghost: PhantomData,
         }
     }
 
-    pub fn new_in_place(self, emplacer: impl Emplacer<M>) -> Result<SendGuard<'a, M, O>, flatty::Error> {
-        M::new_in_place(self.owner.buffer_mut(), emplacer)?;
+    pub fn new_in_place(mut self, emplacer: impl Emplacer<M>) -> Result<SendGuard<'a, M, B>, flatty::Error> {
+        M::new_in_place(&mut self.buffer, emplacer)?;
         Ok(unsafe { self.assume_valid() })
     }
 }
 
-impl<'a, M: Flat + FlatDefault + ?Sized, O: CommonSender<M>> UninitSendGuard<'a, M, O> {
-    pub fn default_in_place(self) -> Result<SendGuard<'a, M, O>, flatty::Error> {
-        M::default_in_place(self.owner.buffer_mut())?;
+impl<'a, M: Flat + FlatDefault + ?Sized, B: BufferSender + 'a> UninitSendGuard<'a, M, B> {
+    pub fn default_in_place(mut self) -> Result<SendGuard<'a, M, B>, flatty::Error> {
+        M::default_in_place(&mut self.buffer)?;
         Ok(unsafe { self.assume_valid() })
     }
 }
 
-pub struct SendGuard<'a, M: Flat + ?Sized, O: CommonSender<M>> {
-    pub(crate) owner: &'a mut O,
-    _phantom: PhantomData<M>,
+pub struct SendGuard<'a, M: Flat + ?Sized, B: BufferSender + 'a> {
+    pub(crate) buffer: B::Guard<'a>,
+    _ghost: PhantomData<M>,
 }
 
-impl<'a, M: Flat + ?Sized, O: CommonSender<M>> Deref for SendGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, B: BufferSender + 'a> Deref for SendGuard<'a, M, B> {
     type Target = M;
     fn deref(&self) -> &M {
-        unsafe { M::from_bytes_unchecked(self.owner.buffer()) }
+        unsafe { M::from_bytes_unchecked(&self.buffer) }
     }
 }
 
-impl<'a, M: Flat + ?Sized, O: CommonSender<M>> DerefMut for SendGuard<'a, M, O> {
+impl<'a, M: Flat + ?Sized, B: BufferSender + 'a> DerefMut for SendGuard<'a, M, B> {
     fn deref_mut(&mut self) -> &mut M {
-        unsafe { M::from_mut_bytes_unchecked(self.owner.buffer_mut()) }
+        unsafe { M::from_mut_bytes_unchecked(&mut self.buffer) }
     }
 }

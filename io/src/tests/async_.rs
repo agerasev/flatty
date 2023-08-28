@@ -1,18 +1,16 @@
-use std::mem::replace;
-
 use super::common::*;
-use crate::async_::{
-    prelude::*,
-    shared::{SharedReceiver, SharedSender},
-    Receiver, RecvError, Sender,
-};
+use crate::async_::{prelude::*, Receiver, RecvError, Sender};
 use async_ringbuf::{traits::*, AsyncHeapRb};
-use async_std::{
-    task::{sleep, spawn},
-    test as async_test,
-};
+use async_std::{task::spawn, test as async_test};
 use flatty::vec::FromIterator;
 use futures::join;
+
+#[cfg(feature = "shared")]
+use crate::async_::shared::{SharedReceiver, SharedSender};
+#[cfg(feature = "shared")]
+use async_std::task::sleep;
+#[cfg(feature = "shared")]
+use std::mem::replace;
 
 fn pipe() -> AsyncHeapRb<u8> {
     AsyncHeapRb::<u8>::new(17)
@@ -80,6 +78,7 @@ async fn unique() {
     );
 }
 
+#[cfg(feature = "shared")]
 #[async_test]
 async fn shared_sender() {
     let (prod, cons) = pipe().split();
@@ -134,6 +133,7 @@ async fn shared_sender() {
     );
 }
 
+#[cfg(feature = "shared")]
 #[async_test]
 async fn shared_receiver() {
     const ATTEMPTS: usize = 16;

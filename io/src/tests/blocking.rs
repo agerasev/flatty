@@ -1,15 +1,13 @@
 use super::common::*;
-use crate::blocking::{
-    prelude::*,
-    shared::{SharedReceiver, SharedSender},
-    Receiver, RecvError, Sender,
-};
+use crate::blocking::{prelude::*, Receiver, RecvError, Sender};
 use flatty::vec::FromIterator;
 use ringbuf_blocking::{traits::*, BlockingHeapRb};
-use std::{
-    mem::replace,
-    thread::{sleep, spawn},
-};
+use std::thread::spawn;
+
+#[cfg(feature = "shared")]
+use crate::blocking::shared::{SharedReceiver, SharedSender};
+#[cfg(feature = "shared")]
+use std::{mem::replace, thread::sleep};
 
 fn pipe() -> BlockingHeapRb<u8> {
     BlockingHeapRb::new(17)
@@ -63,6 +61,7 @@ fn unique() {
     send.join().unwrap();
 }
 
+#[cfg(feature = "shared")]
 #[test]
 fn shared_sender() {
     let (prod, cons) = pipe().split();
@@ -120,6 +119,7 @@ fn shared_sender() {
     }
 }
 
+#[cfg(feature = "shared")]
 #[test]
 fn shared_receiver() {
     const ATTEMPTS: usize = 16;

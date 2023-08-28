@@ -1,42 +1,31 @@
-use super::{CommonSender, SendError, SendGuard, Sender};
+use super::{BufSendGuard, BufferSender, SendError, SendGuard, Sender, UninitSendGuard};
 use flatty::{self, prelude::*};
-use std::io::Write;
 
-pub trait BlockingSender<M: Flat + ?Sized>: CommonSender<M> {
-    fn send_buffer(&mut self, count: usize) -> Result<(), SendError>;
+pub trait BlockingBufferSender: BufferSender
+where
+    for<'b> Self::Guard<'b>: BlockingBufSendGuard,
+{
+    fn alloc(&mut self) -> Result<Self::Guard<'_>, Self::Error>;
+}
+pub trait BlockingBufSendGuard: BufSendGuard {
+    fn send(self, count: usize) -> Result<(), Self::Error>;
 }
 
-pub trait BlockingSendGuard<'a> {
-    fn send(self) -> Result<(), SendError>;
-}
-
-impl<M: Flat + ?Sized, W: Write> BlockingSender<M> for Sender<M, W> {
-    fn send_buffer(&mut self, count: usize) -> Result<(), SendError> {
-        assert!(!self.poisoned);
-        let mut data = &self.buffer[..count];
-        loop {
-            match self.write.write(data) {
-                Ok(n) => {
-                    if n > 0 {
-                        data = &data[n..];
-                        if data.is_empty() {
-                            break Ok(());
-                        }
-                    } else {
-                        break Err(SendError::Eof);
-                    }
-                }
-                Err(e) => {
-                    self.poisoned = true;
-                    break Err(SendError::Io(e));
-                }
-            }
-        }
+impl<M: Flat + ?Sized, B: BlockingBufferSender> Sender<M, B>
+where
+    for<'b> B::Guard<'b>: BlockingBufSendGuard,
+{
+    pub fn alloc(&mut self) -> Result<UninitSendGuard<'_, M, B>, SendError<B::Error>> {
+        Ok(UninitSendGuard::new(self.buf_send.alloc()?))
     }
 }
 
-impl<'a, M: Flat + ?Sized, O: BlockingSender<M>> BlockingSendGuard<'a> for SendGuard<'a, M, O> {
-    fn send(self) -> Result<(), SendError> {
-        self.owner.send_buffer(self.size())
+impl<'a, M: Flat + ?Sized, B: BlockingBufferSender> SendGuard<'a, M, B>
+where
+    for<'b> B::Guard<'b>: BlockingBufSendGuard,
+{
+    pub fn send(self) -> Result<(), SendError<B::Error>> {
+        let size = self.size();
+        self.buffer.send(size)
     }
 }

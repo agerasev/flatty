@@ -8,7 +8,7 @@ use std::{
 };
 
 pub trait AsyncReceiver<M: Flat + ?Sized>: CommonReceiver<M> {
-    type RecvFuture<'a>: Future<Output = Result<Self::RecvGuard<'a>, RecvError>>
+    type RecvFuture<'a>: Future<Output = Result<Self::Guard<'a>, RecvError>>
     where
         Self: 'a;
 
