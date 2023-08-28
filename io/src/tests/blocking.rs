@@ -1,7 +1,7 @@
 use super::common::*;
 use crate::blocking::{
     prelude::*,
-    shared::{BlockingSharedReceiver, BlockingSharedSender},
+    shared::{SharedReceiver, SharedSender},
     Receiver, RecvError, Sender,
 };
 use flatty::vec::FromIterator;
@@ -66,7 +66,7 @@ fn unique() {
 #[test]
 fn shared_sender() {
     let (prod, cons) = pipe().split();
-    let mut sender = BlockingSharedSender::<TestMsg, _>::new(prod, MAX_SIZE);
+    let mut sender = SharedSender::<TestMsg, _>::new(prod, MAX_SIZE);
     let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
     let (sends, recv) = (
@@ -126,7 +126,7 @@ fn shared_receiver() {
 
     let (prod, cons) = pipe().split();
     let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
-    let receiver = BlockingSharedReceiver::<TestMsg, _>::new(cons, MAX_SIZE);
+    let receiver = SharedReceiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
     let (send, recvs) = (
         spawn(move || {

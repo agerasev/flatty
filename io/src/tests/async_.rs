@@ -3,7 +3,7 @@ use std::mem::replace;
 use super::common::*;
 use crate::async_::{
     prelude::*,
-    shared::{AsyncSharedReceiver, AsyncSharedSender},
+    shared::{SharedReceiver, SharedSender},
     Receiver, RecvError, Sender,
 };
 use async_ringbuf::{traits::*, AsyncHeapRb};
@@ -83,7 +83,7 @@ async fn unique() {
 #[async_test]
 async fn shared_sender() {
     let (prod, cons) = pipe().split();
-    let mut sender = AsyncSharedSender::<TestMsg, _>::new(prod, MAX_SIZE);
+    let mut sender = SharedSender::<TestMsg, _>::new(prod, MAX_SIZE);
     let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
     join!(
@@ -140,7 +140,7 @@ async fn shared_receiver() {
 
     let (prod, cons) = pipe().split();
     let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
-    let receiver = AsyncSharedReceiver::<TestMsg, _>::new(cons, MAX_SIZE);
+    let receiver = SharedReceiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
     join!(
         spawn(async move {

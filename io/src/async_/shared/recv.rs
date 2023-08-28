@@ -32,13 +32,13 @@ struct SharedData<M: Flat + ?Sized, R: AsyncRead + Unpin> {
     table: EndpointTable<M, Waker>,
 }
 
-pub struct AsyncSharedReceiver<M: Flat + ?Sized, R: AsyncRead + Unpin> {
+pub struct SharedReceiver<M: Flat + ?Sized, R: AsyncRead + Unpin> {
     shared: Pin<Arc<SharedData<M, R>>>,
     filter: Filter<M>,
     id: EptId,
 }
 
-impl<M: Flat + ?Sized + 'static, R: AsyncRead + Unpin> AsyncSharedReceiver<M, R> {
+impl<M: Flat + ?Sized + 'static, R: AsyncRead + Unpin> SharedReceiver<M, R> {
     pub fn new(read: R, max_msg_size: usize) -> Self {
         let table = EndpointTable::default();
         let filter = Filter::default();
@@ -69,7 +69,7 @@ impl<M: Flat + ?Sized + 'static, R: AsyncRead + Unpin> AsyncSharedReceiver<M, R>
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Clone for AsyncSharedReceiver<M, R> {
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Clone for SharedReceiver<M, R> {
     fn clone(&self) -> Self {
         let filter = self.shared.table.get(self.id).unwrap().filter.clone();
         let ept = Endpoint {
@@ -85,17 +85,17 @@ impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Clone for AsyncSharedReceiver<M, R>
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for AsyncSharedReceiver<M, R> {
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for SharedReceiver<M, R> {
     fn drop(&mut self) {
         self.shared.table.remove(self.id);
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> CommonReceiver<M> for AsyncSharedReceiver<M, R> {
-    type RecvGuard<'a> = AsyncSharedRecvGuard<'a, M, R> where Self: 'a;
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> CommonReceiver<M> for SharedReceiver<M, R> {
+    type RecvGuard<'a> = SharedRecvGuard<'a, M, R> where Self: 'a;
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for AsyncSharedReceiver<M, R> {}
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for SharedReceiver<M, R> {}
 
 enum SharedRecvState<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
     Wait,
@@ -104,14 +104,14 @@ enum SharedRecvState<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
 }
 
 pub struct SharedRecvFuture<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
-    owner: &'a AsyncSharedReceiver<M, R>,
+    owner: &'a SharedReceiver<M, R>,
     state: Option<SharedRecvState<'a, M, R>>,
 }
 
 impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for SharedRecvFuture<'a, M, R> {}
 
 impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for SharedRecvFuture<'a, M, R> {
-    type Output = Result<AsyncSharedRecvGuard<'a, M, R>, RecvError>;
+    type Output = Result<SharedRecvGuard<'a, M, R>, RecvError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.owner.shared.table.get(self.owner.id).unwrap().handle = cx.waker().clone();
@@ -134,7 +134,7 @@ impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for SharedRecvFuture<'a,
                         let msg = reader.take_message();
                         if self.owner.filter.check(&msg) {
                             msg.retain();
-                            return Poll::Ready(Ok(AsyncSharedRecvGuard {
+                            return Poll::Ready(Ok(SharedRecvGuard {
                                 shared: &self.owner.shared,
                                 reader,
                             }));
@@ -158,7 +158,7 @@ impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> FusedFuture for SharedRecvFutur
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> AsyncReceiver<M> for AsyncSharedReceiver<M, R> {
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> AsyncReceiver<M> for SharedReceiver<M, R> {
     type RecvFuture<'a> = SharedRecvFuture<'a, M, R> where Self: 'a;
 
     fn recv(&mut self) -> Self::RecvFuture<'_> {
@@ -169,12 +169,12 @@ impl<M: Flat + ?Sized, R: AsyncRead + Unpin> AsyncReceiver<M> for AsyncSharedRec
     }
 }
 
-pub struct AsyncSharedRecvGuard<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
+pub struct SharedRecvGuard<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
     shared: &'a SharedData<M, R>,
     reader: MutexGuard<'a, Receiver<M, R>>,
 }
 
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for AsyncSharedRecvGuard<'a, M, R> {
+impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for SharedRecvGuard<'a, M, R> {
     fn drop(&mut self) {
         let size = self.size();
         self.reader.buffer.skip_occupied(size);
@@ -187,7 +187,7 @@ impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for AsyncSharedRecvGuard<'
     }
 }
 
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Deref for AsyncSharedRecvGuard<'a, M, R> {
+impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Deref for SharedRecvGuard<'a, M, R> {
     type Target = M;
     fn deref(&self) -> &M {
         self.reader.buffer.message().unwrap()

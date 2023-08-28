@@ -17,13 +17,13 @@ struct Base<W: Write> {
     poisoned: AtomicBool,
 }
 
-pub struct BlockingSharedSender<M: Flat + ?Sized, W: Write> {
+pub struct SharedSender<M: Flat + ?Sized, W: Write> {
     base: Arc<Base<W>>,
     buffer: AlignedBytes,
     _phantom: PhantomData<M>,
 }
 
-impl<M: Flat + ?Sized, W: Write> BlockingSharedSender<M, W> {
+impl<M: Flat + ?Sized, W: Write> SharedSender<M, W> {
     pub fn new(write: W, max_msg_size: usize) -> Self {
         Self {
             base: Arc::new(Base {
@@ -40,7 +40,7 @@ impl<M: Flat + ?Sized, W: Write> BlockingSharedSender<M, W> {
     }
 }
 
-impl<M: Flat + ?Sized, W: Write> Clone for BlockingSharedSender<M, W> {
+impl<M: Flat + ?Sized, W: Write> Clone for SharedSender<M, W> {
     fn clone(&self) -> Self {
         Self {
             base: self.base.clone(),
@@ -50,7 +50,7 @@ impl<M: Flat + ?Sized, W: Write> Clone for BlockingSharedSender<M, W> {
     }
 }
 
-impl<M: Flat + ?Sized, W: Write> CommonSender<M> for BlockingSharedSender<M, W> {
+impl<M: Flat + ?Sized, W: Write> CommonSender<M> for SharedSender<M, W> {
     fn buffer(&self) -> &[u8] {
         &self.buffer
     }
@@ -63,7 +63,7 @@ impl<M: Flat + ?Sized, W: Write> CommonSender<M> for BlockingSharedSender<M, W> 
     }
 }
 
-impl<M: Flat + ?Sized, W: Write> BlockingSender<M> for BlockingSharedSender<M, W> {
+impl<M: Flat + ?Sized, W: Write> BlockingSender<M> for SharedSender<M, W> {
     fn send_buffer(&mut self, count: usize) -> Result<(), SendError> {
         let mut guard = self.base.write.lock().unwrap();
         assert!(!self.base.poisoned.load(Ordering::Relaxed));

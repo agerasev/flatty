@@ -1,6 +1,6 @@
 use crate::{
-    async_::{AsyncSendGuard, AsyncSender},
-    common::{CommonSender, SendError, SendGuard, UninitSendGuard},
+    async_::AsyncSender,
+    common::{CommonSender, SendError, UninitSendGuard},
 };
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes};
 use futures::{
@@ -25,13 +25,13 @@ struct Base<W: AsyncWrite + Unpin> {
     poisoned: AtomicBool,
 }
 
-pub struct AsyncSharedSender<M: Flat + ?Sized, W: AsyncWrite + Unpin> {
+pub struct SharedSender<M: Flat + ?Sized, W: AsyncWrite + Unpin> {
     base: Arc<Base<W>>,
     buffer: AlignedBytes,
     _phantom: PhantomData<M>,
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncSharedSender<M, W> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> SharedSender<M, W> {
     pub fn new(write: W, max_msg_size: usize) -> Self {
         Self {
             base: Arc::new(Base {
@@ -48,7 +48,7 @@ impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> AsyncSharedSender<M, W> {
     }
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> Clone for AsyncSharedSender<M, W> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> Clone for SharedSender<M, W> {
     fn clone(&self) -> Self {
         Self {
             base: self.base.clone(),
@@ -58,7 +58,7 @@ impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> Clone for AsyncSharedSender<M, W> 
     }
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> CommonSender<M> for AsyncSharedSender<M, W> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Unpin> CommonSender<M> for SharedSender<M, W> {
     fn buffer(&self) -> &[u8] {
         &self.buffer
     }
@@ -78,7 +78,7 @@ enum SharedSendState<'a, W: AsyncWrite + Unpin> {
 }
 
 pub struct SharedSendFuture<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> {
-    owner: &'a AsyncSharedSender<M, W>,
+    owner: &'a SharedSender<M, W>,
     state: Option<SharedSendState<'a, W>>,
     data: &'a [u8],
 }
@@ -133,7 +133,7 @@ impl<'a, M: Flat + ?Sized, W: AsyncWrite + Unpin> FusedFuture for SharedSendFutu
     }
 }
 
-impl<M: Flat + ?Sized, W: AsyncWrite + Send + Unpin> AsyncSender<M> for AsyncSharedSender<M, W> {
+impl<M: Flat + ?Sized, W: AsyncWrite + Send + Unpin> AsyncSender<M> for SharedSender<M, W> {
     type SendFuture<'a> = SharedSendFuture<'a, M, W> where Self: 'a;
     fn send_buffer(&mut self, count: usize) -> Self::SendFuture<'_> {
         SharedSendFuture {
@@ -143,13 +143,3 @@ impl<M: Flat + ?Sized, W: AsyncWrite + Send + Unpin> AsyncSender<M> for AsyncSha
         }
     }
 }
-
-impl<'a, M: Flat + ?Sized, O: AsyncSender<M>> AsyncSendGuard<'a> for SendGuard<'a, M, O> {
-    type SendFuture = <O as AsyncSender<M>>::SendFuture<'a>;
-    fn send(self) -> Self::SendFuture {
-        self.owner.send_buffer(self.size())
-    }
-}
-
-impl<'a, M: Flat + ?Sized, O: AsyncSender<M>> Unpin for UninitSendGuard<'a, M, O> {}
-impl<'a, M: Flat + ?Sized, O: AsyncSender<M>> Unpin for SendGuard<'a, M, O> {}

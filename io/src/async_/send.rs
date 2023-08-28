@@ -1,4 +1,4 @@
-use crate::common::{CommonSender, SendError, Sender};
+use super::{CommonSender, SendError, SendGuard, Sender, UninitSendGuard};
 use flatty::{self, prelude::*};
 use futures::{future::FusedFuture, io::AsyncWrite};
 use std::{
@@ -77,3 +77,13 @@ impl<M: Flat + ?Sized, W: AsyncWrite + Send + Unpin> AsyncSender<M> for Sender<M
         }
     }
 }
+
+impl<'a, M: Flat + ?Sized, O: AsyncSender<M>> AsyncSendGuard<'a> for SendGuard<'a, M, O> {
+    type SendFuture = <O as AsyncSender<M>>::SendFuture<'a>;
+    fn send(self) -> Self::SendFuture {
+        self.owner.send_buffer(self.size())
+    }
+}
+
+impl<'a, M: Flat + ?Sized, O: AsyncSender<M>> Unpin for UninitSendGuard<'a, M, O> {}
+impl<'a, M: Flat + ?Sized, O: AsyncSender<M>> Unpin for SendGuard<'a, M, O> {}
