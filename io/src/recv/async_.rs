@@ -1,6 +1,6 @@
 use super::{
     endpoint::{Endpoint, EndpointTable, EptHandle, EptId, Filter},
-    CommonReader, ReadError, ReadGuard, Reader,
+    CommonReceiver, Receiver, RecvError, RecvGuard,
 };
 use flatty::Flat;
 use futures::{
@@ -18,16 +18,16 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-pub trait AsyncReader<M: Flat + ?Sized>: CommonReader<M> {
-    type ReadFuture<'a>: Future<Output = Result<Self::ReadGuard<'a>, ReadError>>
+pub trait AsyncReceiver<M: Flat + ?Sized>: CommonReceiver<M> {
+    type RecvFuture<'a>: Future<Output = Result<Self::RecvGuard<'a>, RecvError>>
     where
         Self: 'a;
 
-    fn read_message(&mut self) -> Self::ReadFuture<'_>;
+    fn recv(&mut self) -> Self::RecvFuture<'_>;
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Reader<M, R> {
-    fn poll_read_message(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), ReadError>> {
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Receiver<M, R> {
+    fn poll_receive(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), RecvError>> {
         let poll = loop {
             match self.buffer.next_message() {
                 Some(result) => break Poll::Ready(result.map(|_| ())),
@@ -44,10 +44,10 @@ impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Reader<M, R> {
                         if count != 0 {
                             self.buffer.take_vacant(count);
                         } else {
-                            break Poll::Ready(Err(ReadError::Eof));
+                            break Poll::Ready(Err(RecvError::Eof));
                         }
                     }
-                    Err(err) => break Poll::Ready(Err(ReadError::Io(err))),
+                    Err(err) => break Poll::Ready(Err(RecvError::Io(err))),
                 },
                 Poll::Pending => break Poll::Pending,
             };
@@ -55,32 +55,32 @@ impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Reader<M, R> {
         poll
     }
 
-    fn take_message(&mut self) -> ReadGuard<'_, M, R> {
-        ReadGuard::new(self)
+    fn take_message(&mut self) -> RecvGuard<'_, M, R> {
+        RecvGuard::new(self)
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> AsyncReader<M> for Reader<M, R> {
-    type ReadFuture<'a> = ReadFuture<'a, M, R> where Self: 'a;
-    fn read_message(&mut self) -> Self::ReadFuture<'_> {
-        ReadFuture { owner: Some(self) }
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> AsyncReceiver<M> for Receiver<M, R> {
+    type RecvFuture<'a> = RecvFuture<'a, M, R> where Self: 'a;
+    fn recv(&mut self) -> Self::RecvFuture<'_> {
+        RecvFuture { owner: Some(self) }
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for Reader<M, R> {}
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for Receiver<M, R> {}
 
-pub struct ReadFuture<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
-    owner: Option<&'a mut Reader<M, R>>,
+pub struct RecvFuture<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
+    owner: Option<&'a mut Receiver<M, R>>,
 }
 
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for ReadFuture<'a, M, R> {}
+impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for RecvFuture<'a, M, R> {}
 
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for ReadFuture<'a, M, R> {
-    type Output = Result<ReadGuard<'a, M, R>, ReadError>;
+impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for RecvFuture<'a, M, R> {
+    type Output = Result<RecvGuard<'a, M, R>, RecvError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let owner = self.owner.take().unwrap();
-        match owner.poll_read_message(cx) {
+        match owner.poll_receive(cx) {
             Poll::Ready(res) => Poll::Ready(res.map(|()| owner.take_message())),
             Poll::Pending => {
                 self.owner.replace(owner);
@@ -97,17 +97,17 @@ impl EptHandle for Waker {
 }
 
 struct SharedData<M: Flat + ?Sized, R: AsyncRead + Unpin> {
-    reader: Mutex<Reader<M, R>>,
+    reader: Mutex<Receiver<M, R>>,
     table: EndpointTable<M, Waker>,
 }
 
-pub struct AsyncSharedReader<M: Flat + ?Sized, R: AsyncRead + Unpin> {
+pub struct AsyncSharedReceiver<M: Flat + ?Sized, R: AsyncRead + Unpin> {
     shared: Pin<Arc<SharedData<M, R>>>,
     filter: Filter<M>,
     id: EptId,
 }
 
-impl<M: Flat + ?Sized + 'static, R: AsyncRead + Unpin> AsyncSharedReader<M, R> {
+impl<M: Flat + ?Sized + 'static, R: AsyncRead + Unpin> AsyncSharedReceiver<M, R> {
     pub fn new(read: R, max_msg_size: usize) -> Self {
         let table = EndpointTable::default();
         let filter = Filter::default();
@@ -118,7 +118,7 @@ impl<M: Flat + ?Sized + 'static, R: AsyncRead + Unpin> AsyncSharedReader<M, R> {
         let id = table.insert(ept);
         Self {
             shared: Arc::pin(SharedData {
-                reader: Mutex::new(Reader::new(read, max_msg_size)),
+                reader: Mutex::new(Receiver::new(read, max_msg_size)),
                 table,
             }),
             filter,
@@ -138,7 +138,7 @@ impl<M: Flat + ?Sized + 'static, R: AsyncRead + Unpin> AsyncSharedReader<M, R> {
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Clone for AsyncSharedReader<M, R> {
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Clone for AsyncSharedReceiver<M, R> {
     fn clone(&self) -> Self {
         let filter = self.shared.table.get(self.id).unwrap().filter.clone();
         let ept = Endpoint {
@@ -154,33 +154,33 @@ impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Clone for AsyncSharedReader<M, R> {
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for AsyncSharedReader<M, R> {
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for AsyncSharedReceiver<M, R> {
     fn drop(&mut self) {
         self.shared.table.remove(self.id);
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> CommonReader<M> for AsyncSharedReader<M, R> {
-    type ReadGuard<'a> = AsyncSharedReadGuard<'a, M, R> where Self: 'a;
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> CommonReceiver<M> for AsyncSharedReceiver<M, R> {
+    type RecvGuard<'a> = AsyncSharedRecvGuard<'a, M, R> where Self: 'a;
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for AsyncSharedReader<M, R> {}
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for AsyncSharedReceiver<M, R> {}
 
-enum SharedReadState<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
+enum SharedRecvState<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
     Wait,
-    Lock(MutexLockFuture<'a, Reader<M, R>>),
-    Read(MutexGuard<'a, Reader<M, R>>),
+    Lock(MutexLockFuture<'a, Receiver<M, R>>),
+    Read(MutexGuard<'a, Receiver<M, R>>),
 }
 
-pub struct SharedReadFuture<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
-    owner: &'a AsyncSharedReader<M, R>,
-    state: Option<SharedReadState<'a, M, R>>,
+pub struct SharedRecvFuture<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
+    owner: &'a AsyncSharedReceiver<M, R>,
+    state: Option<SharedRecvState<'a, M, R>>,
 }
 
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for SharedReadFuture<'a, M, R> {}
+impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for SharedRecvFuture<'a, M, R> {}
 
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for SharedReadFuture<'a, M, R> {
-    type Output = Result<AsyncSharedReadGuard<'a, M, R>, ReadError>;
+impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for SharedRecvFuture<'a, M, R> {
+    type Output = Result<AsyncSharedRecvGuard<'a, M, R>, RecvError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.owner.shared.table.get(self.owner.id).unwrap().handle = cx.waker().clone();
@@ -188,13 +188,13 @@ impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for SharedReadFuture<'a,
         let mut poll = true;
         while poll {
             (poll, state) = match state {
-                SharedReadState::Wait => (true, SharedReadState::Lock(self.owner.shared.reader.lock())),
-                SharedReadState::Lock(mut lock) => match lock.poll_unpin(cx) {
-                    Poll::Pending => (false, SharedReadState::Lock(lock)),
-                    Poll::Ready(reader) => (true, SharedReadState::Read(reader)),
+                SharedRecvState::Wait => (true, SharedRecvState::Lock(self.owner.shared.reader.lock())),
+                SharedRecvState::Lock(mut lock) => match lock.poll_unpin(cx) {
+                    Poll::Pending => (false, SharedRecvState::Lock(lock)),
+                    Poll::Ready(reader) => (true, SharedRecvState::Read(reader)),
                 },
-                SharedReadState::Read(mut reader) => match reader.poll_read_message(cx) {
-                    Poll::Pending => (false, SharedReadState::Read(reader)),
+                SharedRecvState::Read(mut reader) => match reader.poll_receive(cx) {
+                    Poll::Pending => (false, SharedRecvState::Read(reader)),
                     Poll::Ready(Err(e)) => {
                         self.owner.shared.table.wake_all();
                         return Poll::Ready(Err(e));
@@ -203,14 +203,14 @@ impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for SharedReadFuture<'a,
                         let msg = reader.take_message();
                         if self.owner.filter.check(&msg) {
                             msg.retain();
-                            return Poll::Ready(Ok(AsyncSharedReadGuard {
+                            return Poll::Ready(Ok(AsyncSharedRecvGuard {
                                 shared: &self.owner.shared,
                                 reader,
                             }));
                         } else {
                             self.owner.shared.table.wake(&msg);
                             msg.retain();
-                            (false, SharedReadState::Wait)
+                            (false, SharedRecvState::Wait)
                         }
                     }
                 },
@@ -221,29 +221,29 @@ impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for SharedReadFuture<'a,
     }
 }
 
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> FusedFuture for SharedReadFuture<'a, M, R> {
+impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> FusedFuture for SharedRecvFuture<'a, M, R> {
     fn is_terminated(&self) -> bool {
         self.state.is_some()
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> AsyncReader<M> for AsyncSharedReader<M, R> {
-    type ReadFuture<'a> = SharedReadFuture<'a, M, R> where Self: 'a;
+impl<M: Flat + ?Sized, R: AsyncRead + Unpin> AsyncReceiver<M> for AsyncSharedReceiver<M, R> {
+    type RecvFuture<'a> = SharedRecvFuture<'a, M, R> where Self: 'a;
 
-    fn read_message(&mut self) -> Self::ReadFuture<'_> {
-        SharedReadFuture {
-            state: Some(SharedReadState::Wait),
+    fn recv(&mut self) -> Self::RecvFuture<'_> {
+        SharedRecvFuture {
+            state: Some(SharedRecvState::Wait),
             owner: self,
         }
     }
 }
 
-pub struct AsyncSharedReadGuard<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
+pub struct AsyncSharedRecvGuard<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
     shared: &'a SharedData<M, R>,
-    reader: MutexGuard<'a, Reader<M, R>>,
+    reader: MutexGuard<'a, Receiver<M, R>>,
 }
 
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for AsyncSharedReadGuard<'a, M, R> {
+impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for AsyncSharedRecvGuard<'a, M, R> {
     fn drop(&mut self) {
         let size = self.size();
         self.reader.buffer.skip_occupied(size);
@@ -256,7 +256,7 @@ impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Drop for AsyncSharedReadGuard<'
     }
 }
 
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Deref for AsyncSharedReadGuard<'a, M, R> {
+impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Deref for AsyncSharedRecvGuard<'a, M, R> {
     type Target = M;
     fn deref(&self) -> &M {
         self.reader.buffer.message().unwrap()

@@ -1,7 +1,7 @@
 use std::mem::replace;
 
 use super::common::*;
-use crate::{prelude::*, reader::AsyncSharedReader, AsyncSharedWriter, ReadError, Reader, Writer};
+use crate::{prelude::*, recv::AsyncSharedReceiver, AsyncSharedSender, Receiver, RecvError, Sender};
 use async_ringbuf::{traits::*, AsyncHeapRb};
 use async_std::{
     task::{sleep, spawn},
@@ -19,31 +19,31 @@ async fn unique() {
     let (prod, cons) = pipe().split();
     join!(
         spawn(async move {
-            let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
+            let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
 
-            writer.alloc_message().default_in_place().unwrap().write().await.unwrap();
+            sender.alloc().default_in_place().unwrap().send().await.unwrap();
 
-            writer
-                .alloc_message()
+            sender
+                .alloc()
                 .new_in_place(TestMsgInitB(123456))
                 .unwrap()
-                .write()
+                .send()
                 .await
                 .unwrap();
 
-            writer
-                .alloc_message()
+            sender
+                .alloc()
                 .new_in_place(TestMsgInitC(FromIterator(0..7)))
                 .unwrap()
-                .write()
+                .send()
                 .await
                 .unwrap();
         }),
         spawn(async move {
-            let mut reader = Reader::<TestMsg, _>::new(cons, MAX_SIZE);
+            let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
             {
-                let guard = reader.read_message().await.unwrap();
+                let guard = receiver.recv().await.unwrap();
                 match guard.as_ref() {
                     TestMsgRef::A => (),
                     _ => panic!(),
@@ -51,7 +51,7 @@ async fn unique() {
             }
 
             {
-                let guard = reader.read_message().await.unwrap();
+                let guard = receiver.recv().await.unwrap();
                 match guard.as_ref() {
                     TestMsgRef::B(x) => assert_eq!(*x, 123456),
                     _ => panic!(),
@@ -59,7 +59,7 @@ async fn unique() {
             }
 
             {
-                let guard = reader.read_message().await.unwrap();
+                let guard = receiver.recv().await.unwrap();
                 match guard.as_ref() {
                     TestMsgRef::C(v) => {
                         assert!(v.iter().copied().eq(0..7));
@@ -68,8 +68,8 @@ async fn unique() {
                 }
             }
 
-            match reader.read_message().await.err().unwrap() {
-                ReadError::Eof => (),
+            match receiver.recv().await.err().unwrap() {
+                RecvError::Eof => (),
                 _ => panic!(),
             }
         })
@@ -77,37 +77,37 @@ async fn unique() {
 }
 
 #[async_test]
-async fn shared_writer() {
+async fn shared_sender() {
     let (prod, cons) = pipe().split();
-    let mut writer = AsyncSharedWriter::<TestMsg, _>::new(prod, MAX_SIZE);
-    let mut reader = Reader::<TestMsg, _>::new(cons, MAX_SIZE);
+    let mut sender = AsyncSharedSender::<TestMsg, _>::new(prod, MAX_SIZE);
+    let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
     join!(
         spawn({
-            let mut writer = writer.clone();
+            let mut sender = sender.clone();
             async move {
-                writer
-                    .alloc_message()
+                sender
+                    .alloc()
                     .new_in_place(TestMsgInitB(123456))
                     .unwrap()
-                    .write()
+                    .send()
                     .await
                     .unwrap();
             }
         }),
         spawn(async move {
-            writer
-                .alloc_message()
+            sender
+                .alloc()
                 .new_in_place(TestMsgInitC(FromIterator(0..7)))
                 .unwrap()
-                .write()
+                .send()
                 .await
                 .unwrap();
         }),
         spawn(async move {
             let mut prev = TestMsgTag::A;
             for _ in 0..2 {
-                let message = reader.read_message().await.unwrap();
+                let message = receiver.recv().await.unwrap();
                 let tag = message.tag();
                 assert_ne!(replace(&mut prev, tag), tag);
                 match message.as_ref() {
@@ -122,8 +122,8 @@ async fn shared_writer() {
                 }
             }
 
-            match reader.read_message().await.err().unwrap() {
-                ReadError::Eof => (),
+            match receiver.recv().await.err().unwrap() {
+                RecvError::Eof => (),
                 _ => panic!(),
             }
         }),
@@ -131,40 +131,40 @@ async fn shared_writer() {
 }
 
 #[async_test]
-async fn shared_reader() {
+async fn shared_receiver() {
     const ATTEMPTS: usize = 16;
 
     let (prod, cons) = pipe().split();
-    let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
-    let reader = AsyncSharedReader::<TestMsg, _>::new(cons, MAX_SIZE);
+    let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
+    let receiver = AsyncSharedReceiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
     join!(
         spawn(async move {
             for i in 0..ATTEMPTS {
-                writer
-                    .alloc_message()
+                sender
+                    .alloc()
                     .new_in_place(TestMsgInitB(i as i32))
                     .unwrap()
-                    .write()
+                    .send()
                     .await
                     .unwrap();
 
-                writer
-                    .alloc_message()
+                sender
+                    .alloc()
                     .new_in_place(TestMsgInitC(FromIterator((1..8).map(|x| x * (i + 1) as i32))))
                     .unwrap()
-                    .write()
+                    .send()
                     .await
                     .unwrap();
             }
         }),
         spawn({
-            let mut reader = reader.clone().filter(|m| m.tag() == TestMsgTag::B);
+            let mut receiver = receiver.clone().filter(|m| m.tag() == TestMsgTag::B);
             async move {
                 sleep(TIMEOUT).await;
 
                 for i in 0..ATTEMPTS {
-                    match reader.read_message().await.unwrap().as_ref() {
+                    match receiver.recv().await.unwrap().as_ref() {
                         TestMsgRef::B(x) => {
                             assert_eq!(*x, i as i32);
                         }
@@ -172,17 +172,17 @@ async fn shared_reader() {
                     }
                 }
 
-                match reader.read_message().await.err().unwrap() {
-                    ReadError::Eof => (),
+                match receiver.recv().await.err().unwrap() {
+                    RecvError::Eof => (),
                     _ => panic!(),
                 }
             }
         }),
         spawn({
-            let mut reader = reader.filter(|m| m.tag() == TestMsgTag::C);
+            let mut receiver = receiver.filter(|m| m.tag() == TestMsgTag::C);
             async move {
                 for i in 0..ATTEMPTS {
-                    match reader.read_message().await.unwrap().as_ref() {
+                    match receiver.recv().await.unwrap().as_ref() {
                         TestMsgRef::C(v) => {
                             assert!(v.iter().copied().eq((1..8).map(|x| x * (i + 1) as i32)));
                         }
@@ -190,8 +190,8 @@ async fn shared_reader() {
                     }
                 }
 
-                match reader.read_message().await.err().unwrap() {
-                    ReadError::Eof => (),
+                match receiver.recv().await.err().unwrap() {
+                    RecvError::Eof => (),
                     _ => panic!(),
                 }
             }

@@ -1,7 +1,7 @@
 use flatty::{utils::alloc::AlignedBytes, Flat};
 use std::{marker::PhantomData, ops::Range};
 
-use crate::ReadError;
+use crate::RecvError;
 
 pub struct ReadBuffer<M: Flat + ?Sized> {
     buffer: AlignedBytes,
@@ -70,7 +70,7 @@ impl<M: Flat + ?Sized> ReadBuffer<M> {
         M::from_bytes(self.occupied())
     }
 
-    pub fn next_message(&self) -> Option<Result<&M, ReadError>> {
+    pub fn next_message(&self) -> Option<Result<&M, RecvError>> {
         use flatty::error::{Error, ErrorKind};
         match self.message() {
             Ok(message) => Some(Ok(message)),
@@ -81,7 +81,7 @@ impl<M: Flat + ?Sized> ReadBuffer<M> {
                 } => {
                     if self.extendable_len() == 0 {
                         // Message cannot fit the buffer.
-                        Some(Err(ReadError::Parse(Error {
+                        Some(Err(RecvError::Parse(Error {
                             kind: ErrorKind::InsufficientSize,
                             pos: self.occupied_len(),
                         })))
@@ -89,7 +89,7 @@ impl<M: Flat + ?Sized> ReadBuffer<M> {
                         None
                     }
                 }
-                other_err => Some(Err(ReadError::Parse(other_err))),
+                other_err => Some(Err(RecvError::Parse(other_err))),
             },
         }
     }

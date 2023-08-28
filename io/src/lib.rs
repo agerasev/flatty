@@ -1,20 +1,20 @@
-pub mod reader;
-pub mod writer;
+pub mod recv;
+pub mod send;
 
 #[cfg(feature = "async")]
-pub use reader::AsyncSharedReader;
-pub use reader::{BlockingSharedReader, ReadError, Reader};
+pub use recv::AsyncSharedReceiver;
+pub use recv::{BlockingSharedReceiver, Receiver, RecvError};
 #[cfg(feature = "async")]
-pub use writer::AsyncSharedWriter;
-pub use writer::{BlockingSharedWriter, WriteError, Writer};
+pub use send::AsyncSharedSender;
+pub use send::{BlockingSharedSender, SendError, Sender};
 
 pub mod prelude {
     #[cfg(feature = "async")]
-    pub use super::reader::AsyncReader;
-    pub use super::reader::BlockingReader;
+    pub use super::recv::AsyncReceiver;
+    pub use super::recv::BlockingReceiver;
     #[cfg(feature = "async")]
-    pub use super::writer::AsyncWriteGuard;
-    pub use super::writer::BlockingWriteGuard;
+    pub use super::send::AsyncSendGuard;
+    pub use super::send::BlockingSendGuard;
 }
 
 #[cfg(test)]

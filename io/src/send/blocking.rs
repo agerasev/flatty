@@ -1,4 +1,4 @@
-use super::{CommonWriter, UninitWriteGuard, WriteError, WriteGuard, Writer};
+use super::{CommonSender, SendError, SendGuard, Sender, UninitSendGuard};
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes};
 use std::{
     io::Write,
@@ -9,16 +9,16 @@ use std::{
     },
 };
 
-pub trait BlockingWriter<M: Flat + ?Sized>: CommonWriter<M> {
-    fn write_buffer(&mut self, count: usize) -> Result<(), WriteError>;
+pub trait BlockingSender<M: Flat + ?Sized>: CommonSender<M> {
+    fn send_buffer(&mut self, count: usize) -> Result<(), SendError>;
 }
 
-pub trait BlockingWriteGuard<'a> {
-    fn write(self) -> Result<(), WriteError>;
+pub trait BlockingSendGuard<'a> {
+    fn send(self) -> Result<(), SendError>;
 }
 
-impl<M: Flat + ?Sized, W: Write> BlockingWriter<M> for Writer<M, W> {
-    fn write_buffer(&mut self, count: usize) -> Result<(), WriteError> {
+impl<M: Flat + ?Sized, W: Write> BlockingSender<M> for Sender<M, W> {
+    fn send_buffer(&mut self, count: usize) -> Result<(), SendError> {
         assert!(!self.poisoned);
         let mut data = &self.buffer[..count];
         loop {
@@ -30,12 +30,12 @@ impl<M: Flat + ?Sized, W: Write> BlockingWriter<M> for Writer<M, W> {
                             break Ok(());
                         }
                     } else {
-                        break Err(WriteError::Eof);
+                        break Err(SendError::Eof);
                     }
                 }
                 Err(e) => {
                     self.poisoned = true;
-                    break Err(WriteError::Io(e));
+                    break Err(SendError::Io(e));
                 }
             }
         }
@@ -47,13 +47,13 @@ struct Base<W: Write> {
     poisoned: AtomicBool,
 }
 
-pub struct BlockingSharedWriter<M: Flat + ?Sized, W: Write> {
+pub struct BlockingSharedSender<M: Flat + ?Sized, W: Write> {
     base: Arc<Base<W>>,
     buffer: AlignedBytes,
     _phantom: PhantomData<M>,
 }
 
-impl<M: Flat + ?Sized, W: Write> BlockingSharedWriter<M, W> {
+impl<M: Flat + ?Sized, W: Write> BlockingSharedSender<M, W> {
     pub fn new(write: W, max_msg_size: usize) -> Self {
         Self {
             base: Arc::new(Base {
@@ -65,12 +65,12 @@ impl<M: Flat + ?Sized, W: Write> BlockingSharedWriter<M, W> {
         }
     }
 
-    pub fn alloc_message(&mut self) -> UninitWriteGuard<'_, M, Self> {
-        UninitWriteGuard::new(self)
+    pub fn alloc_message(&mut self) -> UninitSendGuard<'_, M, Self> {
+        UninitSendGuard::new(self)
     }
 }
 
-impl<M: Flat + ?Sized, W: Write> Clone for BlockingSharedWriter<M, W> {
+impl<M: Flat + ?Sized, W: Write> Clone for BlockingSharedSender<M, W> {
     fn clone(&self) -> Self {
         Self {
             base: self.base.clone(),
@@ -80,7 +80,7 @@ impl<M: Flat + ?Sized, W: Write> Clone for BlockingSharedWriter<M, W> {
     }
 }
 
-impl<M: Flat + ?Sized, W: Write> CommonWriter<M> for BlockingSharedWriter<M, W> {
+impl<M: Flat + ?Sized, W: Write> CommonSender<M> for BlockingSharedSender<M, W> {
     fn buffer(&self) -> &[u8] {
         &self.buffer
     }
@@ -93,8 +93,8 @@ impl<M: Flat + ?Sized, W: Write> CommonWriter<M> for BlockingSharedWriter<M, W> 
     }
 }
 
-impl<M: Flat + ?Sized, W: Write> BlockingWriter<M> for BlockingSharedWriter<M, W> {
-    fn write_buffer(&mut self, count: usize) -> Result<(), WriteError> {
+impl<M: Flat + ?Sized, W: Write> BlockingSender<M> for BlockingSharedSender<M, W> {
+    fn send_buffer(&mut self, count: usize) -> Result<(), SendError> {
         let mut guard = self.base.write.lock().unwrap();
         assert!(!self.base.poisoned.load(Ordering::Relaxed));
 
@@ -108,20 +108,20 @@ impl<M: Flat + ?Sized, W: Write> BlockingWriter<M> for BlockingSharedWriter<M, W
                             break Ok(());
                         }
                     } else {
-                        break Err(WriteError::Eof);
+                        break Err(SendError::Eof);
                     }
                 }
                 Err(e) => {
                     self.base.poisoned.store(true, Ordering::Relaxed);
-                    break Err(WriteError::Io(e));
+                    break Err(SendError::Io(e));
                 }
             }
         }
     }
 }
 
-impl<'a, M: Flat + ?Sized, O: BlockingWriter<M>> BlockingWriteGuard<'a> for WriteGuard<'a, M, O> {
-    fn write(self) -> Result<(), WriteError> {
-        self.owner.write_buffer(self.size())
+impl<'a, M: Flat + ?Sized, O: BlockingSender<M>> BlockingSendGuard<'a> for SendGuard<'a, M, O> {
+    fn send(self) -> Result<(), SendError> {
+        self.owner.send_buffer(self.size())
     }
 }
