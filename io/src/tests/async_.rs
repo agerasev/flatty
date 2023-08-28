@@ -1,7 +1,11 @@
 use std::mem::replace;
 
 use super::common::*;
-use crate::{prelude::*, recv::AsyncSharedReceiver, AsyncSharedSender, Receiver, RecvError, Sender};
+use crate::async_::{
+    prelude::*,
+    shared::{AsyncSharedReceiver, AsyncSharedSender},
+    Receiver, RecvError, Sender,
+};
 use async_ringbuf::{traits::*, AsyncHeapRb};
 use async_std::{
     task::{sleep, spawn},

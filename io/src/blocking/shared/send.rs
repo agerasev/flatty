@@ -1,4 +1,7 @@
-use super::{CommonSender, SendError, SendGuard, Sender, UninitSendGuard};
+use crate::{
+    blocking::BlockingSender,
+    common::{CommonSender, SendError, UninitSendGuard},
+};
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes};
 use std::{
     io::Write,
@@ -8,39 +11,6 @@ use std::{
         Arc, Mutex,
     },
 };
-
-pub trait BlockingSender<M: Flat + ?Sized>: CommonSender<M> {
-    fn send_buffer(&mut self, count: usize) -> Result<(), SendError>;
-}
-
-pub trait BlockingSendGuard<'a> {
-    fn send(self) -> Result<(), SendError>;
-}
-
-impl<M: Flat + ?Sized, W: Write> BlockingSender<M> for Sender<M, W> {
-    fn send_buffer(&mut self, count: usize) -> Result<(), SendError> {
-        assert!(!self.poisoned);
-        let mut data = &self.buffer[..count];
-        loop {
-            match self.write.write(data) {
-                Ok(n) => {
-                    if n > 0 {
-                        data = &data[n..];
-                        if data.is_empty() {
-                            break Ok(());
-                        }
-                    } else {
-                        break Err(SendError::Eof);
-                    }
-                }
-                Err(e) => {
-                    self.poisoned = true;
-                    break Err(SendError::Io(e));
-                }
-            }
-        }
-    }
-}
 
 struct Base<W: Write> {
     write: Mutex<W>,
@@ -117,11 +87,5 @@ impl<M: Flat + ?Sized, W: Write> BlockingSender<M> for BlockingSharedSender<M, W
                 }
             }
         }
-    }
-}
-
-impl<'a, M: Flat + ?Sized, O: BlockingSender<M>> BlockingSendGuard<'a> for SendGuard<'a, M, O> {
-    fn send(self) -> Result<(), SendError> {
-        self.owner.send_buffer(self.size())
     }
 }

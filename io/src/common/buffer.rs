@@ -1,7 +1,6 @@
+use super::RecvError;
 use flatty::{utils::alloc::AlignedBytes, Flat};
 use std::{marker::PhantomData, ops::Range};
-
-use crate::RecvError;
 
 pub struct ReadBuffer<M: Flat + ?Sized> {
     buffer: AlignedBytes,

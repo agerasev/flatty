@@ -20,9 +20,9 @@ pub trait CommonSender<M: Flat + ?Sized>: Sized {
 }
 
 pub struct Sender<M: Flat + ?Sized, W> {
-    pub(super) write: W,
-    pub(super) poisoned: bool,
-    pub(super) buffer: AlignedBytes,
+    pub(crate) write: W,
+    pub(crate) poisoned: bool,
+    pub(crate) buffer: AlignedBytes,
     _phantom: PhantomData<M>,
 }
 

@@ -17,8 +17,8 @@ pub trait CommonReceiver<M: Flat + ?Sized>: Sized {
 }
 
 pub struct Receiver<M: Flat + ?Sized, R> {
-    pub(super) reader: R,
-    pub(super) buffer: ReadBuffer<M>,
+    pub(crate) reader: R,
+    pub(crate) buffer: ReadBuffer<M>,
 }
 
 impl<M: Flat + ?Sized, R> Receiver<M, R> {
@@ -39,7 +39,7 @@ pub struct RecvGuard<'a, M: Flat + ?Sized, R> {
 }
 
 impl<'a, M: Flat + ?Sized, R> RecvGuard<'a, M, R> {
-    pub(super) fn new(owner: &'a mut Receiver<M, R>) -> Self {
+    pub(crate) fn new(owner: &'a mut Receiver<M, R>) -> Self {
         Self { owner }
     }
     /// Destroy guard but do not remove message from reader.

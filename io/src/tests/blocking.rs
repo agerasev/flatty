@@ -1,5 +1,9 @@
 use super::common::*;
-use crate::{prelude::*, BlockingSharedReceiver, BlockingSharedSender, Receiver, RecvError, Sender};
+use crate::blocking::{
+    prelude::*,
+    shared::{BlockingSharedReceiver, BlockingSharedSender},
+    Receiver, RecvError, Sender,
+};
 use flatty::vec::FromIterator;
 use ringbuf_blocking::{traits::*, BlockingHeapRb};
 use std::{
