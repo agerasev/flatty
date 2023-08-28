@@ -1,4 +1,4 @@
-use super::{CommonSender, SendError, SendGuard, Sender, UninitSendGuard};
+use crate::common::{CommonSender, SendError, SendGuard, Sender, UninitSendGuard};
 use flatty::{self, prelude::*};
 use futures::{future::FusedFuture, io::AsyncWrite};
 use std::{
