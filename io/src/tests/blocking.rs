@@ -1,5 +1,9 @@
 use super::common::*;
-use crate::{prelude::*, BlockingSharedReader, BlockingSharedWriter, ReadError, Reader, Writer};
+use crate::blocking::{
+    prelude::*,
+    shared::{SharedReceiver, SharedSender},
+    Receiver, RecvError, Sender,
+};
 use flatty::vec::FromIterator;
 use ringbuf_blocking::{traits::*, BlockingHeapRb};
 use std::{
@@ -14,88 +18,83 @@ fn pipe() -> BlockingHeapRb<u8> {
 #[test]
 fn unique() {
     let (prod, cons) = pipe().split();
-    let (write, read) = (
+    let (send, recv) = (
         spawn(move || {
-            let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
+            let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
 
-            writer.alloc_message().default_in_place().unwrap().write().unwrap();
+            sender.alloc().default_in_place().unwrap().send().unwrap();
 
-            writer
-                .alloc_message()
-                .new_in_place(TestMsgInitB(123456))
-                .unwrap()
-                .write()
-                .unwrap();
+            sender.alloc().new_in_place(TestMsgInitB(123456)).unwrap().send().unwrap();
 
-            writer
-                .alloc_message()
+            sender
+                .alloc()
                 .new_in_place(TestMsgInitC(FromIterator(0..7)))
                 .unwrap()
-                .write()
+                .send()
                 .unwrap();
         }),
         spawn(move || {
-            let mut reader = Reader::<TestMsg, _>::new(cons, MAX_SIZE);
+            let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
-            match reader.read_message().unwrap().as_ref() {
+            match receiver.recv().unwrap().as_ref() {
                 TestMsgRef::A => (),
                 _ => panic!(),
             }
 
-            match reader.read_message().unwrap().as_ref() {
+            match receiver.recv().unwrap().as_ref() {
                 TestMsgRef::B(x) => assert_eq!(*x, 123456),
                 _ => panic!(),
             }
 
-            match reader.read_message().unwrap().as_ref() {
+            match receiver.recv().unwrap().as_ref() {
                 TestMsgRef::C(v) => {
                     assert!(v.iter().copied().eq(0..7));
                 }
                 _ => panic!(),
             }
 
-            match reader.read_message().err().unwrap() {
-                ReadError::Eof => (),
+            match receiver.recv().err().unwrap() {
+                RecvError::Eof => (),
                 _ => panic!(),
             }
         }),
     );
-    read.join().unwrap();
-    write.join().unwrap();
+    recv.join().unwrap();
+    send.join().unwrap();
 }
 
 #[test]
-fn shared_writer() {
+fn shared_sender() {
     let (prod, cons) = pipe().split();
-    let mut writer = BlockingSharedWriter::<TestMsg, _>::new(prod, MAX_SIZE);
-    let mut reader = Reader::<TestMsg, _>::new(cons, MAX_SIZE);
+    let mut sender = SharedSender::<TestMsg, _>::new(prod, MAX_SIZE);
+    let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
-    let (writes, read) = (
+    let (sends, recv) = (
         [
             spawn({
-                let mut writer = writer.clone();
+                let mut sender = sender.clone();
                 move || {
-                    writer
+                    sender
                         .alloc_message()
                         .new_in_place(TestMsgInitB(123456))
                         .unwrap()
-                        .write()
+                        .send()
                         .unwrap();
                 }
             }),
             spawn(move || {
-                writer
+                sender
                     .alloc_message()
                     .new_in_place(TestMsgInitC(FromIterator(0..7)))
                     .unwrap()
-                    .write()
+                    .send()
                     .unwrap();
             }),
         ],
         spawn(move || {
             let mut prev = TestMsgTag::A;
             for _ in 0..2 {
-                let message = reader.read_message().unwrap();
+                let message = receiver.recv().unwrap();
                 let tag = message.tag();
                 assert_ne!(replace(&mut prev, tag), tag);
                 match message.as_ref() {
@@ -109,52 +108,47 @@ fn shared_writer() {
                 }
             }
 
-            match reader.read_message().err().unwrap() {
-                ReadError::Eof => (),
+            match receiver.recv().err().unwrap() {
+                RecvError::Eof => (),
                 _ => panic!(),
             }
         }),
     );
-    read.join().unwrap();
-    for write in writes {
-        write.join().unwrap();
+    recv.join().unwrap();
+    for send in sends {
+        send.join().unwrap();
     }
 }
 
 #[test]
-fn shared_reader() {
+fn shared_receiver() {
     const ATTEMPTS: usize = 16;
 
     let (prod, cons) = pipe().split();
-    let mut writer = Writer::<TestMsg, _>::new(prod, MAX_SIZE);
-    let reader = BlockingSharedReader::<TestMsg, _>::new(cons, MAX_SIZE);
+    let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
+    let receiver = SharedReceiver::<TestMsg, _>::new(cons, MAX_SIZE);
 
-    let (write, reads) = (
+    let (send, recvs) = (
         spawn(move || {
             for i in 0..ATTEMPTS {
-                writer
-                    .alloc_message()
-                    .new_in_place(TestMsgInitB(i as i32))
-                    .unwrap()
-                    .write()
-                    .unwrap();
+                sender.alloc().new_in_place(TestMsgInitB(i as i32)).unwrap().send().unwrap();
 
-                writer
-                    .alloc_message()
+                sender
+                    .alloc()
                     .new_in_place(TestMsgInitC(FromIterator((1..8).map(|x| x * (i + 1) as i32))))
                     .unwrap()
-                    .write()
+                    .send()
                     .unwrap();
             }
         }),
         [
             spawn({
-                let mut reader = reader.clone().filter(|m| m.tag() == TestMsgTag::B);
+                let mut receiver = receiver.clone().filter(|m| m.tag() == TestMsgTag::B);
                 move || {
                     sleep(TIMEOUT);
 
                     for i in 0..ATTEMPTS {
-                        match reader.read_message().unwrap().as_ref() {
+                        match receiver.recv().unwrap().as_ref() {
                             TestMsgRef::B(x) => {
                                 assert_eq!(*x, i as i32);
                             }
@@ -162,17 +156,17 @@ fn shared_reader() {
                         }
                     }
 
-                    match reader.read_message().err().unwrap() {
-                        ReadError::Eof => (),
+                    match receiver.recv().err().unwrap() {
+                        RecvError::Eof => (),
                         _ => panic!(),
                     }
                 }
             }),
             spawn({
-                let mut reader = reader.filter(|m| m.tag() == TestMsgTag::C);
+                let mut receiver = receiver.filter(|m| m.tag() == TestMsgTag::C);
                 move || {
                     for i in 0..ATTEMPTS {
-                        match reader.read_message().unwrap().as_ref() {
+                        match receiver.recv().unwrap().as_ref() {
                             TestMsgRef::C(v) => {
                                 assert!(v.iter().copied().eq((1..8).map(|x| x * (i + 1) as i32)));
                             }
@@ -180,8 +174,8 @@ fn shared_reader() {
                         }
                     }
 
-                    match reader.read_message().err().unwrap() {
-                        ReadError::Eof => (),
+                    match receiver.recv().err().unwrap() {
+                        RecvError::Eof => (),
                         _ => panic!(),
                     }
                 }
@@ -189,8 +183,8 @@ fn shared_reader() {
         ],
     );
 
-    for read in reads {
-        read.join().unwrap();
+    for recv in recvs {
+        recv.join().unwrap();
     }
-    write.join().unwrap();
+    send.join().unwrap();
 }

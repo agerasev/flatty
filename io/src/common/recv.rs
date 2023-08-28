@@ -3,25 +3,25 @@ use flatty::Flat;
 use std::{io, mem::forget, ops::Deref};
 
 #[derive(Debug)]
-pub enum ReadError {
+pub enum RecvError {
     Io(io::Error),
     Parse(flatty::Error),
     /// Stream has been closed.
     Eof,
 }
 
-pub trait CommonReader<M: Flat + ?Sized>: Sized {
-    type ReadGuard<'a>: Sized
+pub trait CommonReceiver<M: Flat + ?Sized>: Sized {
+    type RecvGuard<'a>: Sized
     where
         Self: 'a;
 }
 
-pub struct Reader<M: Flat + ?Sized, R> {
-    pub(super) reader: R,
-    pub(super) buffer: ReadBuffer<M>,
+pub struct Receiver<M: Flat + ?Sized, R> {
+    pub(crate) reader: R,
+    pub(crate) buffer: ReadBuffer<M>,
 }
 
-impl<M: Flat + ?Sized, R> Reader<M, R> {
+impl<M: Flat + ?Sized, R> Receiver<M, R> {
     pub fn new(reader: R, max_msg_size: usize) -> Self {
         Self {
             reader,
@@ -30,16 +30,16 @@ impl<M: Flat + ?Sized, R> Reader<M, R> {
     }
 }
 
-impl<M: Flat + ?Sized, R> CommonReader<M> for Reader<M, R> {
-    type ReadGuard<'a> = ReadGuard<'a, M, R> where Self: 'a;
+impl<M: Flat + ?Sized, R> CommonReceiver<M> for Receiver<M, R> {
+    type RecvGuard<'a> = RecvGuard<'a, M, R> where Self: 'a;
 }
 
-pub struct ReadGuard<'a, M: Flat + ?Sized, R> {
-    owner: &'a mut Reader<M, R>,
+pub struct RecvGuard<'a, M: Flat + ?Sized, R> {
+    owner: &'a mut Receiver<M, R>,
 }
 
-impl<'a, M: Flat + ?Sized, R> ReadGuard<'a, M, R> {
-    pub(super) fn new(owner: &'a mut Reader<M, R>) -> Self {
+impl<'a, M: Flat + ?Sized, R> RecvGuard<'a, M, R> {
+    pub(crate) fn new(owner: &'a mut Receiver<M, R>) -> Self {
         Self { owner }
     }
     /// Destroy guard but do not remove message from reader.
@@ -50,14 +50,14 @@ impl<'a, M: Flat + ?Sized, R> ReadGuard<'a, M, R> {
     }
 }
 
-impl<'a, M: Flat + ?Sized, R> Drop for ReadGuard<'a, M, R> {
+impl<'a, M: Flat + ?Sized, R> Drop for RecvGuard<'a, M, R> {
     fn drop(&mut self) {
         let size = self.size();
         self.owner.buffer.skip_occupied(size);
     }
 }
 
-impl<'a, M: Flat + ?Sized, R> Deref for ReadGuard<'a, M, R> {
+impl<'a, M: Flat + ?Sized, R> Deref for RecvGuard<'a, M, R> {
     type Target = M;
     fn deref(&self) -> &M {
         self.owner.buffer.message().unwrap()

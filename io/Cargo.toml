@@ -9,9 +9,9 @@ repository.workspace = true
 license.workspace = true
 
 [features]
-default = ["async"]
+default = ["async", "blocking"]
 async = ["futures"]
-test_shared = []
+blocking = []
 
 [dependencies]
 flatty = { workspace = true, features = ["std"] }
