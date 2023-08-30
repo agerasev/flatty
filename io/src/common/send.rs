@@ -4,40 +4,33 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-pub trait BufferSender {
-    type Error;
-    type Guard<'a>: BufSendGuard<Error = Self::Error>
-    where
-        Self: 'a;
-}
-
-pub trait BufSendGuard: DerefMut<Target = [u8]> {
+pub trait WriteBuffer: DerefMut<Target = [u8]> {
     type Error;
 }
 
 pub type SendError<E> = E;
 
-pub struct Sender<M: Flat + ?Sized, B: BufferSender> {
-    pub(crate) buf_send: B,
+pub struct Sender<M: Flat + ?Sized, B: WriteBuffer> {
+    pub(crate) buffer: B,
     _ghost: PhantomData<M>,
 }
 
-impl<M: Flat + ?Sized, B: BufferSender> Sender<M, B> {
+impl<M: Flat + ?Sized, B: WriteBuffer> Sender<M, B> {
     pub fn new(buf_send: B) -> Self {
         Self {
-            buf_send,
+            buffer: buf_send,
             _ghost: PhantomData,
         }
     }
 }
 
-pub struct UninitSendGuard<'a, M: Flat + ?Sized, B: BufferSender + 'a> {
-    buffer: B::Guard<'a>,
+pub struct UninitSendGuard<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> {
+    buffer: &'a mut B,
     _ghost: PhantomData<M>,
 }
 
-impl<'a, M: Flat + ?Sized, B: BufferSender + 'a> UninitSendGuard<'a, M, B> {
-    pub(crate) fn new(buffer: B::Guard<'a>) -> Self {
+impl<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> UninitSendGuard<'a, M, B> {
+    pub(crate) fn new(buffer: &'a mut B) -> Self {
         Self {
             buffer,
             _ghost: PhantomData,
@@ -45,10 +38,10 @@ impl<'a, M: Flat + ?Sized, B: BufferSender + 'a> UninitSendGuard<'a, M, B> {
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        &self.buffer
+        self.buffer
     }
     pub fn as_mut_bytes(&mut self) -> &mut [u8] {
-        &mut self.buffer
+        self.buffer
     }
 
     /// # Safety
@@ -61,33 +54,33 @@ impl<'a, M: Flat + ?Sized, B: BufferSender + 'a> UninitSendGuard<'a, M, B> {
         }
     }
 
-    pub fn new_in_place(mut self, emplacer: impl Emplacer<M>) -> Result<SendGuard<'a, M, B>, flatty::Error> {
-        M::new_in_place(&mut self.buffer, emplacer)?;
+    pub fn new_in_place(self, emplacer: impl Emplacer<M>) -> Result<SendGuard<'a, M, B>, flatty::Error> {
+        M::new_in_place(self.buffer, emplacer)?;
         Ok(unsafe { self.assume_valid() })
     }
 }
 
-impl<'a, M: Flat + FlatDefault + ?Sized, B: BufferSender + 'a> UninitSendGuard<'a, M, B> {
-    pub fn default_in_place(mut self) -> Result<SendGuard<'a, M, B>, flatty::Error> {
-        M::default_in_place(&mut self.buffer)?;
+impl<'a, M: Flat + FlatDefault + ?Sized, B: WriteBuffer + 'a> UninitSendGuard<'a, M, B> {
+    pub fn default_in_place(self) -> Result<SendGuard<'a, M, B>, flatty::Error> {
+        M::default_in_place(self.buffer)?;
         Ok(unsafe { self.assume_valid() })
     }
 }
 
-pub struct SendGuard<'a, M: Flat + ?Sized, B: BufferSender + 'a> {
-    pub(crate) buffer: B::Guard<'a>,
+pub struct SendGuard<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> {
+    pub(crate) buffer: &'a mut B,
     _ghost: PhantomData<M>,
 }
 
-impl<'a, M: Flat + ?Sized, B: BufferSender + 'a> Deref for SendGuard<'a, M, B> {
+impl<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> Deref for SendGuard<'a, M, B> {
     type Target = M;
     fn deref(&self) -> &M {
-        unsafe { M::from_bytes_unchecked(&self.buffer) }
+        unsafe { M::from_bytes_unchecked(self.buffer) }
     }
 }
 
-impl<'a, M: Flat + ?Sized, B: BufferSender + 'a> DerefMut for SendGuard<'a, M, B> {
+impl<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> DerefMut for SendGuard<'a, M, B> {
     fn deref_mut(&mut self) -> &mut M {
-        unsafe { M::from_mut_bytes_unchecked(&mut self.buffer) }
+        unsafe { M::from_mut_bytes_unchecked(self.buffer) }
     }
 }

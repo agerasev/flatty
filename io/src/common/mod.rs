@@ -1,10 +1,12 @@
-//mod io;
+#[cfg(feature = "io")]
+mod io;
 mod recv;
 mod send;
 
 #[cfg(feature = "shared")]
 pub mod shared;
 
-//pub use io::*;
+#[cfg(feature = "io")]
+pub use io::*;
 pub use recv::*;
 pub use send::*;

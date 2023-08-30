@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::blocking::{prelude::*, Receiver, RecvError, Sender};
+use crate::blocking::{Receiver, RecvError, Sender};
 use flatty::vec::FromIterator;
 use ringbuf_blocking::{traits::*, BlockingHeapRb};
 use std::thread::spawn;
@@ -18,21 +18,28 @@ fn unique() {
     let (prod, cons) = pipe().split();
     let (send, recv) = (
         spawn(move || {
-            let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
+            let mut sender = Sender::<TestMsg, _>::io(prod, MAX_SIZE);
 
-            sender.alloc().default_in_place().unwrap().send().unwrap();
-
-            sender.alloc().new_in_place(TestMsgInitB(123456)).unwrap().send().unwrap();
+            sender.alloc().unwrap().default_in_place().unwrap().send().unwrap();
 
             sender
                 .alloc()
+                .unwrap()
+                .new_in_place(TestMsgInitB(123456))
+                .unwrap()
+                .send()
+                .unwrap();
+
+            sender
+                .alloc()
+                .unwrap()
                 .new_in_place(TestMsgInitC(FromIterator(0..7)))
                 .unwrap()
                 .send()
                 .unwrap();
         }),
         spawn(move || {
-            let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
+            let mut receiver = Receiver::<TestMsg, _>::io(cons, MAX_SIZE);
 
             match receiver.recv().unwrap().as_ref() {
                 TestMsgRef::A => (),
@@ -52,8 +59,8 @@ fn unique() {
             }
 
             match receiver.recv().err().unwrap() {
-                RecvError::Eof => (),
-                _ => panic!(),
+                RecvError::Closed => (),
+                other => panic!("{:?}", other),
             }
         }),
     );
