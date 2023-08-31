@@ -6,64 +6,39 @@ impl<P: Write> BlockingWriteBuffer for IoBuffer<P> {
         let n = self.buffer.vacant_len();
         if n > 0 {
             self.buffer.advance(n);
-            Ok(())
-        } else {
-            Err(io::ErrorKind::OutOfMemory.into())
         }
+        Ok(())
     }
-    fn write(&mut self, count: usize) -> Result<(), Self::Error> {
+    fn write_all(&mut self, count: usize) -> Result<(), Self::Error> {
         assert!(!self.poisoned);
-        let mut data = &self.buffer.occupied()[..count];
-        let res = loop {
-            match self.pipe.write(data) {
-                Ok(n) => {
-                    if n > 0 {
-                        data = &data[n..];
-                        if data.is_empty() {
-                            break Ok(());
-                        }
-                    } else {
-                        break Err(io::ErrorKind::UnexpectedEof.into());
-                    }
-                }
-                Err(e) => {
-                    self.poisoned = true;
-                    break Err(e);
-                }
-            }
-        };
+        let res = self.pipe.write_all(&self.buffer.occupied()[..count]);
+        if res.is_err() {
+            self.poisoned = true;
+        }
         self.buffer.clear();
         res
     }
 }
 
 impl<P: Read> BlockingReadBuffer for IoBuffer<P> {
-    fn read(&mut self, extra: usize) -> Result<usize, Self::Error> {
+    fn read(&mut self) -> Result<usize, Self::Error> {
         assert!(!self.poisoned);
-        if self.buffer.vacant_len() < extra {
-            if self.buffer.free_len() >= extra {
+        if self.buffer.vacant_len() == 0 {
+            if self.buffer.preceding_len() > 0 {
                 self.buffer.make_contiguous();
             } else {
                 return Err(io::ErrorKind::OutOfMemory.into());
             }
         }
-        let mut count = 0;
-        while count < extra {
-            match self.pipe.read(self.buffer.vacant_mut()) {
-                Ok(n) => {
-                    if n != 0 {
-                        self.buffer.advance(n);
-                        count += n;
-                    } else {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    self.poisoned = true;
-                    return Err(e);
-                }
+        match self.pipe.read(self.buffer.vacant_mut()) {
+            Ok(n) => {
+                self.buffer.advance(n);
+                Ok(n)
+            }
+            Err(e) => {
+                self.poisoned = true;
+                Err(e)
             }
         }
-        Ok(count)
     }
 }

@@ -82,6 +82,9 @@ impl<P> IoBuffer<P> {
             poisoned: false,
         }
     }
+    pub(crate) fn split_mut(&mut self) -> (&mut P, &mut Buffer) {
+        (&mut self.pipe, &mut self.buffer)
+    }
 }
 
 impl<P> Deref for IoBuffer<P> {

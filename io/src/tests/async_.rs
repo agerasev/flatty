@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::async_::{prelude::*, Receiver, RecvError, Sender};
+use crate::async_::{Receiver, RecvError, Sender};
 use async_ringbuf::{traits::*, AsyncHeapRb};
 use async_std::{task::spawn, test as async_test};
 use flatty::vec::FromIterator;
@@ -21,31 +21,43 @@ async fn unique() {
     let (prod, cons) = pipe().split();
     join!(
         spawn(async move {
-            let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
-
-            sender.alloc().default_in_place().unwrap().send().await.unwrap();
+            let mut sender = Sender::<TestMsg, _>::io(prod, MAX_SIZE);
 
             sender
-                .alloc()
-                .new_in_place(TestMsgInitB(123456))
+                .alloc_()
+                .await
                 .unwrap()
-                .send()
+                .default_in_place()
+                .unwrap()
+                .send_()
                 .await
                 .unwrap();
 
             sender
-                .alloc()
+                .alloc_()
+                .await
+                .unwrap()
+                .new_in_place(TestMsgInitB(123456))
+                .unwrap()
+                .send_()
+                .await
+                .unwrap();
+
+            sender
+                .alloc_()
+                .await
+                .unwrap()
                 .new_in_place(TestMsgInitC(FromIterator(0..7)))
                 .unwrap()
-                .send()
+                .send_()
                 .await
                 .unwrap();
         }),
         spawn(async move {
-            let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
+            let mut receiver = Receiver::<TestMsg, _>::io(cons, MAX_SIZE);
 
             {
-                let guard = receiver.recv().await.unwrap();
+                let guard = receiver.recv_().await.unwrap();
                 match guard.as_ref() {
                     TestMsgRef::A => (),
                     _ => panic!(),
@@ -53,7 +65,7 @@ async fn unique() {
             }
 
             {
-                let guard = receiver.recv().await.unwrap();
+                let guard = receiver.recv_().await.unwrap();
                 match guard.as_ref() {
                     TestMsgRef::B(x) => assert_eq!(*x, 123456),
                     _ => panic!(),
@@ -61,7 +73,7 @@ async fn unique() {
             }
 
             {
-                let guard = receiver.recv().await.unwrap();
+                let guard = receiver.recv_().await.unwrap();
                 match guard.as_ref() {
                     TestMsgRef::C(v) => {
                         assert!(v.iter().copied().eq(0..7));
@@ -70,8 +82,8 @@ async fn unique() {
                 }
             }
 
-            match receiver.recv().await.err().unwrap() {
-                RecvError::Eof => (),
+            match receiver.recv_().await.err().unwrap() {
+                RecvError::Closed => (),
                 _ => panic!(),
             }
         })

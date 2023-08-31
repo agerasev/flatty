@@ -1,8 +1,8 @@
-use flatty::{self, prelude::*, Emplacer};
-use std::{
+use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use flatty::{self, prelude::*, Emplacer};
 
 pub trait WriteBuffer: DerefMut<Target = [u8]> {
     type Error;

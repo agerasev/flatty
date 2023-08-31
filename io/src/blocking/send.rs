@@ -6,7 +6,7 @@ pub trait BlockingWriteBuffer: WriteBuffer {
     fn alloc(&mut self) -> Result<(), Self::Error>;
     /// Send exactly `count` bytes from buffer.
     /// Remaining bytes are discarded.
-    fn write(&mut self, count: usize) -> Result<(), Self::Error>;
+    fn write_all(&mut self, count: usize) -> Result<(), Self::Error>;
 }
 
 impl<M: Flat + ?Sized, B: BlockingWriteBuffer> Sender<M, B> {
@@ -19,6 +19,6 @@ impl<M: Flat + ?Sized, B: BlockingWriteBuffer> Sender<M, B> {
 impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer> SendGuard<'a, M, B> {
     pub fn send(self) -> Result<(), SendError<B::Error>> {
         let size = self.size();
-        self.buffer.write(size)
+        self.buffer.write_all(size)
     }
 }
