@@ -45,5 +45,4 @@ impl<'a, M: Flat + ?Sized, B: AsyncWriteBuffer> SendGuard<'a, M, B> {
     }
 }
 
-impl<'a, M: Flat + ?Sized, B: AsyncWriteBuffer> Unpin for UninitSendGuard<'a, M, B> {}
-impl<'a, M: Flat + ?Sized, B: AsyncWriteBuffer> Unpin for SendGuard<'a, M, B> {}
+impl<'a, M: Flat + ?Sized, B: AsyncWriteBuffer, const INIT: bool> Unpin for SendGuard<'a, M, B, INIT> {}

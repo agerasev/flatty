@@ -24,10 +24,12 @@ impl<M: Flat + ?Sized, B: WriteBuffer> Sender<M, B> {
     }
 }
 
-pub struct UninitSendGuard<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> {
-    buffer: &'a mut B,
+pub struct SendGuard<'a, M: Flat + ?Sized, B: WriteBuffer + 'a, const INIT: bool = true> {
+    pub(crate) buffer: &'a mut B,
     _ghost: PhantomData<M>,
 }
+
+pub type UninitSendGuard<'a, M, B> = SendGuard<'a, M, B, false>;
 
 impl<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> UninitSendGuard<'a, M, B> {
     pub(crate) fn new(buffer: &'a mut B) -> Self {
@@ -65,11 +67,6 @@ impl<'a, M: Flat + FlatDefault + ?Sized, B: WriteBuffer + 'a> UninitSendGuard<'a
         M::default_in_place(self.buffer)?;
         Ok(unsafe { self.assume_valid() })
     }
-}
-
-pub struct SendGuard<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> {
-    pub(crate) buffer: &'a mut B,
-    _ghost: PhantomData<M>,
 }
 
 impl<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> Deref for SendGuard<'a, M, B> {

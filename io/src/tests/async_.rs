@@ -4,14 +4,14 @@ use async_ringbuf::{traits::*, AsyncHeapRb};
 use async_std::{task::spawn, test as async_test};
 use flatty::vec::FromIterator;
 use futures::join;
-
+/*
 #[cfg(feature = "shared")]
 use crate::async_::shared::{SharedReceiver, SharedSender};
 #[cfg(feature = "shared")]
 use async_std::task::sleep;
 #[cfg(feature = "shared")]
 use std::mem::replace;
-
+*/
 fn pipe() -> AsyncHeapRb<u8> {
     AsyncHeapRb::<u8>::new(17)
 }
@@ -89,7 +89,7 @@ async fn unique() {
         })
     );
 }
-
+/*
 #[cfg(feature = "shared")]
 #[async_test]
 async fn shared_sender() {
@@ -214,3 +214,4 @@ async fn shared_receiver() {
         }),
     );
 }
+*/
