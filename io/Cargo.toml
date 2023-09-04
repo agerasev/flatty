@@ -1,6 +1,6 @@
 [package]
 name = "flatty-io"
-version = "0.1.0-rc.2"
+version = "0.1.0-rc.3"
 edition.workspace = true
 
 description = "Flat message transfer"
@@ -12,7 +12,7 @@ license.workspace = true
 default = ["async", "blocking", "shared", "io"]
 async = ["futures"]
 blocking = []
-shared = []
+shared = ["std"]
 io = ["std"]
 std = []
 
