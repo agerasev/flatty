@@ -131,7 +131,7 @@ fn shared_sender() {
 #[cfg(feature = "shared")]
 #[test]
 fn shared_receiver() {
-    const ATTEMPTS: usize = 16;
+    const ATTEMPTS: usize = 256;
 
     let (prod, cons) = pipe().split();
     let mut sender = Sender::<TestMsg, _>::io(prod, MAX_SIZE);
