@@ -24,32 +24,32 @@ async fn unique() {
             let mut sender = Sender::<TestMsg, _>::io(prod, MAX_SIZE);
 
             sender
-                .alloc_()
+                .alloc()
                 .await
                 .unwrap()
                 .default_in_place()
                 .unwrap()
-                .send_()
+                .send()
                 .await
                 .unwrap();
 
             sender
-                .alloc_()
+                .alloc()
                 .await
                 .unwrap()
                 .new_in_place(TestMsgInitB(123456))
                 .unwrap()
-                .send_()
+                .send()
                 .await
                 .unwrap();
 
             sender
-                .alloc_()
+                .alloc()
                 .await
                 .unwrap()
                 .new_in_place(TestMsgInitC(FromIterator(0..7)))
                 .unwrap()
-                .send_()
+                .send()
                 .await
                 .unwrap();
         }),
@@ -57,7 +57,7 @@ async fn unique() {
             let mut receiver = Receiver::<TestMsg, _>::io(cons, MAX_SIZE);
 
             {
-                let guard = receiver.recv_().await.unwrap();
+                let guard = receiver.recv().await.unwrap();
                 match guard.as_ref() {
                     TestMsgRef::A => (),
                     _ => panic!(),
@@ -65,7 +65,7 @@ async fn unique() {
             }
 
             {
-                let guard = receiver.recv_().await.unwrap();
+                let guard = receiver.recv().await.unwrap();
                 match guard.as_ref() {
                     TestMsgRef::B(x) => assert_eq!(*x, 123456),
                     _ => panic!(),
@@ -73,7 +73,7 @@ async fn unique() {
             }
 
             {
-                let guard = receiver.recv_().await.unwrap();
+                let guard = receiver.recv().await.unwrap();
                 match guard.as_ref() {
                     TestMsgRef::C(v) => {
                         assert!(v.iter().copied().eq(0..7));
@@ -82,7 +82,7 @@ async fn unique() {
                 }
             }
 
-            match receiver.recv_().await.err().unwrap() {
+            match receiver.recv().await.err().unwrap() {
                 RecvError::Closed => (),
                 _ => panic!(),
             }

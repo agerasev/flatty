@@ -1,5 +1,5 @@
-use super::{ReadBuffer, Receiver, Sender, WriteBuffer};
-use flatty::{utils::alloc::AlignedBytes, Flat};
+use super::{ReadBuffer, WriteBuffer};
+use flatty::utils::alloc::AlignedBytes;
 use std::{
     io,
     ops::{Deref, DerefMut, Range},
@@ -107,17 +107,5 @@ impl<P> ReadBuffer for IoBuffer<P> {
     type Error = io::Error;
     fn skip(&mut self, count: usize) {
         self.buffer.skip(count);
-    }
-}
-
-impl<M: Flat + ?Sized, P> Sender<M, IoBuffer<P>> {
-    pub fn io(pipe: P, max_msg_len: usize) -> Self {
-        Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN))
-    }
-}
-
-impl<M: Flat + ?Sized, P> Receiver<M, IoBuffer<P>> {
-    pub fn io(pipe: P, max_msg_len: usize) -> Self {
-        Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN))
     }
 }
