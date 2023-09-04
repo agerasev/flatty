@@ -77,7 +77,7 @@ impl<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> UninitSendGuard<'a, M, B> {
     /// # Safety
     ///
     /// Underlying message data must be initialized.
-    pub unsafe fn assume_valid(self) -> SendGuard<'a, M, B> {
+    pub unsafe fn assume_init(self) -> SendGuard<'a, M, B> {
         SendGuard {
             buffer: self.buffer,
             _ghost: PhantomData,
@@ -86,14 +86,14 @@ impl<'a, M: Flat + ?Sized, B: WriteBuffer + 'a> UninitSendGuard<'a, M, B> {
 
     pub fn new_in_place(self, emplacer: impl Emplacer<M>) -> Result<SendGuard<'a, M, B>, flatty::Error> {
         M::new_in_place(self.buffer, emplacer)?;
-        Ok(unsafe { self.assume_valid() })
+        Ok(unsafe { self.assume_init() })
     }
 }
 
 impl<'a, M: Flat + FlatDefault + ?Sized, B: WriteBuffer + 'a> UninitSendGuard<'a, M, B> {
     pub fn default_in_place(self) -> Result<SendGuard<'a, M, B>, flatty::Error> {
         M::default_in_place(self.buffer)?;
-        Ok(unsafe { self.assume_valid() })
+        Ok(unsafe { self.assume_init() })
     }
 }
 

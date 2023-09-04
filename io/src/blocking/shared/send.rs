@@ -32,13 +32,34 @@ impl<M: Flat + ?Sized, B: BlockingWriteBuffer> SharedSender<M, B> {
             _phantom: PhantomData,
         }
     }
+}
 
+#[cfg(feature = "io")]
+impl<M: Flat + ?Sized, P: std::io::Write> SharedSender<M, IoBuffer<P>> {
+    pub fn io(pipe: P, max_msg_len: usize) -> Self {
+        Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN), max_msg_len)
+    }
+}
+
+impl<M: Flat + ?Sized, B: BlockingWriteBuffer> SharedSender<M, B> {
     pub fn alloc(&mut self) -> Result<SendGuard<'_, M, B, false>, SendError<B::Error>> {
         Ok(SendGuard {
             shared: &self.shared,
             buffer: &mut self.buffer,
             _ghost: PhantomData,
         })
+    }
+}
+
+impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> SendGuard<'a, M, B> {
+    pub fn send(self) -> Result<(), SendError<B::Error>> {
+        let mut shared = self.shared.lock().unwrap();
+        shared.alloc()?;
+        let size = self.size();
+        let src = &self.as_bytes()[..size];
+        let dst = shared.get_mut(..size).unwrap();
+        dst.copy_from_slice(src);
+        shared.write_all(size)
     }
 }
 
@@ -61,7 +82,7 @@ impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> UninitSendGuard<'a, M, B
     /// # Safety
     ///
     /// Underlying message data must be initialized.
-    pub unsafe fn assume_valid(self) -> SendGuard<'a, M, B> {
+    pub unsafe fn assume_init(self) -> SendGuard<'a, M, B> {
         SendGuard {
             shared: self.shared,
             buffer: self.buffer,
@@ -70,13 +91,13 @@ impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> UninitSendGuard<'a, M, B
     }
     pub fn new_in_place(self, emplacer: impl Emplacer<M>) -> Result<SendGuard<'a, M, B>, flatty::Error> {
         M::new_in_place(self.buffer, emplacer)?;
-        Ok(unsafe { self.assume_valid() })
+        Ok(unsafe { self.assume_init() })
     }
 }
 impl<'a, M: Flat + FlatDefault + ?Sized, B: BlockingWriteBuffer + 'a> UninitSendGuard<'a, M, B> {
     pub fn default_in_place(self) -> Result<SendGuard<'a, M, B>, flatty::Error> {
         M::default_in_place(self.buffer)?;
-        Ok(unsafe { self.assume_valid() })
+        Ok(unsafe { self.assume_init() })
     }
 }
 
@@ -89,24 +110,5 @@ impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> Deref for SendGuard<'a, 
 impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> DerefMut for SendGuard<'a, M, B> {
     fn deref_mut(&mut self) -> &mut M {
         unsafe { M::from_mut_bytes_unchecked(self.buffer) }
-    }
-}
-
-impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> SendGuard<'a, M, B> {
-    pub fn send(self) -> Result<(), SendError<B::Error>> {
-        let mut shared = self.shared.lock().unwrap();
-        shared.alloc()?;
-        let size = self.size();
-        let src = &self.as_bytes()[..size];
-        let dst = shared.get_mut(..size).unwrap();
-        dst.copy_from_slice(src);
-        shared.write_all(size)
-    }
-}
-
-#[cfg(feature = "io")]
-impl<M: Flat + ?Sized, P: std::io::Write> SharedSender<M, IoBuffer<P>> {
-    pub fn io(pipe: P, max_msg_len: usize) -> Self {
-        Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN), max_msg_len)
     }
 }
