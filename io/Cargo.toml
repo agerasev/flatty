@@ -9,9 +9,12 @@ repository.workspace = true
 license.workspace = true
 
 [features]
-default = ["async", "blocking"]
+default = ["async", "blocking", "shared", "io"]
 async = ["futures"]
 blocking = []
+shared = []
+io = ["std"]
+std = []
 
 [dependencies]
 flatty = { workspace = true, features = ["std"] }
@@ -20,5 +23,5 @@ owning_ref = "0.4.1"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
-async-ringbuf = "0.2.0-rc.3"
-ringbuf-blocking = "0.1.0-rc.1"
+async-ringbuf = "0.2.0-rc.4"
+ringbuf-blocking = "0.1.0-rc.2"

@@ -1,88 +1,116 @@
-use super::super::{BlockingSender, CommonSender, SendError, UninitSendGuard};
-use flatty::{self, prelude::*, utils::alloc::AlignedBytes};
+#[cfg(feature = "io")]
+use super::super::IoBuffer;
+use super::super::{BlockingWriteBuffer, SendError};
+use flatty::{self, prelude::*, utils::alloc::AlignedBytes, Emplacer};
+#[cfg(feature = "io")]
+use std::io::Write;
 use std::{
-    io::Write,
     marker::PhantomData,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
+    ops::{Deref, DerefMut},
+    sync::{Arc, Mutex},
 };
 
-struct Base<W: Write> {
-    write: Mutex<W>,
-    poisoned: AtomicBool,
-}
-
-pub struct SharedSender<M: Flat + ?Sized, W: Write> {
-    base: Arc<Base<W>>,
+pub struct SharedSender<M: Flat + ?Sized, B: BlockingWriteBuffer> {
+    shared: Arc<Mutex<B>>,
     buffer: AlignedBytes,
     _phantom: PhantomData<M>,
 }
 
-impl<M: Flat + ?Sized, W: Write> SharedSender<M, W> {
-    pub fn new(write: W, max_msg_size: usize) -> Self {
-        Self {
-            base: Arc::new(Base {
-                write: Mutex::new(write),
-                poisoned: AtomicBool::new(false),
-            }),
-            buffer: AlignedBytes::new(max_msg_size, M::ALIGN),
-            _phantom: PhantomData,
-        }
-    }
-
-    pub fn alloc_message(&mut self) -> UninitSendGuard<'_, M, Self> {
-        UninitSendGuard::new(self)
-    }
-}
-
-impl<M: Flat + ?Sized, W: Write> Clone for SharedSender<M, W> {
+impl<M: Flat + ?Sized, B: BlockingWriteBuffer> Clone for SharedSender<M, B> {
     fn clone(&self) -> Self {
         Self {
-            base: self.base.clone(),
+            shared: self.shared.clone(),
             buffer: AlignedBytes::new(self.buffer.len(), M::ALIGN),
             _phantom: PhantomData,
         }
     }
 }
 
-impl<M: Flat + ?Sized, W: Write> CommonSender<M> for SharedSender<M, W> {
-    fn buffer(&self) -> &[u8] {
-        &self.buffer
-    }
-    fn buffer_mut(&mut self) -> &mut [u8] {
-        &mut self.buffer
-    }
-
-    fn poisoned(&self) -> bool {
-        self.base.poisoned.load(Ordering::Relaxed) || self.base.write.is_poisoned()
+impl<M: Flat + ?Sized, B: BlockingWriteBuffer> SharedSender<M, B> {
+    pub fn new(buffer: B, max_msg_size: usize) -> Self {
+        Self {
+            shared: Arc::new(Mutex::new(buffer)),
+            buffer: AlignedBytes::new(max_msg_size, M::ALIGN),
+            _phantom: PhantomData,
+        }
     }
 }
 
-impl<M: Flat + ?Sized, W: Write> BlockingSender<M> for SharedSender<M, W> {
-    fn send_buffer(&mut self, count: usize) -> Result<(), SendError> {
-        let mut guard = self.base.write.lock().unwrap();
-        assert!(!self.base.poisoned.load(Ordering::Relaxed));
+#[cfg(feature = "io")]
+impl<M: Flat + ?Sized, P: Write> SharedSender<M, IoBuffer<P>> {
+    pub fn io(pipe: P, max_msg_len: usize) -> Self {
+        Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN), max_msg_len)
+    }
+}
 
-        let mut data = &self.buffer[..count];
-        loop {
-            match guard.write(data) {
-                Ok(n) => {
-                    if n > 0 {
-                        data = &data[n..];
-                        if data.is_empty() {
-                            break Ok(());
-                        }
-                    } else {
-                        break Err(SendError::Eof);
-                    }
-                }
-                Err(e) => {
-                    self.base.poisoned.store(true, Ordering::Relaxed);
-                    break Err(SendError::Io(e));
-                }
-            }
+impl<M: Flat + ?Sized, B: BlockingWriteBuffer> SharedSender<M, B> {
+    pub fn alloc(&mut self) -> Result<SendGuard<'_, M, B, false>, SendError<B::Error>> {
+        Ok(SendGuard {
+            shared: &self.shared,
+            buffer: &mut self.buffer,
+            _ghost: PhantomData,
+        })
+    }
+}
+
+impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> SendGuard<'a, M, B> {
+    pub fn send(self) -> Result<(), SendError<B::Error>> {
+        let mut shared = self.shared.lock().unwrap();
+        shared.alloc()?;
+        let size = self.size();
+        let src = &self.as_bytes()[..size];
+        let dst = shared.get_mut(..size).unwrap();
+        dst.copy_from_slice(src);
+        shared.write_all(size)
+    }
+}
+
+pub struct SendGuard<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a, const INIT: bool = true> {
+    shared: &'a Mutex<B>,
+    buffer: &'a mut AlignedBytes,
+    _ghost: PhantomData<M>,
+}
+
+pub type UninitSendGuard<'a, M, B> = SendGuard<'a, M, B, false>;
+
+impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> UninitSendGuard<'a, M, B> {
+    pub fn as_bytes(&self) -> &[u8] {
+        self.buffer
+    }
+    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
+        self.buffer
+    }
+
+    /// # Safety
+    ///
+    /// Underlying message data must be initialized.
+    pub unsafe fn assume_init(self) -> SendGuard<'a, M, B> {
+        SendGuard {
+            shared: self.shared,
+            buffer: self.buffer,
+            _ghost: PhantomData,
         }
+    }
+    pub fn new_in_place(self, emplacer: impl Emplacer<M>) -> Result<SendGuard<'a, M, B>, flatty::Error> {
+        M::new_in_place(self.buffer, emplacer)?;
+        Ok(unsafe { self.assume_init() })
+    }
+}
+impl<'a, M: Flat + FlatDefault + ?Sized, B: BlockingWriteBuffer + 'a> UninitSendGuard<'a, M, B> {
+    pub fn default_in_place(self) -> Result<SendGuard<'a, M, B>, flatty::Error> {
+        M::default_in_place(self.buffer)?;
+        Ok(unsafe { self.assume_init() })
+    }
+}
+
+impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> Deref for SendGuard<'a, M, B> {
+    type Target = M;
+    fn deref(&self) -> &M {
+        unsafe { M::from_bytes_unchecked(self.buffer) }
+    }
+}
+impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer + 'a> DerefMut for SendGuard<'a, M, B> {
+    fn deref_mut(&mut self) -> &mut M {
+        unsafe { M::from_mut_bytes_unchecked(self.buffer) }
     }
 }

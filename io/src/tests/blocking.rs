@@ -1,15 +1,13 @@
 use super::common::*;
-use crate::blocking::{
-    prelude::*,
-    shared::{SharedReceiver, SharedSender},
-    Receiver, RecvError, Sender,
-};
+use crate::blocking::{Receiver, RecvError, Sender};
 use flatty::vec::FromIterator;
 use ringbuf_blocking::{traits::*, BlockingHeapRb};
-use std::{
-    mem::replace,
-    thread::{sleep, spawn},
-};
+use std::thread::spawn;
+
+#[cfg(feature = "shared")]
+use crate::blocking::shared::{SharedReceiver, SharedSender};
+#[cfg(feature = "shared")]
+use std::{mem::replace, thread::sleep};
 
 fn pipe() -> BlockingHeapRb<u8> {
     BlockingHeapRb::new(17)
@@ -20,21 +18,28 @@ fn unique() {
     let (prod, cons) = pipe().split();
     let (send, recv) = (
         spawn(move || {
-            let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
+            let mut sender = Sender::<TestMsg, _>::io(prod, MAX_SIZE);
 
-            sender.alloc().default_in_place().unwrap().send().unwrap();
-
-            sender.alloc().new_in_place(TestMsgInitB(123456)).unwrap().send().unwrap();
+            sender.alloc().unwrap().default_in_place().unwrap().send().unwrap();
 
             sender
                 .alloc()
+                .unwrap()
+                .new_in_place(TestMsgInitB(123456))
+                .unwrap()
+                .send()
+                .unwrap();
+
+            sender
+                .alloc()
+                .unwrap()
                 .new_in_place(TestMsgInitC(FromIterator(0..7)))
                 .unwrap()
                 .send()
                 .unwrap();
         }),
         spawn(move || {
-            let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
+            let mut receiver = Receiver::<TestMsg, _>::io(cons, MAX_SIZE);
 
             match receiver.recv().unwrap().as_ref() {
                 TestMsgRef::A => (),
@@ -54,8 +59,8 @@ fn unique() {
             }
 
             match receiver.recv().err().unwrap() {
-                RecvError::Eof => (),
-                _ => panic!(),
+                RecvError::Closed => (),
+                other => panic!("{:?}", other),
             }
         }),
     );
@@ -63,11 +68,12 @@ fn unique() {
     send.join().unwrap();
 }
 
+#[cfg(feature = "shared")]
 #[test]
 fn shared_sender() {
     let (prod, cons) = pipe().split();
-    let mut sender = SharedSender::<TestMsg, _>::new(prod, MAX_SIZE);
-    let mut receiver = Receiver::<TestMsg, _>::new(cons, MAX_SIZE);
+    let mut sender = SharedSender::<TestMsg, _>::io(prod, MAX_SIZE);
+    let mut receiver = Receiver::<TestMsg, _>::io(cons, MAX_SIZE);
 
     let (sends, recv) = (
         [
@@ -75,7 +81,8 @@ fn shared_sender() {
                 let mut sender = sender.clone();
                 move || {
                     sender
-                        .alloc_message()
+                        .alloc()
+                        .unwrap()
                         .new_in_place(TestMsgInitB(123456))
                         .unwrap()
                         .send()
@@ -84,7 +91,8 @@ fn shared_sender() {
             }),
             spawn(move || {
                 sender
-                    .alloc_message()
+                    .alloc()
+                    .unwrap()
                     .new_in_place(TestMsgInitC(FromIterator(0..7)))
                     .unwrap()
                     .send()
@@ -109,8 +117,8 @@ fn shared_sender() {
             }
 
             match receiver.recv().err().unwrap() {
-                RecvError::Eof => (),
-                _ => panic!(),
+                RecvError::Closed => (),
+                other => panic!("{:?}", other),
             }
         }),
     );
@@ -120,21 +128,29 @@ fn shared_sender() {
     }
 }
 
+#[cfg(feature = "shared")]
 #[test]
 fn shared_receiver() {
-    const ATTEMPTS: usize = 16;
+    const ATTEMPTS: usize = 256;
 
     let (prod, cons) = pipe().split();
-    let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
-    let receiver = SharedReceiver::<TestMsg, _>::new(cons, MAX_SIZE);
+    let mut sender = Sender::<TestMsg, _>::io(prod, MAX_SIZE);
+    let receiver = SharedReceiver::<TestMsg, _>::io(cons, MAX_SIZE);
 
     let (send, recvs) = (
         spawn(move || {
             for i in 0..ATTEMPTS {
-                sender.alloc().new_in_place(TestMsgInitB(i as i32)).unwrap().send().unwrap();
+                sender
+                    .alloc()
+                    .unwrap()
+                    .new_in_place(TestMsgInitB(i as i32))
+                    .unwrap()
+                    .send()
+                    .unwrap();
 
                 sender
                     .alloc()
+                    .unwrap()
                     .new_in_place(TestMsgInitC(FromIterator((1..8).map(|x| x * (i + 1) as i32))))
                     .unwrap()
                     .send()
@@ -157,7 +173,7 @@ fn shared_receiver() {
                     }
 
                     match receiver.recv().err().unwrap() {
-                        RecvError::Eof => (),
+                        RecvError::Closed => (),
                         _ => panic!(),
                     }
                 }
@@ -175,7 +191,7 @@ fn shared_receiver() {
                     }
 
                     match receiver.recv().err().unwrap() {
-                        RecvError::Eof => (),
+                        RecvError::Closed => (),
                         _ => panic!(),
                     }
                 }

@@ -1,80 +1,103 @@
-use super::{CommonReceiver, Receiver, RecvError, RecvGuard};
-use flatty::Flat;
-use futures::io::AsyncRead;
-use std::{
+#[cfg(feature = "io")]
+use super::IoBuffer;
+use super::{ReadBuffer, RecvError};
+use core::{
     future::Future,
+    marker::PhantomData,
+    mem::forget,
+    ops::Deref,
     pin::Pin,
     task::{Context, Poll},
 };
+use flatty::{error::ErrorKind, Flat};
+#[cfg(feature = "io")]
+use futures::io::AsyncRead;
 
-pub trait AsyncReceiver<M: Flat + ?Sized>: CommonReceiver<M> {
-    type RecvFuture<'a>: Future<Output = Result<Self::RecvGuard<'a>, RecvError>>
-    where
-        Self: 'a;
+pub trait AsyncReadBuffer: ReadBuffer + Unpin {
+    /// Receive more bytes and put them in the buffer.
+    /// Returns the number of received bytes, zero means that channel is closed.
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<usize, Self::Error>>;
 
-    fn recv(&mut self) -> Self::RecvFuture<'_>;
-}
-
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Receiver<M, R> {
-    pub(super) fn poll_receive(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), RecvError>> {
-        let poll = loop {
-            match self.buffer.next_message() {
-                Some(result) => break Poll::Ready(result.map(|_| ())),
-                None => {
-                    if self.buffer.vacant_len() == 0 {
-                        assert!(self.buffer.try_extend_vacant());
-                    }
-                }
-            }
-            let reader = Pin::new(&mut self.reader);
-            match reader.poll_read(cx, self.buffer.vacant_mut()) {
-                Poll::Ready(res) => match res {
-                    Ok(count) => {
-                        if count != 0 {
-                            self.buffer.take_vacant(count);
-                        } else {
-                            break Poll::Ready(Err(RecvError::Eof));
-                        }
-                    }
-                    Err(err) => break Poll::Ready(Err(RecvError::Io(err))),
-                },
-                Poll::Pending => break Poll::Pending,
-            };
-        };
-        poll
-    }
-
-    pub(super) fn take_message(&mut self) -> RecvGuard<'_, M, R> {
-        RecvGuard::new(self)
+    fn read(&mut self) -> Read<'_, Self> {
+        Read(self)
     }
 }
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> AsyncReceiver<M> for Receiver<M, R> {
-    type RecvFuture<'a> = RecvFuture<'a, M, R> where Self: 'a;
-    fn recv(&mut self) -> Self::RecvFuture<'_> {
-        RecvFuture { owner: Some(self) }
-    }
-}
+pub struct Read<'a, B: AsyncReadBuffer + ?Sized>(&'a mut B);
 
-impl<M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for Receiver<M, R> {}
-
-pub struct RecvFuture<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> {
-    owner: Option<&'a mut Receiver<M, R>>,
-}
-
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Unpin for RecvFuture<'a, M, R> {}
-
-impl<'a, M: Flat + ?Sized, R: AsyncRead + Unpin> Future for RecvFuture<'a, M, R> {
-    type Output = Result<RecvGuard<'a, M, R>, RecvError>;
-
+impl<'a, B: AsyncReadBuffer + ?Sized> Future for Read<'a, B> {
+    type Output = Result<usize, B::Error>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let owner = self.owner.take().unwrap();
-        match owner.poll_receive(cx) {
-            Poll::Ready(res) => Poll::Ready(res.map(|()| owner.take_message())),
-            Poll::Pending => {
-                self.owner.replace(owner);
-                Poll::Pending
+        Pin::new(&mut *self.0).poll_read(cx)
+    }
+}
+
+pub struct Receiver<M: Flat + ?Sized, B: ReadBuffer> {
+    pub(crate) buffer: B,
+    _ghost: PhantomData<M>,
+}
+
+impl<M: Flat + ?Sized, B: ReadBuffer> Receiver<M, B> {
+    pub fn new(buffer: B) -> Self {
+        Self {
+            buffer,
+            _ghost: PhantomData,
+        }
+    }
+}
+
+#[cfg(feature = "io")]
+impl<M: Flat + ?Sized, P: AsyncRead + Unpin> Receiver<M, IoBuffer<P>> {
+    pub fn io(pipe: P, max_msg_len: usize) -> Self {
+        Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN))
+    }
+}
+
+impl<M: Flat + ?Sized, B: AsyncReadBuffer> Receiver<M, B> {
+    pub async fn recv(&mut self) -> Result<RecvGuard<'_, M, B>, RecvError<B::Error>> {
+        while let Err(e) = M::validate(&self.buffer) {
+            match e.kind {
+                ErrorKind::InsufficientSize => (),
+                _ => return Err(RecvError::Parse(e)),
+            }
+            if self.buffer.read().await.map_err(RecvError::Buffer)? == 0 {
+                return Err(RecvError::Closed);
             }
         }
+        Ok(RecvGuard::new(&mut self.buffer))
+    }
+}
+
+pub struct RecvGuard<'a, M: Flat + ?Sized, B: ReadBuffer + 'a> {
+    pub(crate) buffer: &'a mut B,
+    _ghost: PhantomData<M>,
+}
+
+impl<'a, M: Flat + ?Sized, B: ReadBuffer + 'a> RecvGuard<'a, M, B> {
+    pub(crate) fn new(buffer: &'a mut B) -> Self {
+        Self {
+            buffer,
+            _ghost: PhantomData,
+        }
+    }
+    /// Destroy guard but do not remove message from receiver.
+    ///
+    /// Effect of this call is the same as leak of the guard.
+    pub fn retain(self) {
+        forget(self);
+    }
+}
+
+impl<'a, M: Flat + ?Sized, B: ReadBuffer + 'a> Drop for RecvGuard<'a, M, B> {
+    fn drop(&mut self) {
+        let size = self.size();
+        self.buffer.skip(size);
+    }
+}
+
+impl<'a, M: Flat + ?Sized, B: ReadBuffer + 'a> Deref for RecvGuard<'a, M, B> {
+    type Target = M;
+    fn deref(&self) -> &M {
+        unsafe { M::from_bytes_unchecked(self.buffer) }
     }
 }
