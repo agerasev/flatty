@@ -3,7 +3,7 @@ use super::super::IoBuffer;
 use super::super::{AsyncWriteBuffer, SendError};
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes, Emplacer};
 #[cfg(feature = "io")]
-use futures::io::{self, AsyncWrite};
+use futures::io::AsyncWrite;
 use futures::lock::Mutex;
 use std::{
     marker::PhantomData,
@@ -35,7 +35,7 @@ impl<M: Flat + ?Sized, P: AsyncWrite + Unpin> SharedSender<M, IoBuffer<P>> {
 }
 
 impl<M: Flat + ?Sized, B: AsyncWriteBuffer> SharedSender<M, B> {
-    pub async fn alloc(&mut self) -> Result<UninitSendGuard<'_, M, B>, SendError<io::Error>> {
+    pub async fn alloc(&mut self) -> Result<UninitSendGuard<'_, M, B>, SendError<B::Error>> {
         Ok(SendGuard {
             shared: &self.shared,
             buffer: &mut self.buffer,

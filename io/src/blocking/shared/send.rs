@@ -2,6 +2,8 @@
 use super::super::IoBuffer;
 use super::super::{BlockingWriteBuffer, SendError};
 use flatty::{self, prelude::*, utils::alloc::AlignedBytes, Emplacer};
+#[cfg(feature = "io")]
+use std::io::Write;
 use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -35,7 +37,7 @@ impl<M: Flat + ?Sized, B: BlockingWriteBuffer> SharedSender<M, B> {
 }
 
 #[cfg(feature = "io")]
-impl<M: Flat + ?Sized, P: std::io::Write> SharedSender<M, IoBuffer<P>> {
+impl<M: Flat + ?Sized, P: Write> SharedSender<M, IoBuffer<P>> {
     pub fn io(pipe: P, max_msg_len: usize) -> Self {
         Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN), max_msg_len)
     }

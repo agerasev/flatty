@@ -5,7 +5,7 @@ use ringbuf_blocking::{traits::*, BlockingHeapRb};
 use std::thread::spawn;
 
 #[cfg(feature = "shared")]
-use crate::blocking::shared::SharedSender; // SharedReceiver
+use crate::blocking::shared::{SharedReceiver, SharedSender};
 #[cfg(feature = "shared")]
 use std::{mem::replace, thread::sleep};
 
@@ -127,23 +127,30 @@ fn shared_sender() {
         send.join().unwrap();
     }
 }
-/*
+
 #[cfg(feature = "shared")]
 #[test]
 fn shared_receiver() {
     const ATTEMPTS: usize = 16;
 
     let (prod, cons) = pipe().split();
-    let mut sender = Sender::<TestMsg, _>::new(prod, MAX_SIZE);
-    let receiver = SharedReceiver::<TestMsg, _>::new(cons, MAX_SIZE);
+    let mut sender = Sender::<TestMsg, _>::io(prod, MAX_SIZE);
+    let receiver = SharedReceiver::<TestMsg, _>::io(cons, MAX_SIZE);
 
     let (send, recvs) = (
         spawn(move || {
             for i in 0..ATTEMPTS {
-                sender.alloc().new_in_place(TestMsgInitB(i as i32)).unwrap().send().unwrap();
+                sender
+                    .alloc()
+                    .unwrap()
+                    .new_in_place(TestMsgInitB(i as i32))
+                    .unwrap()
+                    .send()
+                    .unwrap();
 
                 sender
                     .alloc()
+                    .unwrap()
                     .new_in_place(TestMsgInitC(FromIterator((1..8).map(|x| x * (i + 1) as i32))))
                     .unwrap()
                     .send()
@@ -166,7 +173,7 @@ fn shared_receiver() {
                     }
 
                     match receiver.recv().err().unwrap() {
-                        RecvError::Eof => (),
+                        RecvError::Closed => (),
                         _ => panic!(),
                     }
                 }
@@ -184,7 +191,7 @@ fn shared_receiver() {
                     }
 
                     match receiver.recv().err().unwrap() {
-                        RecvError::Eof => (),
+                        RecvError::Closed => (),
                         _ => panic!(),
                     }
                 }
@@ -197,4 +204,3 @@ fn shared_receiver() {
     }
     send.join().unwrap();
 }
-*/
