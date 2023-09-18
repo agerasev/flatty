@@ -56,10 +56,10 @@ impl<M: Flat + ?Sized, B: AsyncWriteBuffer> Sender<M, B> {
 }
 
 #[cfg(feature = "io")]
-pub type AsyncIoSender<M, P> = Sender<M, IoBuffer<P>>;
+pub type IoSender<M, P> = Sender<M, IoBuffer<P>>;
 
 #[cfg(feature = "io")]
-impl<M: Flat + ?Sized, P: AsyncWrite + Unpin> AsyncIoSender<M, P> {
+impl<M: Flat + ?Sized, P: AsyncWrite + Unpin> IoSender<M, P> {
     pub fn io(pipe: P, max_msg_len: usize) -> Self {
         Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN))
     }

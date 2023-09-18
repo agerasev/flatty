@@ -52,10 +52,10 @@ impl<M: Flat + ?Sized, B: AsyncReadBuffer> Receiver<M, B> {
 }
 
 #[cfg(feature = "io")]
-pub type AsyncIoReceiver<M, P> = Receiver<M, IoBuffer<P>>;
+pub type IoReceiver<M, P> = Receiver<M, IoBuffer<P>>;
 
 #[cfg(feature = "io")]
-impl<M: Flat + ?Sized, P: AsyncRead + Unpin> AsyncIoReceiver<M, P> {
+impl<M: Flat + ?Sized, P: AsyncRead + Unpin> IoReceiver<M, P> {
     pub fn io(pipe: P, max_msg_len: usize) -> Self {
         Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN))
     }

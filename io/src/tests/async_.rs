@@ -1,5 +1,5 @@
 use super::common::*;
-use crate::async_::{Receiver, RecvError, Sender};
+use crate::{AsyncReceiver, AsyncSender, RecvError};
 use async_ringbuf::{traits::*, AsyncHeapRb};
 use async_std::{task::spawn, test as async_test};
 use flatty::vec::FromIterator;
@@ -10,7 +10,7 @@ async fn unique() {
     let (prod, cons) = AsyncHeapRb::<u8>::new(17).split();
     join!(
         spawn(async move {
-            let mut sender = Sender::<TestMsg, _>::io(prod, MAX_SIZE);
+            let mut sender = AsyncSender::<TestMsg, _>::io(prod, MAX_SIZE);
 
             sender
                 .alloc()
@@ -43,7 +43,7 @@ async fn unique() {
                 .unwrap();
         }),
         spawn(async move {
-            let mut receiver = Receiver::<TestMsg, _>::io(cons, MAX_SIZE);
+            let mut receiver = AsyncReceiver::<TestMsg, _>::io(cons, MAX_SIZE);
 
             {
                 let guard = receiver.recv().await.unwrap();
