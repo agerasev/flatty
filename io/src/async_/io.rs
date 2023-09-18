@@ -12,6 +12,8 @@ use std::{
 pub use futures::io::WriteAll;
 
 impl<P: AsyncWrite + Unpin> AsyncWriteBuffer for IoBuffer<P> {
+    type Error = io::Error;
+
     fn poll_alloc(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let n = self.buffer.vacant_len();
         if n > 0 {
@@ -28,6 +30,8 @@ impl<P: AsyncWrite + Unpin> AsyncWriteBuffer for IoBuffer<P> {
 }
 
 impl<P: AsyncRead + Unpin> AsyncReadBuffer for IoBuffer<P> {
+    type Error = io::Error;
+
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<usize, io::Error>> {
         assert!(!self.poisoned);
         if self.buffer.vacant_len() == 0 {
@@ -48,5 +52,9 @@ impl<P: AsyncRead + Unpin> AsyncReadBuffer for IoBuffer<P> {
                 Poll::Ready(Err(e))
             }
         }
+    }
+
+    fn skip(&mut self, count: usize) {
+        self.buffer.skip(count);
     }
 }

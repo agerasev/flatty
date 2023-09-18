@@ -1,7 +1,10 @@
-use super::{BlockingReadBuffer, BlockingWriteBuffer, IoBuffer};
+use super::{ReadBuffer, WriteBuffer};
+use crate::IoBuffer;
 use std::io::{self, Read, Write};
 
-impl<P: Write> BlockingWriteBuffer for IoBuffer<P> {
+impl<P: Write> WriteBuffer for IoBuffer<P> {
+    type Error = io::Error;
+
     fn alloc(&mut self) -> Result<(), Self::Error> {
         let n = self.buffer.vacant_len();
         if n > 0 {
@@ -20,7 +23,9 @@ impl<P: Write> BlockingWriteBuffer for IoBuffer<P> {
     }
 }
 
-impl<P: Read> BlockingReadBuffer for IoBuffer<P> {
+impl<P: Read> ReadBuffer for IoBuffer<P> {
+    type Error = io::Error;
+
     fn read(&mut self) -> Result<usize, Self::Error> {
         assert!(!self.poisoned);
         if self.buffer.vacant_len() == 0 {
@@ -40,5 +45,9 @@ impl<P: Read> BlockingReadBuffer for IoBuffer<P> {
                 Err(e)
             }
         }
+    }
+
+    fn skip(&mut self, count: usize) {
+        self.buffer.skip(count);
     }
 }

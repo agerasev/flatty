@@ -1,9 +1,5 @@
-use super::{ReadBuffer, WriteBuffer};
 use flatty::utils::alloc::AlignedBytes;
-use std::{
-    io,
-    ops::{Deref, DerefMut, Range},
-};
+use std::ops::{Deref, DerefMut, Range};
 
 pub(crate) struct Buffer {
     data: AlignedBytes,
@@ -83,6 +79,7 @@ impl<P> IoBuffer<P> {
             poisoned: false,
         }
     }
+    #[allow(dead_code)]
     pub(crate) fn split_mut(&mut self) -> (&mut P, &mut Buffer) {
         (&mut self.pipe, &mut self.buffer)
     }
@@ -97,16 +94,5 @@ impl<P> Deref for IoBuffer<P> {
 impl<P> DerefMut for IoBuffer<P> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.buffer.occupied_mut()
-    }
-}
-
-impl<P> WriteBuffer for IoBuffer<P> {
-    type Error = io::Error;
-}
-
-impl<P> ReadBuffer for IoBuffer<P> {
-    type Error = io::Error;
-    fn skip(&mut self, count: usize) {
-        self.buffer.skip(count);
     }
 }

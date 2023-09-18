@@ -1,15 +1,20 @@
 #[cfg(feature = "io")]
-use super::IoBuffer;
-use super::{ReadBuffer, RecvError};
+use crate::IoBuffer;
+use crate::RecvError;
 use core::{marker::PhantomData, mem::forget, ops::Deref};
 use flatty::{error::ErrorKind, Flat};
 #[cfg(feature = "io")]
 use std::io::Read;
 
-pub trait BlockingReadBuffer: ReadBuffer {
+pub trait ReadBuffer: Deref<Target = [u8]> {
+    type Error;
+
     /// Receive more bytes and put them in the buffer.
     /// Returns the number of received bytes, zero means that channel is closed.
     fn read(&mut self) -> Result<usize, Self::Error>;
+
+    /// Skip first `count` bytes. Remaining bytes *may* be discarded.
+    fn skip(&mut self, count: usize);
 }
 
 pub struct Receiver<M: Flat + ?Sized, B: ReadBuffer> {
@@ -27,20 +32,23 @@ impl<M: Flat + ?Sized, B: ReadBuffer> Receiver<M, B> {
 }
 
 #[cfg(feature = "io")]
-impl<M: Flat + ?Sized, P: Read> Receiver<M, IoBuffer<P>> {
+pub type IoReceiver<M, P> = Receiver<M, IoBuffer<P>>;
+
+#[cfg(feature = "io")]
+impl<M: Flat + ?Sized, P: Read> IoReceiver<M, P> {
     pub fn io(pipe: P, max_msg_len: usize) -> Self {
         Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN))
     }
 }
 
-impl<M: Flat + ?Sized, B: BlockingReadBuffer> Receiver<M, B> {
+impl<M: Flat + ?Sized, B: ReadBuffer> Receiver<M, B> {
     pub fn recv(&mut self) -> Result<RecvGuard<'_, M, B>, RecvError<B::Error>> {
         while let Err(e) = M::validate(&self.buffer) {
             match e.kind {
                 ErrorKind::InsufficientSize => (),
                 _ => return Err(RecvError::Parse(e)),
             }
-            if self.buffer.read().map_err(RecvError::Buffer)? == 0 {
+            if self.buffer.read().map_err(RecvError::Read)? == 0 {
                 return Err(RecvError::Closed);
             }
         }

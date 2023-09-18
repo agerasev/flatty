@@ -1,6 +1,6 @@
 #[cfg(feature = "io")]
-use super::IoBuffer;
-use super::{SendError, WriteBuffer};
+use crate::IoBuffer;
+use crate::SendError;
 use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -9,20 +9,23 @@ use flatty::{self, prelude::*, Emplacer};
 #[cfg(feature = "io")]
 use std::io::Write;
 
-pub trait BlockingWriteBuffer: WriteBuffer {
+pub trait WriteBuffer: DerefMut<Target = [u8]> {
+    type Error;
+
     /// Allocate some fixed amount of bytes in the buffer.
     fn alloc(&mut self) -> Result<(), Self::Error>;
+
     /// Send exactly `count` bytes from buffer.
     /// Remaining bytes are discarded.
     fn write_all(&mut self, count: usize) -> Result<(), Self::Error>;
 }
 
-pub struct Sender<M: Flat + ?Sized, B: BlockingWriteBuffer> {
+pub struct Sender<M: Flat + ?Sized, B: WriteBuffer> {
     pub(crate) buffer: B,
     _ghost: PhantomData<M>,
 }
 
-impl<M: Flat + ?Sized, B: BlockingWriteBuffer> Sender<M, B> {
+impl<M: Flat + ?Sized, B: WriteBuffer> Sender<M, B> {
     pub fn new(buf_send: B) -> Self {
         Self {
             buffer: buf_send,
@@ -32,20 +35,23 @@ impl<M: Flat + ?Sized, B: BlockingWriteBuffer> Sender<M, B> {
 }
 
 #[cfg(feature = "io")]
-impl<M: Flat + ?Sized, P: Write> Sender<M, IoBuffer<P>> {
+pub type IoSender<M, P> = Sender<M, IoBuffer<P>>;
+
+#[cfg(feature = "io")]
+impl<M: Flat + ?Sized, P: Write> IoSender<M, P> {
     pub fn io(pipe: P, max_msg_len: usize) -> Self {
         Self::new(IoBuffer::new(pipe, 2 * max_msg_len.max(M::MIN_SIZE), M::ALIGN))
     }
 }
 
-impl<M: Flat + ?Sized, B: BlockingWriteBuffer> Sender<M, B> {
+impl<M: Flat + ?Sized, B: WriteBuffer> Sender<M, B> {
     pub fn alloc(&mut self) -> Result<UninitSendGuard<'_, M, B>, SendError<B::Error>> {
         self.buffer.alloc()?;
         Ok(UninitSendGuard::new(&mut self.buffer))
     }
 }
 
-impl<'a, M: Flat + ?Sized, B: BlockingWriteBuffer> SendGuard<'a, M, B> {
+impl<'a, M: Flat + ?Sized, B: WriteBuffer> SendGuard<'a, M, B> {
     pub fn send(self) -> Result<(), SendError<B::Error>> {
         let size = self.size();
         self.buffer.write_all(size)
