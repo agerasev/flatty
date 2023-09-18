@@ -1,5 +1,4 @@
 use flatty::{flat, FlatVec};
-use std::time::Duration;
 
 #[flat(sized = false, default = true)]
 pub enum TestMsg {
@@ -10,5 +9,3 @@ pub enum TestMsg {
 }
 
 pub const MAX_SIZE: usize = 36;
-
-pub const TIMEOUT: Duration = Duration::from_millis(10);

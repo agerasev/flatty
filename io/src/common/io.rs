@@ -10,6 +10,7 @@ pub(crate) struct Buffer {
     window: Range<usize>,
 }
 
+#[allow(dead_code)]
 impl Buffer {
     pub(crate) fn new(capacity: usize, align: usize) -> Self {
         Self {

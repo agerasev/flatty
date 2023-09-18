@@ -26,7 +26,7 @@ unsafe impl<T: FlatUnsized + ?Sized> Emplacer<T> for NeverEmplacer {
 
 unsafe impl<T: FlatSized> Emplacer<T> for T {
     unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
-        unsafe { (Self::ptr_from_bytes(bytes) as *mut Self).write(self) };
+        unsafe { Self::ptr_from_bytes(bytes).write(self) };
         Ok(())
     }
 }

@@ -9,10 +9,9 @@ repository.workspace = true
 license.workspace = true
 
 [features]
-default = ["async", "blocking", "shared", "io"]
+default = ["async", "blocking", "io"]
 async = ["futures"]
 blocking = []
-shared = ["std"]
 io = ["std"]
 std = []
 

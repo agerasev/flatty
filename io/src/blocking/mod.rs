@@ -3,9 +3,6 @@ mod io;
 mod recv;
 mod send;
 
-#[cfg(feature = "shared")]
-pub mod shared;
-
 pub use crate::common::*;
 
 #[cfg(feature = "io")]
