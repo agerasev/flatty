@@ -14,12 +14,29 @@ impl<P: Write> WriteBuffer for IoBuffer<P> {
     }
     fn write_all(&mut self, count: usize) -> Result<(), Self::Error> {
         assert!(!self.poisoned);
-        let res = self.pipe.write_all(&self.buffer.occupied()[..count]);
-        if res.is_err() {
-            self.poisoned = true;
+        let mut pos = 0;
+        while pos < count {
+            match self.pipe.write(&self.buffer.occupied()[pos..count]) {
+                Ok(n) => {
+                    if n == 0 {
+                        if pos != 0 {
+                            self.poisoned = true;
+                        }
+                        return Err(io::ErrorKind::BrokenPipe.into());
+                    } else {
+                        pos += n;
+                    }
+                }
+                Err(e) => {
+                    if pos != 0 {
+                        self.poisoned = true;
+                        return Err(e);
+                    }
+                }
+            }
         }
         self.buffer.clear();
-        res
+        Ok(())
     }
 }
 
@@ -35,16 +52,11 @@ impl<P: Read> ReadBuffer for IoBuffer<P> {
                 return Err(io::ErrorKind::OutOfMemory.into());
             }
         }
-        match self.pipe.read(self.buffer.vacant_mut()) {
-            Ok(n) => {
-                self.buffer.advance(n);
-                Ok(n)
-            }
-            Err(e) => {
-                self.poisoned = true;
-                Err(e)
-            }
+        let res = self.pipe.read(self.buffer.vacant_mut());
+        if let Ok(n) = res {
+            self.buffer.advance(n);
         }
+        res
     }
 
     fn skip(&mut self, count: usize) {

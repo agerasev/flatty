@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use flatty::utils::alloc::AlignedBytes;
 use std::ops::{Deref, DerefMut, Range};
 
@@ -6,7 +8,6 @@ pub(crate) struct Buffer {
     window: Range<usize>,
 }
 
-#[allow(dead_code)]
 impl Buffer {
     pub(crate) fn new(capacity: usize, align: usize) -> Self {
         Self {
@@ -79,7 +80,6 @@ impl<P> IoBuffer<P> {
             poisoned: false,
         }
     }
-    #[allow(dead_code)]
     pub(crate) fn split_mut(&mut self) -> (&mut P, &mut Buffer) {
         (&mut self.pipe, &mut self.buffer)
     }

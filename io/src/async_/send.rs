@@ -23,13 +23,13 @@ pub trait AsyncWriteBuffer: DerefMut<Target = [u8]> + Unpin {
         Alloc(self)
     }
 
-    type WriteAllFuture<'a>: Future<Output = Result<(), Self::Error>>
+    type WriteAll<'a>: Future<Output = Result<(), Self::Error>>
     where
         Self: 'a;
 
     /// Send exactly `count` bytes from buffer.
     /// Remaining bytes are discarded.
-    fn write_all(&mut self, count: usize) -> Self::WriteAllFuture<'_>;
+    fn write_all(&mut self, count: usize) -> Self::WriteAll<'_>;
 }
 
 pub struct Alloc<'a, B: AsyncWriteBuffer + ?Sized>(&'a mut B);
@@ -73,7 +73,7 @@ impl<M: Flat + ?Sized, B: AsyncWriteBuffer> Sender<M, B> {
 }
 
 impl<'a, M: Flat + ?Sized, B: AsyncWriteBuffer> SendGuard<'a, M, B> {
-    pub fn send(self) -> B::WriteAllFuture<'a> {
+    pub fn send(self) -> B::WriteAll<'a> {
         let size = self.size();
         self.buffer.write_all(size)
     }
