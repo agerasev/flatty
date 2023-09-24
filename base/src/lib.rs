@@ -1,6 +1,8 @@
 #![no_std]
 #![allow(clippy::missing_safety_doc)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
@@ -18,3 +20,5 @@ pub mod traits;
 pub mod utils;
 /// Flat vector itself and its helper types.
 pub mod vec;
+/// Smart pointer wrapping.
+pub mod wrap;

@@ -1,5 +1,5 @@
-use std::{
-    alloc::{alloc, dealloc, Layout},
+use alloc::alloc::{alloc, dealloc, Layout};
+use core::{
     ops::{Deref, DerefMut},
     slice,
 };

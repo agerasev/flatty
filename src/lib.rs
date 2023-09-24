@@ -84,6 +84,7 @@ pub use flatty_base::{
     traits::{Flat, FlatDefault, FlatSized},
     utils,
     vec::{self, flat_vec, FlatVec},
+    wrap::{FlatWrap, TrustedDeref},
 };
 pub use flatty_macros::flat;
 pub use flatty_portable as portable;

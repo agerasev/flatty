@@ -10,7 +10,8 @@ license.workspace = true
 
 [features]
 default = ["std"]
-std = ["stavec/std"]
+std = ["alloc", "stavec/std"]
+alloc = []
 
 [dependencies.stavec]
 version = "0.3.0"
