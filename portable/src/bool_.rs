@@ -6,9 +6,10 @@ use flatty_base::{
 };
 
 /// Boolean type that has portable binary representation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum Bool {
+    #[default]
     False = 0,
     True = 1,
 }
