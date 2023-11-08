@@ -1,4 +1,5 @@
 use crate::{
+    items::tag,
     utils::{generic, type_list, FieldIter},
     Context,
 };
@@ -21,43 +22,47 @@ fn validate_method(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let body = match &input.data {
         Data::Struct(struct_data) => collect_fields(&struct_data.fields, quote! { __flatty_bytes }),
         Data::Enum(enum_data) => {
-            let tag_type = ctx.idents.tag.as_ref().unwrap();
-            let validate_tag = quote! {
-                <#tag_type>::validate_unchecked(__flatty_bytes)?;
-                <#tag_type>::from_bytes_unchecked(__flatty_bytes)
-            };
-            let variants = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
-                let items = collect_fields(&variant.fields, quote! { data });
-                let var_name = &variant.ident;
-                quote! {
-                    #accum
-                    #tag_type::#var_name => { #items }
-                }
-            });
-            let size_check = if !ctx.info.sized {
-                quote! {
-                    if data.len() < Self::DATA_MIN_SIZES[*tag as usize] {
-                        return Err(Error {
-                            kind: ErrorKind::InsufficientSize,
-                            pos: Self::DATA_OFFSET,
-                        });
+            if !ctx.c_like_enum.unwrap() {
+                let tag_type = ctx.idents.tag.as_ref().unwrap();
+                let validate_tag = quote! {
+                    <#tag_type>::validate_unchecked(__flatty_bytes)?;
+                    <#tag_type>::from_bytes_unchecked(__flatty_bytes)
+                };
+                let variants = enum_data.variants.iter().fold(quote! {}, |accum, variant| {
+                    let items = collect_fields(&variant.fields, quote! { data });
+                    let var_name = &variant.ident;
+                    quote! {
+                        #accum
+                        #tag_type::#var_name => { #items }
                     }
+                });
+                let size_check = if !ctx.info.sized {
+                    quote! {
+                        if data.len() < Self::DATA_MIN_SIZES[*tag as usize] {
+                            return Err(Error {
+                                kind: ErrorKind::InsufficientSize,
+                                pos: Self::DATA_OFFSET,
+                            });
+                        }
+                    }
+                } else {
+                    quote! {}
+                };
+
+                quote! {
+                    use ::flatty::error::{Error, ErrorKind};
+
+                    let tag = { #validate_tag };
+                    let data = unsafe { __flatty_bytes.get_unchecked(Self::DATA_OFFSET..) };
+
+                    #size_check
+
+                    match tag {
+                        #variants
+                    }.map_err(|e| e.offset(Self::DATA_OFFSET))
                 }
             } else {
-                quote! {}
-            };
-
-            quote! {
-                use ::flatty::error::{Error, ErrorKind};
-
-                let tag = { #validate_tag };
-                let data = unsafe { __flatty_bytes.get_unchecked(Self::DATA_OFFSET..) };
-
-                #size_check
-
-                match tag {
-                    #variants
-                }.map_err(|e| e.offset(Self::DATA_OFFSET))
+                tag::validate_code(ctx, input, &quote! {__flatty_bytes})
             }
         }
         Data::Union(_union_data) => unimplemented!(),

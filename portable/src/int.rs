@@ -159,7 +159,7 @@ macro_rules! derive_int {
         }
         impl PartialOrd for $self {
             fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                self.to_native().partial_cmp(&other.to_native())
+                Some(self.to_native().cmp(&other.to_native()))
             }
         }
 
