@@ -39,6 +39,7 @@ pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut ctx = Context {
         info: parse_macro_input!(attr as Info),
         idents: AssocIdents::default(),
+        c_like_enum: None,
     };
     let input = parse_macro_input!(item as DeriveInput);
 
@@ -50,8 +51,13 @@ pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
             if ctx.info.tag_type.is_none() {
                 ctx.info.tag_type = Some(Ident::new("u8", Span::call_site()));
             }
-
-            ctx.idents.tag = Some(Ident::new(&format!("{}Tag", input.ident), input.ident.span()));
+            if items::enum_::is_c_like(&input) {
+                ctx.c_like_enum = Some(true);
+                ctx.idents.tag = Some(input.ident.clone());
+            } else {
+                ctx.c_like_enum = Some(false);
+                ctx.idents.tag = Some(Ident::new(&format!("{}Tag", input.ident), input.ident.span()));
+            };
             if !ctx.info.sized {
                 ctx.idents.ref_ = Some(Ident::new(&format!("{}Ref", input.ident), input.ident.span()));
                 ctx.idents.mut_ = Some(Ident::new(&format!("{}Mut", input.ident), input.ident.span()));
@@ -108,7 +114,6 @@ pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
         Data::Enum(_) => {
-            let tag_struct = items::tag::struct_(&ctx, &input, ctx.info.sized);
             if ctx.info.sized {
                 let tag_type = ctx.info.tag_type.as_ref().unwrap();
                 let derive_default = if ctx.info.default {
@@ -116,17 +121,25 @@ pub fn flat(attr: TokenStream, item: TokenStream) -> TokenStream {
                 } else {
                     quote! {}
                 };
+                let (repr, tag_struct) = if !ctx.c_like_enum.unwrap() {
+                    (quote! { #[repr(C, #tag_type)] }, items::tag::struct_(&ctx, &input, true))
+                } else {
+                    (quote! { #[repr(#tag_type)] }, quote! {})
+                };
 
                 quote! {
                     #derive_default
-                    #[repr(C, #tag_type)]
+                    #repr
                     #input
 
                     #tag_struct
                 }
             } else {
+                assert!(!ctx.c_like_enum.unwrap(), "C-like enums cannot be unsized");
+
                 let struct_ = items::unsized_enum::struct_(&ctx, &input);
                 let align_as_struct = items::align_as::struct_(&ctx, &input);
+                let tag_struct = items::tag::struct_(&ctx, &input, false);
                 let ref_struct = items::unsized_enum::ref_struct(&ctx, &input);
                 let mut_struct = items::unsized_enum::mut_struct(&ctx, &input);
                 let init_struct = items::init::struct_(&ctx, &input);

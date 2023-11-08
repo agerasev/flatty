@@ -14,4 +14,5 @@ pub struct AssocIdents {
 pub struct Context {
     pub info: Info,
     pub idents: AssocIdents,
+    pub c_like_enum: Option<bool>,
 }
