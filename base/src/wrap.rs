@@ -19,21 +19,21 @@ use stavec::{
     GenericVec,
 };
 
-/// Extra guarantees for [`Deref`] and [`DerefMut`].
+/// Extra guarantees for [`AsRef<[u8]>`] and [`AsMut<[u8]>`].
 ///
 /// # Safety
 ///
-/// Types implementing this trait must guarantee that data referred by `deref` and `deref_mut` (and reference metadata)
+/// Types implementing this trait must guarantee that data referred by `as_ref` and `as_mut` (and reference metadata)
 /// will not change internally between these calls (excluding interior mutability).
-pub unsafe trait TrustedDeref: Deref {}
+pub unsafe trait TrustedRef {}
 
 /// Wrapper for smart pointer to byte slice that maps it to flat type.
-pub struct FlatWrap<F: Flat + ?Sized, P: TrustedDeref<Target = [u8]>> {
+pub struct FlatWrap<F: Flat + ?Sized, P: AsRef<[u8]> + TrustedRef> {
     pointer: P,
     _ghost: PhantomData<F>,
 }
 
-impl<F: Flat + ?Sized, P: TrustedDeref<Target = [u8]>> FlatWrap<F, P> {
+impl<F: Flat + ?Sized, P: AsRef<[u8]> + TrustedRef> FlatWrap<F, P> {
     pub unsafe fn from_wrapped_bytes_unchecked(pointer: P) -> Self {
         Self {
             pointer,
@@ -45,62 +45,61 @@ impl<F: Flat + ?Sized, P: TrustedDeref<Target = [u8]>> FlatWrap<F, P> {
     }
 
     pub fn from_wrapped_bytes(pointer: P) -> Result<Self, Error> {
-        F::validate(&pointer)?;
+        F::validate(pointer.as_ref())?;
+        Ok(unsafe { Self::from_wrapped_bytes_unchecked(pointer) })
+    }
+}
+
+impl<F: Flat + ?Sized, P: AsRef<[u8]> + AsMut<[u8]> + TrustedRef> FlatWrap<F, P> {
+    pub fn new_in_place(mut pointer: P, emplacer: impl Emplacer<F>) -> Result<Self, Error> {
+        F::new_in_place(pointer.as_mut(), emplacer)?;
         Ok(unsafe { Self::from_wrapped_bytes_unchecked(pointer) })
     }
 
-    pub fn new_in_place(mut pointer: P, emplacer: impl Emplacer<F>) -> Result<Self, Error>
-    where
-        P: DerefMut,
-    {
-        F::new_in_place(&mut pointer, emplacer)?;
-        Ok(unsafe { Self::from_wrapped_bytes_unchecked(pointer) })
-    }
     pub fn default_in_place(pointer: P) -> Result<Self, Error>
     where
-        P: DerefMut,
         F: FlatDefault,
     {
         Self::new_in_place(pointer, F::default_emplacer())
     }
 }
 
-impl<F: Flat + ?Sized, P: TrustedDeref<Target = [u8]>> Deref for FlatWrap<F, P> {
+impl<F: Flat + ?Sized, P: AsRef<[u8]> + TrustedRef> Deref for FlatWrap<F, P> {
     type Target = F;
     fn deref(&self) -> &Self::Target {
-        unsafe { F::from_bytes_unchecked(&self.pointer) }
+        unsafe { F::from_bytes_unchecked(self.pointer.as_ref()) }
     }
 }
-impl<F: Flat + ?Sized, P: TrustedDeref<Target = [u8]> + DerefMut> DerefMut for FlatWrap<F, P> {
+impl<F: Flat + ?Sized, P: AsRef<[u8]> + AsMut<[u8]> + TrustedRef> DerefMut for FlatWrap<F, P> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { F::from_mut_bytes_unchecked(&mut self.pointer) }
+        unsafe { F::from_mut_bytes_unchecked(self.pointer.as_mut()) }
     }
 }
 
-unsafe impl<'a, T: ?Sized> TrustedDeref for &'a T {}
-unsafe impl<'a, T: ?Sized> TrustedDeref for &'a mut T {}
+unsafe impl<'a, T: ?Sized> TrustedRef for &'a T {}
+unsafe impl<'a, T: ?Sized> TrustedRef for &'a mut T {}
 
-unsafe impl<P: Deref> TrustedDeref for Pin<P> {}
-unsafe impl<T: ?Sized> TrustedDeref for ManuallyDrop<T> {}
-unsafe impl<'a, T: ?Sized> TrustedDeref for Ref<'a, T> {}
-unsafe impl<'a, T: ?Sized> TrustedDeref for RefMut<'a, T> {}
+unsafe impl<P: Deref> TrustedRef for Pin<P> {}
+unsafe impl<T: ?Sized> TrustedRef for ManuallyDrop<T> {}
+unsafe impl<'a, T: ?Sized> TrustedRef for Ref<'a, T> {}
+unsafe impl<'a, T: ?Sized> TrustedRef for RefMut<'a, T> {}
 #[cfg(feature = "alloc")]
-unsafe impl<T: ?Sized> TrustedDeref for Box<T> {}
+unsafe impl<T: ?Sized> TrustedRef for Box<T> {}
 #[cfg(feature = "alloc")]
-unsafe impl<T: ?Sized> TrustedDeref for Rc<T> {}
+unsafe impl<T: ?Sized> TrustedRef for Rc<T> {}
 #[cfg(feature = "alloc")]
-unsafe impl<T: ?Sized> TrustedDeref for Arc<T> {}
+unsafe impl<T: ?Sized> TrustedRef for Arc<T> {}
 
 #[cfg(feature = "alloc")]
-unsafe impl<T> TrustedDeref for Vec<T> {}
+unsafe impl<T> TrustedRef for Vec<T> {}
 #[cfg(feature = "alloc")]
-unsafe impl TrustedDeref for String {}
+unsafe impl TrustedRef for String {}
 #[cfg(feature = "alloc")]
-unsafe impl TrustedDeref for CString {}
+unsafe impl TrustedRef for CString {}
 
-unsafe impl<C: Container + ?Sized, L: Length> TrustedDeref for GenericVec<C, L> {}
+unsafe impl<C: Container + ?Sized, L: Length> TrustedRef for GenericVec<C, L> {}
 #[cfg(feature = "alloc")]
-unsafe impl TrustedDeref for AlignedBytes {}
+unsafe impl TrustedRef for AlignedBytes {}
 
 #[cfg(all(test, feature = "std"))]
 mod tests {
