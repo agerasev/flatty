@@ -32,16 +32,26 @@ impl Drop for AlignedBytes {
     }
 }
 
-impl Deref for AlignedBytes {
-    type Target = [u8];
-    fn deref(&self) -> &[u8] {
+impl AsRef<[u8]> for AlignedBytes {
+    fn as_ref(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.data, self.layout.size()) }
     }
 }
+impl AsMut<[u8]> for AlignedBytes {
+    fn as_mut(&mut self) -> &mut [u8] {
+        unsafe { slice::from_raw_parts_mut(self.data, self.layout.size()) }
+    }
+}
 
+impl Deref for AlignedBytes {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        self.as_ref()
+    }
+}
 impl DerefMut for AlignedBytes {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.data, self.layout.size()) }
+        self.as_mut()
     }
 }
 
