@@ -3,7 +3,7 @@ macro_rules! generate_tests {
         mod tests {
             use super::SizedEnum;
             use core::mem::{align_of, size_of};
-            use flatty::{prelude::*, utils::alloc::AlignedBytes};
+            use flatty::{prelude::*, AlignedBytes};
 
             #[test]
             fn init_a() {

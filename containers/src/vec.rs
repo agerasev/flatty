@@ -1,10 +1,14 @@
-use crate::{
+use core::{
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+    ptr,
+};
+use flatty_base::{
     emplacer::Emplacer,
     error::{Error, ErrorKind},
     traits::{Flat, FlatBase, FlatDefault, FlatSized, FlatUnsized, FlatValidate},
     utils::{floor_mul, max, mem::slice_ptr_len},
 };
-use core::{mem::MaybeUninit, ptr};
 use stavec::GenericVec;
 
 pub use stavec::traits::{Length, Slot};
@@ -35,7 +39,32 @@ unsafe impl<T: FlatSized> Slot for MaybeInvalid<T> {
 /// It doesn't allocate memory on the heap but instead stores its contents in the same memory behind itself.
 ///
 /// Obviously, this type is DST.
-pub type FlatVec<T, L = usize> = GenericVec<[MaybeInvalid<T>], L>;
+#[derive(PartialEq, Eq, Debug)]
+pub struct FlatVec<T, L = usize>(GenericVec<[MaybeInvalid<T>], L>)
+where
+    T: Flat + Sized,
+    L: Flat + Length;
+
+impl<T, L> Deref for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Length,
+{
+    type Target = GenericVec<[MaybeInvalid<T>], L>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T, L> DerefMut for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Length,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 trait DataOffset<T, L>
 where
@@ -203,7 +232,7 @@ pub use flat_vec;
 #[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
-    use crate::utils::alloc::AlignedBytes;
+    use crate::bytes::AlignedBytes;
     use std::mem::{align_of_val, size_of_val};
 
     #[test]

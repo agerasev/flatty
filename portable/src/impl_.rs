@@ -1,6 +1,6 @@
 use crate::Portable;
 use core::marker::PhantomData;
-use flatty_base::vec::{FlatVec, Length};
+use flatty_containers::vec::{FlatVec, Length};
 
 unsafe impl<T: Portable> Portable for PhantomData<T> {}
 

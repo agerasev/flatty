@@ -7,13 +7,3 @@ description = "Flatty traits and primitives"
 authors.workspace = true
 repository.workspace = true
 license.workspace = true
-
-[features]
-default = ["std"]
-std = ["alloc", "stavec/std"]
-alloc = []
-
-[dependencies.stavec]
-version = "0.3.0"
-default-features = false
-features = ["repr-c"]

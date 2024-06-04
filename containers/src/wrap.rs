@@ -1,10 +1,5 @@
 #[cfg(feature = "alloc")]
-use crate::utils::alloc::AlignedBytes;
-use crate::{
-    emplacer::Emplacer,
-    error::Error,
-    traits::{Flat, FlatDefault},
-};
+use crate::bytes::AlignedBytes;
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, ffi::CString, rc::Rc, string::String, sync::Arc, vec::Vec};
 use core::{
@@ -13,6 +8,11 @@ use core::{
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
     pin::Pin,
+};
+use flatty_base::{
+    emplacer::Emplacer,
+    error::Error,
+    traits::{Flat, FlatDefault},
 };
 use stavec::{
     traits::{Container, Length},
@@ -34,6 +34,9 @@ pub struct FlatWrap<F: Flat + ?Sized, P: AsRef<[u8]> + TrustedRef> {
 }
 
 impl<F: Flat + ?Sized, P: AsRef<[u8]> + TrustedRef> FlatWrap<F, P> {
+    /// # Safety
+    ///
+    /// Data behind pointer must be valid.
     pub unsafe fn from_wrapped_bytes_unchecked(pointer: P) -> Self {
         Self {
             pointer,
@@ -104,7 +107,7 @@ unsafe impl TrustedRef for AlignedBytes {}
 #[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
-    use crate::{utils::alloc::AlignedBytes, vec::FlatVec};
+    use crate::{bytes::AlignedBytes, vec::FlatVec};
 
     #[test]
     fn wrapped_vec() {

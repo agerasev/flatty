@@ -83,6 +83,9 @@ pub use flatty_base::{
     error::{self, Error},
     traits::{Flat, FlatDefault, FlatSized},
     utils,
+};
+pub use flatty_containers::{
+    bytes::AlignedBytes,
     vec::{self, flat_vec, FlatVec},
     wrap::{FlatWrap, TrustedRef},
 };

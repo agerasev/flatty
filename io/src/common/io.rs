@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use flatty::utils::alloc::AlignedBytes;
+use flatty::AlignedBytes;
 use std::ops::{Deref, DerefMut, Range};
 
 pub(crate) struct Buffer {

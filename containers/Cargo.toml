@@ -1,0 +1,18 @@
+[package]
+name = "flatty-containers"
+version.workspace = true
+edition.workspace = true
+
+description = "Flat collections and wrappers"
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[features]
+default = ["std"]
+std = ["alloc", "stavec/std"]
+alloc = []
+
+[dependencies]
+flatty-base.workspace = true
+stavec = { version = "0.3.0", default-features = false, features = ["repr-c"] }

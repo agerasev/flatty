@@ -13,6 +13,7 @@ readme = "README.md"
 flatty-macros = { path = "macros", version = "0.1.0-rc.4" }
 flatty-base = { path = "base", version = "0.1.0-rc.4", default-features = false }
 flatty-portable = { path = "portable", version = "0.1.0-rc.4", default-features = false }
+flatty-containers = { path = "containers", version = "0.1.0-rc.4", default-features = false }
 flatty = { path = ".", version = "0.1.0-rc.4", default-features = false }
 
 [package]
@@ -31,13 +32,14 @@ documentation = "https://docs.rs/flatty"
 
 [features]
 default = ["std"]
-std = ["alloc", "flatty-base/std", "flatty-portable/std"]
-alloc = ["flatty-base/alloc"]
+std = ["alloc", "flatty-containers/std"]
+alloc = ["flatty-containers/alloc"]
 
 [dependencies]
 flatty-macros = { workspace = true }
 flatty-base = { workspace = true }
 flatty-portable = { workspace = true }
+flatty-containers = { workspace = true }
 
 [workspace]
 members = ["io", "tests"]

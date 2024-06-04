@@ -1,6 +1,7 @@
 use crate::le;
 use core::mem::align_of_val;
-use flatty_base::{traits::*, vec::FlatVec};
+use flatty_base::traits::*;
+use flatty_containers::vec::FlatVec;
 
 #[test]
 fn vec() {
