@@ -39,7 +39,8 @@ unsafe impl<T: FlatSized> Slot for MaybeInvalid<T> {
 /// It doesn't allocate memory on the heap but instead stores its contents in the same memory behind itself.
 ///
 /// Obviously, this type is DST.
-#[derive(PartialEq, Eq, Debug)]
+#[repr(transparent)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct FlatVec<T, L = usize>(GenericVec<[MaybeInvalid<T>], L>)
 where
     T: Flat + Sized,
@@ -148,7 +149,7 @@ where
                 pos: 0,
             });
         }
-        assert_eq!(vec.extend_from_iter(self.0.into_iter()), N);
+        vec.extend_from_iter(self.0.into_iter()).ok().unwrap();
         Ok(())
     }
 }
@@ -284,12 +285,20 @@ mod tests {
         assert_eq!(vec.len(), 0);
         assert_eq!(vec.remaining(), 5);
 
-        assert_eq!(vec.extend_from_slice(&[1, 2, 3]), 3);
-        assert_eq!(vec.len(), 3);
-        assert_eq!(vec.remaining(), 2);
-        assert_eq!(vec.as_slice(), &[1, 2, 3][..]);
+        vec.extend_from_slice(&[1, 2]).unwrap();
+        assert_eq!(vec.len(), 2);
+        assert_eq!(vec.remaining(), 3);
+        assert_eq!(vec.as_slice(), &[1, 2][..]);
 
-        assert_eq!(vec.extend_from_slice(&[4, 5, 6]), 2);
+        vec.extend_from_slice(&[3, 4]).unwrap();
+        assert_eq!(vec.len(), 4);
+        assert_eq!(vec.remaining(), 1);
+        assert_eq!(vec.as_slice(), &[1, 2, 3, 4][..]);
+
+        assert!(vec.extend_from_slice(&[5, 6]).is_err());
+        assert_eq!(vec.len(), 4);
+
+        vec.extend_from_slice(&[5]).unwrap();
         assert_eq!(vec.len(), 5);
         assert_eq!(vec.remaining(), 0);
         assert_eq!(vec.as_slice(), &[1, 2, 3, 4, 5][..]);
