@@ -149,7 +149,7 @@ where
                 pos: 0,
             });
         }
-        vec.extend_from_iter(self.0.into_iter()).ok().unwrap();
+        vec.extend_from_iter(self.0.into_iter());
         Ok(())
     }
 }

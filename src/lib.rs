@@ -84,8 +84,9 @@ pub use flatty_base::{
     traits::{Flat, FlatDefault, FlatSized},
     utils,
 };
+#[cfg(feature = "alloc")]
+pub use flatty_containers::bytes::AlignedBytes;
 pub use flatty_containers::{
-    bytes::AlignedBytes,
     vec::{self, flat_vec, FlatVec},
     wrap::{FlatWrap, TrustedRef},
 };
