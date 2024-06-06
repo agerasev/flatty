@@ -88,6 +88,7 @@ pub use flatty_base::{
 pub use flatty_containers::bytes::AlignedBytes;
 pub use flatty_containers::{
     flex::{self, flex_vec, FlexVec},
+    string::FlatString,
     vec::{self, flat_vec, FlatVec},
     wrap::{FlatWrap, TrustedRef},
 };
