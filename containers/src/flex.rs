@@ -16,6 +16,7 @@ where
 {
     _ghost: PhantomData<T>,
     len: L,
+    _align: [FlexVecAlignAs<T, L>; 0],
     data: [u8],
 }
 
@@ -414,10 +415,21 @@ pub use flex_vec;
 mod tests {
     use super::*;
     use crate::{bytes::AlignedBytes, vec::FlatVec};
+    use core::mem::{align_of_val, size_of_val};
 
     #[test]
-    fn size() {
-        let mut bytes = AlignedBytes::new(4 + 4 * 5, 4);
+    fn align() {
+        let mut bytes = AlignedBytes::new(4 + 3 * 2, 4);
+        let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
+        assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::DATA_OFFSET, 4);
+
+        assert_eq!(align_of_val(flex_vec), 4);
+        assert_eq!(size_of_val(flex_vec), 8);
+    }
+
+    #[test]
+    fn push() {
+        let mut bytes = AlignedBytes::new(4 + 4 * 6, 4);
         let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
         assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::DATA_OFFSET, flex_vec.size());
 
