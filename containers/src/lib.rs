@@ -15,3 +15,5 @@ pub mod string;
 pub mod vec;
 /// Smart pointer wrapping.
 pub mod wrap;
+
+pub use stavec::error;

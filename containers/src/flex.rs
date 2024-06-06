@@ -1,4 +1,4 @@
-use crate::vec::Length;
+use crate::{error::EmptyError, vec::Length};
 use core::{marker::PhantomData, ptr, slice};
 use flatty_base::{
     emplacer::Emplacer,
@@ -46,23 +46,20 @@ where
         self.len() == 0
     }
 
+    fn cursor<S: CursorStep>(&self, step: S) -> Cursor<'_, S> {
+        Cursor::new(&self.data, step)
+    }
     pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
-        Cursor::new(
-            &self.data,
-            CounterStep {
-                count: self.len(),
-                f: step_from_bytes_unchecked::<'_, T>,
-            },
-        )
+        self.cursor(CounterStep {
+            count: self.len(),
+            f: step_from_bytes_unchecked::<'_, T>,
+        })
     }
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
-        Cursor::new(
-            &self.data,
-            CounterStep {
-                count: self.len(),
-                f: step_from_mut_bytes_unchecked::<'_, T>,
-            },
-        )
+        self.cursor(CounterStep {
+            count: self.len(),
+            f: step_from_mut_bytes_unchecked::<'_, T>,
+        })
     }
 }
 
@@ -168,14 +165,12 @@ where
 
     fn size(&self) -> usize {
         Self::DATA_OFFSET
-            + Cursor::new(
-                &self.data,
-                CounterStep {
+            + self
+                .cursor(CounterStep {
                     count: self.len(),
                     f: step_size_unchecked::<T>,
-                },
-            )
-            .sum::<usize>()
+                })
+                .sum::<usize>()
     }
 }
 
@@ -249,15 +244,12 @@ where
     unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
         unsafe { <Empty as Emplacer<FlexVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
         let vec = unsafe { FlexVec::<T, L>::from_mut_bytes_unchecked(bytes) };
-        let mut cursor = Cursor::new(
-            &vec.data,
-            EmplacerStep {
-                iter: self.iter,
-                offset: 0,
-                max_count: L::max_value().to_usize().unwrap(),
-                _ghost: PhantomData,
-            },
-        );
+        let mut cursor = vec.cursor(EmplacerStep {
+            iter: self.iter,
+            offset: 0,
+            max_count: L::max_value().to_usize().unwrap(),
+            _ghost: PhantomData,
+        });
         let count = cursor
             .try_fold(0, |count, res| res.map(|()| count + 1))
             .map_err(|e| e.offset(FlexVec::<T, L>::DATA_OFFSET))?;
@@ -327,13 +319,10 @@ where
     unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
         unsafe { L::validate_unchecked(bytes) }?;
         let this = unsafe { Self::from_bytes_unchecked(bytes) };
-        let mut cursor = Cursor::new(
-            &this.data,
-            CounterStep {
-                count: this.len(),
-                f: step_validate::<T>,
-            },
-        );
+        let mut cursor = this.cursor(CounterStep {
+            count: this.len(),
+            f: step_validate::<T>,
+        });
         cursor.try_fold(0, |offset, res| match res {
             Ok(size) => Ok(offset + size),
             Err(e) => Err(e.offset(offset)),
@@ -358,4 +347,88 @@ where
     T: Flat + ?Sized,
     L: Flat + Length,
 {
+}
+
+impl<T, L> FlexVec<T, L>
+where
+    T: Flat + ?Sized,
+    L: Flat + Length,
+{
+    pub fn push<E: Emplacer<T>>(&mut self, emplacer: E) -> Result<&mut T, Error> {
+        if self.len() >= L::max_value().to_usize().unwrap() {
+            return Err(Error {
+                kind: ErrorKind::InsufficientSize,
+                pos: 0,
+            });
+        }
+        let mut cursor = self.cursor(CounterStep {
+            count: self.len(),
+            f: step_size_unchecked::<T>,
+        });
+        let _ = (&mut cursor).last(); // Skip to the end.
+        let bytes = unsafe { slice::from_raw_parts_mut(cursor.ptr, cursor.len) };
+        emplacer.emplace(bytes)?;
+        self.len += L::one();
+        Ok(unsafe { T::from_mut_bytes_unchecked(bytes) })
+    }
+    pub fn push_default(&mut self) -> Result<&mut T, Error>
+    where
+        T: FlatDefault,
+    {
+        self.push(T::default_emplacer())
+    }
+
+    pub fn clear(&mut self) {
+        self.truncate(0);
+    }
+    pub fn pop(&mut self) -> Result<(), EmptyError> {
+        self.iter_mut()
+            .last()
+            .map(|x| unsafe { ptr::drop_in_place(x as *mut T) })
+            .ok_or(EmptyError)
+    }
+    pub fn truncate(&mut self, len: usize) {
+        if len >= self.len() {
+            return;
+        }
+        for x in self.iter_mut().skip(len) {
+            unsafe { ptr::drop_in_place(x as *mut T) };
+        }
+        self.len = L::from_usize(len).unwrap();
+    }
+}
+
+/// Creates [`FlexVec`] emplacer from given array of emplacers.
+#[macro_export]
+macro_rules! flex_vec {
+    () => {
+        $crate::flex::FromIter([])
+    };
+    ($($x:expr),+ $(,)?) => {
+        $crate::flex::FromIter([$($x),+])
+    };
+}
+pub use flex_vec;
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+    use crate::{bytes::AlignedBytes, vec::FlatVec};
+
+    #[test]
+    fn size() {
+        let mut bytes = AlignedBytes::new(4 + 4 * 5, 4);
+        let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
+        assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::DATA_OFFSET, flex_vec.size());
+
+        flex_vec.push_default().unwrap().extend_from_slice(&[0, 1]).unwrap();
+        flex_vec.push_default().unwrap();
+        flex_vec.push_default().unwrap().extend_from_slice(&[2]).unwrap();
+
+        assert_eq!(flex_vec.len(), 3);
+        assert_eq!(flex_vec.iter().next().unwrap().as_slice(), [0, 1].as_slice());
+        assert_eq!(flex_vec.iter().nth(1).unwrap().as_slice(), [].as_slice());
+        assert_eq!(flex_vec.iter().nth(2).unwrap().as_slice(), [2].as_slice());
+        assert!(flex_vec.iter().nth(3).is_none());
+    }
 }
