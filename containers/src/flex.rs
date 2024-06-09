@@ -74,6 +74,9 @@ struct Cursor<'a, S: CursorStep> {
     _ghost: PhantomData<&'a ()>,
 }
 
+unsafe impl<'a, S: CursorStep> Send for Cursor<'a, S> where S: Send {}
+unsafe impl<'a, S: CursorStep> Sync for Cursor<'a, S> where S: Sync {}
+
 impl<'a, S: CursorStep> Cursor<'a, S> {
     fn new(data: &'a [u8], step: S) -> Self {
         Self {
