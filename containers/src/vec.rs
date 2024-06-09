@@ -128,10 +128,10 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlatVec<T, L>, Error> {
         unsafe { (bytes.as_mut_ptr() as *mut L).write(L::zero()) };
         // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeInvalid<T>]`.
-        Ok(())
+        Ok(unsafe { FlatVec::from_mut_bytes_unchecked(bytes) })
     }
 }
 
@@ -140,7 +140,7 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlatVec<T, L>, Error> {
         unsafe { <Empty as Emplacer<FlatVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
         let vec = unsafe { FlatVec::<T, L>::from_mut_bytes_unchecked(bytes) };
         if vec.capacity() < N {
@@ -150,7 +150,7 @@ where
             });
         }
         vec.extend_from_iter(self.0.into_iter());
-        Ok(())
+        Ok(vec)
     }
 }
 
@@ -159,7 +159,7 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlatVec<T, L>, Error> {
         unsafe { <Empty as Emplacer<FlatVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
         let vec = unsafe { FlatVec::<T, L>::from_mut_bytes_unchecked(bytes) };
         for x in self.0 {
@@ -170,7 +170,7 @@ where
                 });
             }
         }
-        Ok(())
+        Ok(vec)
     }
 }
 

@@ -67,20 +67,21 @@ pub struct Empty;
 pub struct FromStr<S: AsRef<str>>(pub S);
 
 unsafe impl<L: Flat + Length> Emplacer<FlatString<L>> for Empty {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlatString<L>, Error> {
         unsafe { (bytes.as_mut_ptr() as *mut L).write(L::zero()) };
-        Ok(())
+        Ok(unsafe { FlatString::from_mut_bytes_unchecked(bytes) })
     }
 }
 
 unsafe impl<L: Flat + Length, S: AsRef<str>> Emplacer<FlatString<L>> for FromStr<S> {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlatString<L>, Error> {
         unsafe { <Empty as Emplacer<FlatString<L>>>::emplace_unchecked(Empty, bytes) }?;
         let vec = unsafe { FlatString::<L>::from_mut_bytes_unchecked(bytes) };
         vec.push_str(self.0.as_ref()).map_err(|_| Error {
             kind: ErrorKind::InsufficientSize,
             pos: 0,
-        })
+        })?;
+        Ok(vec)
     }
 }
 

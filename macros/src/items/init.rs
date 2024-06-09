@@ -326,7 +326,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     unsafe fn emplace_unchecked<'__flatty_a>(
                         self,
                         __flatty_bytes: &'__flatty_a mut [u8],
-                    ) -> Result<(), ::flatty::Error> {
+                    ) -> Result<&'__flatty_a mut #self_ident<#self_args>, ::flatty::Error> {
                         <#init_ident<#init_args> as ::flatty::Emplacer<#self_ident<#self_args>>>::emplace_unchecked(self.into(), __flatty_bytes)
                     }
                 }
@@ -346,10 +346,10 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
             unsafe fn emplace_unchecked<'__flatty_a>(
                 self,
                 __flatty_bytes: &'__flatty_a mut [u8],
-            ) -> Result<(), ::flatty::Error> {
+            ) -> Result<&'__flatty_a mut #self_ident<#self_args>, ::flatty::Error> {
                 use ::flatty::{traits::*, utils::iter::{prelude::*, self}};
                 #body
-                Ok(())
+                Ok(unsafe { #self_ident::<#self_args>::from_mut_bytes_unchecked(__flatty_bytes) } )
             }
         }
     }

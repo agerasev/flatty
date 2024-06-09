@@ -232,9 +232,9 @@ where
     T: Flat + ?Sized,
     L: Flat + Length,
 {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlexVec<T, L>, Error> {
         unsafe { (bytes.as_mut_ptr() as *mut L).write(L::zero()) };
-        Ok(())
+        Ok(unsafe { FlexVec::from_mut_bytes_unchecked(bytes) })
     }
 }
 
@@ -245,9 +245,8 @@ where
     E: Emplacer<T>,
     I: Iterator<Item = E>,
 {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
-        unsafe { <Empty as Emplacer<FlexVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
-        let vec = unsafe { FlexVec::<T, L>::from_mut_bytes_unchecked(bytes) };
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlexVec<T, L>, Error> {
+        let vec = unsafe { <Empty as Emplacer<FlexVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
         let mut cursor = vec.cursor(EmplacerStep {
             iter: self.iter,
             offset: 0,
@@ -258,7 +257,7 @@ where
             .try_fold(0, |count, res| res.map(|()| count + 1))
             .map_err(|e| e.offset(FlexVec::<T, L>::DATA_OFFSET))?;
         vec.len = L::from_usize(count).unwrap();
-        Ok(())
+        Ok(vec)
     }
 }
 
@@ -288,7 +287,7 @@ where
             self.max_count -= 1;
             let data = unsafe { slice::from_raw_parts_mut(ptr, len) };
             Some(match emplacer.emplace(data) {
-                Ok(()) => (Ok(()), unsafe { T::from_bytes_unchecked(data) }.size()),
+                Ok(vec) => (Ok(()), vec.size()),
                 Err(e) => (Err(e.offset(self.offset)), 0),
             })
         } else {

@@ -107,7 +107,7 @@ impl<CA, CB> From<UnsizedEnumInitC<CA, CB>> for UnsizedEnumInit<NeverEmplacer, N
 }
 
 unsafe impl Emplacer<UnsizedEnum> for UnsizedEnumInitA {
-    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<&mut UnsizedEnum, Error> {
         UnsizedEnumInit::from(self).emplace_unchecked(__bytes)
     }
 }
@@ -117,7 +117,7 @@ where
     B0: Emplacer<u8>,
     B1: Emplacer<u16>,
 {
-    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<&mut UnsizedEnum, Error> {
         UnsizedEnumInit::from(self).emplace_unchecked(__bytes)
     }
 }
@@ -127,7 +127,7 @@ where
     CA: Emplacer<u32>,
     CB: Emplacer<FlatVec<u8, u16>>,
 {
-    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<&mut UnsizedEnum, Error> {
         UnsizedEnumInit::from(self).emplace_unchecked(__bytes)
     }
 }
@@ -149,7 +149,7 @@ where
     CA: Emplacer<u32>,
     CB: Emplacer<FlatVec<u8, u16>>,
 {
-    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<&mut UnsizedEnum, Error> {
         self.tag().emplace_unchecked(__bytes)?;
         match self {
             Self::A => (),
@@ -176,7 +176,7 @@ where
                 bytes.emplace_unchecked(__u_bytes)?;
             }
         }
-        Ok(())
+        Ok(unsafe { UnsizedEnum::from_mut_bytes_unchecked(__bytes) })
     }
 }
 
