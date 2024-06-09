@@ -2,10 +2,12 @@ use crate::{
     utils::{generic, type_list},
     Context,
 };
+use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
     punctuated::Punctuated, spanned::Spanned, token::Comma, Data, DeriveInput, Field, Fields, GenericParam, Ident, Index,
+    Visibility,
 };
 
 struct Param<'a> {
@@ -130,6 +132,7 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         Data::Enum(data) => {
             let mut items = quote! {};
             let mut variants = quote! {};
+            let mut namespace_items = quote! {};
             for var in data.variants.iter() {
                 let var_ident = &var.ident;
                 let prefix = format!("{}__{}", prefix, var_ident);
@@ -140,6 +143,11 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 };
 
                 let var_init_ident = variant_ident(init_ident, var_ident);
+                namespace_items = quote! {
+                    #namespace_items
+                    #var_init_ident as #var_ident,
+                };
+
                 let var_args = make_args(fields_params(&var.fields, "").iter());
                 let (body, semi) = collect_fields(&var.fields, "", true);
                 items = quote! {
@@ -151,7 +159,24 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
             }
 
             let args = make_args(params.iter().flatten());
+
+            let namespace_name = Ident::new(&init_ident.to_string().as_str().to_case(Case::Snake), init_ident.span());
+            let namespace = if let Visibility::Inherited = vis {
+                quote! {}
+            } else {
+                quote! {
+                    #[allow(unused_imports)]
+                    #vis mod #namespace_name {
+                        pub use super::{
+                            #namespace_items
+                        };
+                    }
+                }
+            };
+
             quote! {
+                #namespace
+
                 #[allow(non_camel_case_types)]
                 #vis enum #init_ident<#args> { #variants }
 
