@@ -14,7 +14,6 @@ where
     T: Flat + ?Sized,
     L: Flat + Length,
 {
-    _ghost: PhantomData<T>,
     len: L,
     _align: [FlexVecAlignAs<T, L>; 0],
     data: [u8],
@@ -444,5 +443,22 @@ mod tests {
         assert_eq!(flex_vec.iter().nth(1).unwrap().as_slice(), [].as_slice());
         assert_eq!(flex_vec.iter().nth(2).unwrap().as_slice(), [2].as_slice());
         assert!(flex_vec.iter().nth(3).is_none());
+    }
+
+    #[test]
+    fn push_modify() {
+        let mut bytes = AlignedBytes::new(4 + 4 * 6, 4);
+        let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
+        assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::DATA_OFFSET, flex_vec.size());
+
+        flex_vec.push_default().unwrap().extend_from_slice(&[0, 1]).unwrap();
+        flex_vec.push_default().unwrap().extend_from_slice(&[2]).unwrap();
+
+        assert_eq!(flex_vec.iter_mut().next().unwrap().pop(), Some(1));
+
+        assert_eq!(flex_vec.len(), 2);
+        assert_eq!(flex_vec.iter().next().unwrap().as_slice(), [0].as_slice());
+        assert_eq!(flex_vec.iter().nth(1).unwrap().as_slice(), [2].as_slice());
+        assert!(flex_vec.iter().nth(2).is_none());
     }
 }
