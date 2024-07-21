@@ -45,7 +45,7 @@ pub mod traits {
     pub use super::{NativeCast, Portable};
 }
 
-macro_rules! derive_display {
+macro_rules! impl_traits_for_native {
     ($self:ty, $native:ty) => {
         impl core::fmt::Debug for $self {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -57,7 +57,26 @@ macro_rules! derive_display {
                 <$native as core::fmt::Display>::fmt(&self.to_native(), f)
             }
         }
+
+        #[cfg(feature = "serde")]
+        impl serde::Serialize for $self {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                <$native as serde::Serialize>::serialize(&self.to_native(), serializer)
+            }
+        }
+        #[cfg(feature = "serde")]
+        impl<'de> serde::Deserialize<'de> for $self {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                <$native as serde::Deserialize<'de>>::deserialize(deserializer).map(<$self>::from_native)
+            }
+        }
     };
 }
 
-pub(crate) use derive_display;
+pub(crate) use impl_traits_for_native;

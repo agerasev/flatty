@@ -1,4 +1,4 @@
-use crate::{derive_display, NativeCast, Portable};
+use crate::{impl_traits_for_native, NativeCast, Portable};
 use core::{
     cmp::{Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
@@ -189,7 +189,7 @@ macro_rules! derive_float {
             }
         }
 
-        derive_display!($self, $native);
+        impl_traits_for_native!($self, $native);
     };
 }
 
