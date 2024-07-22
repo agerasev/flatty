@@ -34,6 +34,7 @@ documentation = "https://docs.rs/flatty"
 default = ["std"]
 std = ["alloc", "flatty-containers/std"]
 alloc = ["flatty-containers/alloc"]
+serde = ["flatty-portable/serde"]
 
 [dependencies]
 flatty-macros = { workspace = true }
