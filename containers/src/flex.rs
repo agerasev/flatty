@@ -8,30 +8,25 @@ use flatty_base::{
 };
 
 /// Growable flat vector of possibly **unsized** items.
+///
+///
+/// # Internal representation
+///
+/// ```
+///    +-----------------+                 +---------------+
+///    |                 v                 |               v
+/// [next0][data0][..][next1][data1][..][next2][data2][..][0]
+///                      |                 ^
+///                      +-----------------+
+/// ```
 #[repr(C)]
 pub struct FlexVec<T, L = usize>
 where
     T: Flat + ?Sized,
     L: Flat + Length,
 {
-    len: L,
     _align: [FlexVecAlignAs<T, L>; 0],
     data: [u8],
-}
-
-trait DataOffset<T, L>
-where
-    T: Flat + ?Sized,
-    L: Flat + Length,
-{
-    const DATA_OFFSET: usize = max(L::SIZE, T::ALIGN);
-}
-
-impl<T, L> DataOffset<T, L> for FlexVec<T, L>
-where
-    T: Flat + ?Sized,
-    L: Flat + Length,
-{
 }
 
 impl<T, L> FlexVec<T, L>
@@ -46,7 +41,7 @@ where
         self.len() == 0
     }
 
-    fn cursor<S: CursorStep>(&self, step: S) -> Cursor<'_, S> {
+    fn cursor<S: CursorStep>(&self, step: S) -> Cursor<'_, L, S> {
         Cursor::new(&self.data, step)
     }
     pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
@@ -63,20 +58,21 @@ where
     }
 }
 
-struct Cursor<'a, S: CursorStep> {
+struct Cursor<'a, L: Flat + Length, S: CursorStep> {
     /// Current position in the data.
     ptr: *mut u8,
     /// Remaining data len in bytes.
     len: usize,
     /// Step function
     step: S,
-    _ghost: PhantomData<&'a ()>,
+
+    _ghost: PhantomData<&'a L>,
 }
 
-unsafe impl<'a, S: CursorStep> Send for Cursor<'a, S> where S: Send {}
-unsafe impl<'a, S: CursorStep> Sync for Cursor<'a, S> where S: Sync {}
+unsafe impl<'a, L: Flat + Length, S: CursorStep> Send for Cursor<'a, L, S> where S: Send {}
+unsafe impl<'a, L: Flat + Length, S: CursorStep> Sync for Cursor<'a, L, S> where S: Sync {}
 
-impl<'a, S: CursorStep> Cursor<'a, S> {
+impl<'a, L: Flat + Length, S: CursorStep> Cursor<'a, L, S> {
     fn new(data: &'a [u8], step: S) -> Self {
         Self {
             ptr: data.as_ptr() as *mut u8,
@@ -87,7 +83,7 @@ impl<'a, S: CursorStep> Cursor<'a, S> {
     }
 }
 
-impl<'a, S: CursorStep> Iterator for Cursor<'a, S> {
+impl<'a, L: Flat + Length, S: CursorStep> Iterator for Cursor<'a, L, S> {
     type Item = S::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -104,7 +100,7 @@ impl<'a, S: CursorStep> Iterator for Cursor<'a, S> {
 
 trait CursorStep {
     type Item: Sized;
-    fn step(&mut self, ptr: *mut u8, len: usize) -> Option<(Self::Item, usize)>;
+    fn step(&mut self, ptr: *mut u8, len: usize) -> Result<Self::Item, Error>;
 }
 
 struct CounterStep<U, F: FnMut(*mut [u8], bool) -> (U, usize)> {
