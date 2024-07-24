@@ -147,13 +147,45 @@ impl<'a> Data<'a> for &'a mut [u8] {
 }
 
 #[derive(Clone, Debug)]
-pub struct RefData<'a>(&'a [u8]);
-impl<'a> RefData<'a> {
+pub struct RefData<'a>(pub &'a [u8]);
+impl<'a> Data<'a> for RefData<'a> {
+    fn bytes(&self) -> &'_ [u8] {
+        self.0.bytes()
+    }
+    type Output<T: Flat + ?Sized + 'a> = Result<&'a T, Error>;
+    fn split(self, pos: usize) -> (Self, Self) {
+        let (a, b) = Data::split(self.0, pos);
+        (Self(a), Self(b))
+    }
+    fn value<T: Flat + ?Sized + 'a>(self) -> Self::Output<T> {
+        T::from_bytes(self.0.value::<T>())
+    }
+}
+
+#[derive(Debug)]
+pub struct MutData<'a>(pub &'a mut [u8]);
+impl<'a> Data<'a> for MutData<'a> {
+    fn bytes(&self) -> &'_ [u8] {
+        self.0.bytes()
+    }
+    type Output<T: Flat + ?Sized + 'a> = Result<&'a mut T, Error>;
+    fn split(self, pos: usize) -> (Self, Self) {
+        let (a, b) = Data::split(self.0, pos);
+        (Self(a), Self(b))
+    }
+    fn value<T: Flat + ?Sized + 'a>(self) -> Self::Output<T> {
+        T::from_mut_bytes(self.0.value::<T>())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct UncheckedRefData<'a>(&'a [u8]);
+impl<'a> UncheckedRefData<'a> {
     pub unsafe fn new(data: &'a [u8]) -> Self {
         Self(data)
     }
 }
-impl<'a> Data<'a> for RefData<'a> {
+impl<'a> Data<'a> for UncheckedRefData<'a> {
     fn bytes(&self) -> &'_ [u8] {
         self.0.bytes()
     }
@@ -168,13 +200,13 @@ impl<'a> Data<'a> for RefData<'a> {
 }
 
 #[derive(Debug)]
-pub struct MutData<'a>(&'a mut [u8]);
-impl<'a> MutData<'a> {
+pub struct UncheckedMutData<'a>(&'a mut [u8]);
+impl<'a> UncheckedMutData<'a> {
     pub unsafe fn new(data: &'a mut [u8]) -> Self {
         Self(data)
     }
 }
-impl<'a> Data<'a> for MutData<'a> {
+impl<'a> Data<'a> for UncheckedMutData<'a> {
     fn bytes(&self) -> &'_ [u8] {
         self.0.bytes()
     }
@@ -252,8 +284,8 @@ impl<'a, D: Data<'a>, T: Flat + ?Sized> DataIter<'a, D, SingleType<T>> {
 
 pub type BytesIter<'a, I> = DataIter<'a, &'a [u8], I>;
 pub type BytesMutIter<'a, I> = DataIter<'a, &'a mut [u8], I>;
-pub type RefIter<'a, I> = DataIter<'a, RefData<'a>, I>;
-pub type MutIter<'a, I> = DataIter<'a, MutData<'a>, I>;
+pub type RefIter<'a, I> = DataIter<'a, UncheckedRefData<'a>, I>;
+pub type MutIter<'a, I> = DataIter<'a, UncheckedMutData<'a>, I>;
 
 pub trait ValidateIter {
     fn validate_all(self) -> Result<(), Error>;

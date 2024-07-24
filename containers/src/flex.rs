@@ -4,7 +4,11 @@ use flatty_base::{
     emplacer::Emplacer,
     error::{Error, ErrorKind},
     traits::{Flat, FlatBase, FlatDefault, FlatSized, FlatUnsized, FlatValidate},
-    utils::{floor_mul, max, mem::slice_ptr_len},
+    utils::{
+        iter::{Data, UncheckedMutData, UncheckedRefData},
+        max,
+        mem::slice_ptr_len,
+    },
 };
 
 /// Growable flat vector of possibly **unsized** items.
@@ -34,116 +38,92 @@ where
     T: Flat + ?Sized,
     L: Flat + Length,
 {
+    const OFFSET_SIZE: usize = max(L::SIZE, T::ALIGN);
+
     pub fn len(&self) -> usize {
-        self.len.to_usize().unwrap()
+        self.bytes_iter().map(Result::unwrap).count()
     }
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.bytes_iter().next().is_none()
     }
 
-    fn cursor<S: CursorStep>(&self, step: S) -> Cursor<'_, L, S> {
-        Cursor::new(&self.data, step)
+    fn bytes_iter(&self) -> DataIter<'_, T, L, &'_ [u8]> {
+        DataIter::new(&self.data)
     }
+    fn bytes_mut_iter(&mut self) -> DataIter<'_, T, L, &'_ mut [u8]> {
+        DataIter::new(&mut self.data)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &'_ T> {
-        self.cursor(CounterStep {
-            count: self.len(),
-            f: step_from_bytes_unchecked::<'_, T>,
-        })
+        DataIter::<'_, T, L, _>::new(unsafe { UncheckedRefData::new(&self.data) }).map(|res| res.unwrap())
     }
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
-        self.cursor(CounterStep {
-            count: self.len(),
-            f: step_from_mut_bytes_unchecked::<'_, T>,
-        })
+        DataIter::<'_, T, L, _>::new(unsafe { UncheckedMutData::new(&mut self.data) }).map(|res| res.unwrap())
     }
 }
 
-struct Cursor<'a, L: Flat + Length, S: CursorStep> {
-    /// Current position in the data.
-    ptr: *mut u8,
-    /// Remaining data len in bytes.
-    len: usize,
-    /// Step function
-    step: S,
-
-    _ghost: PhantomData<&'a L>,
+struct DataIter<'a, T, L, D>
+where
+    T: Flat + ?Sized,
+    L: Flat + Length,
+    D: Data<'a>,
+{
+    data: D,
+    pos: usize,
+    _ghost: PhantomData<&'a (L, T)>,
 }
 
-unsafe impl<'a, L: Flat + Length, S: CursorStep> Send for Cursor<'a, L, S> where S: Send {}
-unsafe impl<'a, L: Flat + Length, S: CursorStep> Sync for Cursor<'a, L, S> where S: Sync {}
-
-impl<'a, L: Flat + Length, S: CursorStep> Cursor<'a, L, S> {
-    fn new(data: &'a [u8], step: S) -> Self {
+impl<'a, T, L, D> DataIter<'a, T, L, D>
+where
+    T: Flat + ?Sized,
+    L: Flat + Length,
+    D: Data<'a>,
+{
+    fn new(data: D) -> Self {
         Self {
-            ptr: data.as_ptr() as *mut u8,
-            len: data.len(),
-            step,
+            data,
+            pos: 0,
             _ghost: PhantomData,
         }
     }
 }
 
-impl<'a, L: Flat + Length, S: CursorStep> Iterator for Cursor<'a, L, S> {
-    type Item = S::Item;
+impl<'a, T, L, D> Iterator for DataIter<'a, T, L, D>
+where
+    T: Flat + ?Sized,
+    L: Flat + Length,
+    D: Data<'a>,
+{
+    type Item = Result<D::Output<T>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((item, size)) = self.step.step(self.ptr, self.len) {
-            assert!(size <= self.len);
-            self.ptr = unsafe { self.ptr.add(size) };
-            self.len -= size;
-            Some(item)
-        } else {
-            None
+        let next_offset = match L::from_bytes(self.data.bytes()) {
+            Ok(x) => x.to_usize().unwrap(),
+            Err(e) => return Some(Err(e.offset(self.pos))),
+        };
+
+        if next_offset == 0 {
+            return None;
         }
-    }
-}
 
-trait CursorStep {
-    type Item: Sized;
-    fn step(&mut self, ptr: *mut u8, len: usize) -> Result<Self::Item, Error>;
-}
-
-struct CounterStep<U, F: FnMut(*mut [u8], bool) -> (U, usize)> {
-    /// Remaining items count.
-    count: usize,
-    f: F,
-}
-
-impl<U, F: FnMut(*mut [u8], bool) -> (U, usize)> CursorStep for CounterStep<U, F> {
-    type Item = U;
-
-    fn step(&mut self, ptr: *mut u8, len: usize) -> Option<(Self::Item, usize)> {
-        if self.count != 0 {
-            self.count -= 1;
-            Some((self.f)(ptr::slice_from_raw_parts_mut(ptr, len), self.count == 0))
-        } else {
-            None
+        let payload_offset = FlexVec::<T, L>::OFFSET_SIZE;
+        if payload_offset > next_offset {
+            return Some(Err(Error {
+                kind: ErrorKind::InsufficientSize,
+                pos: self.pos + payload_offset,
+            }));
         }
-    }
-}
 
-fn step_from_bytes_unchecked<'a, T: Flat + ?Sized>(data_ptr: *mut [u8], last: bool) -> (&'a T, usize) {
-    let data = unsafe { &*(data_ptr as *const [u8]) };
-    let mut item = unsafe { T::from_bytes_unchecked(data) };
-    let size = item.size();
-    if !last {
-        item = unsafe { T::from_bytes_unchecked(data.get_unchecked(..size)) };
-        debug_assert_eq!(size, item.size());
-    }
-    (item, size)
-}
+        let mut data = None::<D>;
+        take_mut::take(&mut self.data, |d| {
+            let (d, next_data) = d.split(next_offset);
+            data = Some(d);
+            next_data
+        });
+        self.pos += next_offset;
 
-fn step_from_mut_bytes_unchecked<'a, T: Flat + ?Sized>(data_ptr: *mut [u8], last: bool) -> (&'a mut T, usize) {
-    let data = unsafe { &mut *data_ptr };
-    if !last {
-        let item = unsafe { T::from_mut_bytes_unchecked(data) };
-        let size = item.size();
-        (item, size)
-    } else {
-        let size = unsafe { T::from_bytes_unchecked(data) }.size();
-        let item = unsafe { T::from_mut_bytes_unchecked(data.get_unchecked_mut(..size)) };
-        debug_assert_eq!(size, item.size());
-        (item, size)
+        let (_, payload) = data.unwrap().split(payload_offset);
+        Some(Ok(payload.value()))
     }
 }
 
@@ -160,24 +140,13 @@ where
     L: Flat + Length,
 {
     const ALIGN: usize = max(L::ALIGN, T::ALIGN);
-    const MIN_SIZE: usize = Self::DATA_OFFSET;
+    const MIN_SIZE: usize = Self::OFFSET_SIZE;
 
     fn size(&self) -> usize {
-        Self::DATA_OFFSET
-            + self
-                .cursor(CounterStep {
-                    count: self.len(),
-                    f: step_size_unchecked::<T>,
-                })
-                .sum::<usize>()
+        let mut iter = self.bytes_iter();
+        (&mut iter).map(Result::unwrap).count(); // Exhaust iterator
+        iter.pos + Self::OFFSET_SIZE
     }
-}
-
-fn step_size_unchecked<T: Flat + ?Sized>(data_ptr: *mut [u8], _: bool) -> (usize, usize) {
-    let data = unsafe { &*(data_ptr as *const [u8]) };
-    let item = unsafe { T::from_bytes_unchecked(data) };
-    let size = item.size();
-    (size, size)
 }
 
 unsafe impl<T, L> FlatUnsized for FlexVec<T, L>
@@ -188,12 +157,10 @@ where
     type AlignAs = FlexVecAlignAs<T, L>;
 
     unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self {
-        let meta = floor_mul(slice_ptr_len(bytes) - Self::DATA_OFFSET, Self::ALIGN);
-        ptr::slice_from_raw_parts_mut(bytes as *mut u8, meta) as *mut Self
+        ptr::slice_from_raw_parts_mut(bytes as *mut u8, slice_ptr_len(bytes)) as *mut Self
     }
     unsafe fn ptr_to_bytes(this: *mut Self) -> *mut [u8] {
-        let len = Self::DATA_OFFSET + slice_ptr_len(this as *mut [u8]);
-        ptr::slice_from_raw_parts_mut(this as *mut u8, len)
+        ptr::slice_from_raw_parts_mut(this as *mut u8, slice_ptr_len(this as *mut [u8]))
     }
 }
 
@@ -242,58 +209,15 @@ where
 {
     unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlexVec<T, L>, Error> {
         let vec = unsafe { <Empty as Emplacer<FlexVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
-        let mut cursor = vec.cursor(EmplacerStep {
-            iter: self.iter,
-            offset: 0,
-            max_count: L::max_value().to_usize().unwrap(),
-            _ghost: PhantomData,
-        });
-        let count = cursor
-            .try_fold(0, |count, res| res.map(|()| count + 1))
-            .map_err(|e| e.offset(FlexVec::<T, L>::DATA_OFFSET))?;
-        vec.len = L::from_usize(count).unwrap();
-        Ok(vec)
-    }
-}
-
-struct EmplacerStep<T, E, I>
-where
-    T: Flat + ?Sized,
-    E: Emplacer<T>,
-    I: Iterator<Item = E>,
-{
-    iter: I,
-    offset: usize,
-    max_count: usize,
-    _ghost: PhantomData<T>,
-}
-
-impl<T, E, I> CursorStep for EmplacerStep<T, E, I>
-where
-    T: Flat + ?Sized,
-    E: Emplacer<T>,
-    I: Iterator<Item = E>,
-{
-    type Item = Result<(), Error>;
-
-    fn step(&mut self, ptr: *mut u8, len: usize) -> Option<(Self::Item, usize)> {
-        let emplacer = self.iter.next()?;
-        if self.max_count != 0 {
-            self.max_count -= 1;
-            let data = unsafe { slice::from_raw_parts_mut(ptr, len) };
-            Some(match emplacer.emplace(data) {
-                Ok(vec) => (Ok(()), vec.size()),
-                Err(e) => (Err(e.offset(self.offset)), 0),
-            })
-        } else {
-            Some((
-                Err(Error {
-                    kind: ErrorKind::InsufficientSize,
-                    pos: self.offset,
-                }),
-                0,
-            ))
+        let mut iter = vec.bytes_mut_iter();
+        for item_emplacer in self.iter {
+            let (mut next_offset, mut payload) = iter.data.split_at_mut(FlexVec::<T, L>::OFFSET_SIZE);
+            let item = item_emplacer.emplace(&mut payload)?;
+            L::emplace(L::from_usize(item.size()).unwrap(), &mut next_offset)?;
+            assert!(iter.next().is_some());
         }
+        L::emplace(L::zero(), iter.data)?;
+        Ok(vec)
     }
 }
 
@@ -315,28 +239,10 @@ where
     L: Flat + Length,
 {
     unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
-        unsafe { L::validate_unchecked(bytes) }?;
-        let this = unsafe { Self::from_bytes_unchecked(bytes) };
-        let mut cursor = this.cursor(CounterStep {
-            count: this.len(),
-            f: step_validate::<T>,
-        });
-        cursor.try_fold(0, |offset, res| match res {
-            Ok(size) => Ok(offset + size),
-            Err(e) => Err(e.offset(offset)),
-        })?;
-        Ok(())
-    }
-}
-
-fn step_validate<T: Flat + ?Sized>(data_ptr: *mut [u8], _: bool) -> (Result<usize, Error>, usize) {
-    let data = unsafe { &*(data_ptr as *const [u8]) };
-    match T::validate(data) {
-        Ok(()) => {
-            let size = unsafe { T::from_bytes_unchecked(data) }.size();
-            (Ok(size), size)
+        for item_bytes in DataIter::<'_, T, L, _>::new(bytes) {
+            T::validate(item_bytes?)?;
         }
-        Err(e) => (Err(e), 0),
+        Ok(())
     }
 }
 
@@ -359,12 +265,12 @@ where
                 pos: 0,
             });
         }
-        let mut cursor = self.cursor(CounterStep {
+        let mut bytes_ptr_iter = self.bytes_ptr_iter(CounterStep {
             count: self.len(),
             f: step_size_unchecked::<T>,
         });
-        let _ = (&mut cursor).last(); // Skip to the end.
-        let bytes = unsafe { slice::from_raw_parts_mut(cursor.ptr, cursor.len) };
+        let _ = (&mut bytes_ptr_iter).last(); // Skip to the end.
+        let bytes = unsafe { slice::from_raw_parts_mut(bytes_ptr_iter.ptr, bytes_ptr_iter.len) };
         emplacer.emplace(bytes)?;
         self.len += L::one();
         Ok(unsafe { T::from_mut_bytes_unchecked(bytes) })

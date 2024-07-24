@@ -188,7 +188,7 @@ pub fn ref_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
         false,
         ctx.idents.ref_.as_ref().unwrap(),
         quote! { as_ref },
-        quote! { RefData },
+        quote! { UncheckedRefData },
     )
 }
 
@@ -203,6 +203,6 @@ pub fn mut_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
         true,
         ctx.idents.mut_.as_ref().unwrap(),
         quote! { as_mut },
-        quote! { MutData },
+        quote! { UncheckedMutData },
     )
 }

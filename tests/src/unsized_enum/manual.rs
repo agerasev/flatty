@@ -201,14 +201,19 @@ impl UnsizedEnum {
         match self.tag {
             UnsizedEnumTag::A => UnsizedEnumRef::A,
             UnsizedEnumTag::B => {
-                let iter = unsafe { iter::RefIter::new_unchecked(iter::RefData::new(&self.data), iter::type_list!(u8, u16)) };
+                let iter = unsafe {
+                    iter::RefIter::new_unchecked(iter::UncheckedRefData::new(&self.data), iter::type_list!(u8, u16))
+                };
                 let (iter, b0) = iter.next();
                 let b1 = iter.finalize();
                 UnsizedEnumRef::B(b0, b1)
             }
             UnsizedEnumTag::C => {
                 let iter = unsafe {
-                    iter::RefIter::new_unchecked(iter::RefData::new(&self.data), iter::type_list!(u32, FlatVec<u8, u16>))
+                    iter::RefIter::new_unchecked(
+                        iter::UncheckedRefData::new(&self.data),
+                        iter::type_list!(u32, FlatVec<u8, u16>),
+                    )
                 };
                 let (iter, offset) = iter.next();
                 let bytes = iter.finalize();
@@ -220,15 +225,19 @@ impl UnsizedEnum {
         match self.tag {
             UnsizedEnumTag::A => UnsizedEnumMut::A,
             UnsizedEnumTag::B => {
-                let iter =
-                    unsafe { iter::MutIter::new_unchecked(iter::MutData::new(&mut self.data), iter::type_list!(u8, u16)) };
+                let iter = unsafe {
+                    iter::MutIter::new_unchecked(iter::UncheckedMutData::new(&mut self.data), iter::type_list!(u8, u16))
+                };
                 let (iter, b0) = iter.next();
                 let b1 = iter.finalize();
                 UnsizedEnumMut::B(b0, b1)
             }
             UnsizedEnumTag::C => {
                 let iter = unsafe {
-                    iter::MutIter::new_unchecked(iter::MutData::new(&mut self.data), iter::type_list!(u32, FlatVec<u8, u16>))
+                    iter::MutIter::new_unchecked(
+                        iter::UncheckedMutData::new(&mut self.data),
+                        iter::type_list!(u32, FlatVec<u8, u16>),
+                    )
                 };
                 let (iter, offset) = iter.next();
                 let bytes = iter.finalize();
