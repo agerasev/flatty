@@ -220,7 +220,7 @@ where
                 });
             }
             let (next_offset, payload) = iter.data.split_at_mut(offset_size);
-            let (payload, _) = payload.split_at_mut(floor_mul(payload.len() - offset_size, FlexVec::<T, L>::ALIGN));
+            let (payload, _) = payload.split_at_mut(ceil_mul(payload.len(), FlexVec::<T, L>::ALIGN) - offset_size);
             let item = item_emplacer.emplace(payload)?;
 
             L::from_usize(ceil_mul(item.size(), FlexVec::<T, L>::ALIGN))
@@ -291,10 +291,11 @@ where
             });
         }
         let (next_offset, payload_with_end) = iter.data.split_at_mut(offset_size);
-        let (payload, _) = payload_with_end.split_at_mut(floor_mul(payload_with_end.len() - offset_size, Self::ALIGN));
+        let payload_len = ceil_mul(payload_with_end.len(), Self::ALIGN) - offset_size;
+        let (payload, _) = payload_with_end.split_at_mut(payload_len);
         let item_size = ceil_mul(emplacer.emplace(payload)?.size(), Self::ALIGN);
 
-        L::from_usize(item_size)
+        L::from_usize(offset_size + item_size)
             .ok_or(Error {
                 kind: ErrorKind::InsufficientSize,
                 pos: iter.pos,
@@ -303,7 +304,8 @@ where
         let (_, end_offset) = payload_with_end.split_at_mut(item_size);
         L::zero().emplace(end_offset)?;
 
-        Ok(unsafe { T::from_mut_bytes_unchecked(iter.next().unwrap().unwrap()) })
+        let payload = iter.next().unwrap().unwrap();
+        T::from_mut_bytes(payload)
     }
     pub fn push_default(&mut self) -> Result<&mut T, Error>
     where
@@ -316,10 +318,13 @@ where
         self.truncate(0);
     }
     pub fn pop(&mut self) -> Result<(), EmptyError> {
-        self.iter_mut()
-            .last()
-            .map(|x| unsafe { ptr::drop_in_place(x as *mut T) })
-            .ok_or(EmptyError)
+        let len = self.len();
+        if len > 0 {
+            self.truncate(len - 1);
+            Ok(())
+        } else {
+            Err(EmptyError)
+        }
     }
     pub fn truncate(&mut self, len: usize) {
         for x in self.iter_mut().skip(len) {
@@ -364,7 +369,7 @@ mod tests {
 
     #[test]
     fn push() {
-        let mut bytes = AlignedBytes::new((4 + 4) * 6 + 4, 4);
+        let mut bytes = AlignedBytes::new((4 + 4) * 3 + 4 * 3 + 4, 4);
         let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
         assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::OFFSET_SIZE, flex_vec.size());
 
@@ -381,7 +386,7 @@ mod tests {
 
     #[test]
     fn push_modify() {
-        let mut bytes = AlignedBytes::new((4 + 4) * 6 + 4, 4);
+        let mut bytes = AlignedBytes::new((4 + 4) * 3 + 4 * 3 + 4, 4);
         let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
         assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::OFFSET_SIZE, flex_vec.size());
 
