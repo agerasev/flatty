@@ -18,4 +18,3 @@ flatty-base.workspace = true
 stavec = { path = "../../stavec", version = "0.4.0", default-features = false, features = [
     "repr-c",
 ] }
-take_mut = "0.2.2"
