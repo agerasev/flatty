@@ -17,12 +17,22 @@ use flatty_base::{
 ///
 /// # Internal representation
 ///
+/// ```text
+///    +-------------+             +-----------+
+///    |             v             |           v
+/// [next0][data0][next1][data1][next2][data2][0]
+///                  |             ^
+///                  +-------------+
 /// ```
-///    +-----------------+                 +---------------+
-///    |                 v                 |               v
-/// [next0][data0][..][next1][data1][..][next2][data2][..][0]
-///                      |                 ^
-///                      +-----------------+
+///
+/// or
+///
+/// ```text
+///    +-------------+
+///    |             v
+/// [next0][data0][next1][data1][L::MAX][data2..]
+///                  |              ^
+///                  +--------------+
 /// ```
 #[repr(C)]
 pub struct FlexVec<T, L = usize>
@@ -150,8 +160,14 @@ where
 
     fn size(&self) -> usize {
         let mut iter = self.bytes_iter();
-        (&mut iter).map(Result::unwrap).count(); // Exhaust iterator
-        iter.pos + Self::OFFSET_SIZE
+        let last_payload = match (&mut iter).map(Result::unwrap).last() {
+            Some(payload) => payload,
+            None => return Self::OFFSET_SIZE,
+        };
+        match iter.data {
+            Some(_) => iter.pos + Self::OFFSET_SIZE,
+            None => iter.pos + ceil_mul(T::from_bytes(last_payload).unwrap().size(), Self::ALIGN),
+        }
     }
 }
 
@@ -214,11 +230,12 @@ where
     I: Iterator<Item = E>,
 {
     unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlexVec<T, L>, Error> {
-        let vec = unsafe { <Empty as Emplacer<FlexVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
         let offset_size = FlexVec::<T, L>::OFFSET_SIZE;
+        let vec = FlexVec::<T, L>::from_mut_bytes_unchecked(bytes);
 
-        let mut data = &mut vec.data;
+        let mut data = unsafe { vec.as_mut_bytes() };
         let mut pos = 0;
+        let mut last_offset_slot = None::<&mut [u8]>;
 
         for item_emplacer in self.iter {
             if data.len() < offset_size {
@@ -228,18 +245,26 @@ where
                 });
             }
             let (offset_slot, payload) = data.split_at_mut(offset_size);
-            let (payload, _) = payload.split_at_mut(ceil_mul(payload.len(), FlexVec::<T, L>::ALIGN) - offset_size);
             let item = item_emplacer.emplace(payload)?;
-
-            L::from_usize(ceil_mul(item.size(), FlexVec::<T, L>::ALIGN))
+            let payload_size = ceil_mul(item.size(), FlexVec::<T, L>::ALIGN);
+            let offset = offset_size + payload_size;
+            L::from_usize(offset)
+                .and_then(|o| if o < L::max_value() { Some(o) } else { None })
                 .ok_or(Error {
                     kind: ErrorKind::InsufficientSize,
-                    pos: iter.pos,
+                    pos,
                 })?
                 .emplace(offset_slot)?;
-            assert!(iter.next().is_some());
+            last_offset_slot = Some(offset_slot);
+
+            data = payload.split_at_mut(payload_size).1;
+            pos += offset;
         }
-        L::zero().emplace(iter.data)?;
+        match last_offset_slot {
+            Some(offset_slot) => L::max_value().emplace(offset_slot)?,
+            None => L::zero().emplace(data)?,
+        };
+
         Ok(vec)
     }
 }
@@ -282,38 +307,45 @@ where
     L: Flat + Length,
 {
     pub fn push<E: Emplacer<T>>(&mut self, emplacer: E) -> Result<&mut T, Error> {
-        let mut iter = self.bytes_mut_iter();
-        let len = (&mut iter).map(Result::unwrap).count();
-        if len >= L::max_value().to_usize().unwrap() {
-            return Err(Error {
-                kind: ErrorKind::InsufficientSize,
-                pos: iter.pos,
-            });
-        }
-
         let offset_size = FlexVec::<T, L>::OFFSET_SIZE;
-        if iter.data.len() < 2 * offset_size {
+
+        let mut data = &mut self.data;
+        let mut pos = 0;
+
+        loop {
+            let offset = *L::from_bytes(data)?;
+            if offset == L::zero() {
+                break;
+            } else if offset == L::max_value() {
+                let (offset_slot, payload) = data.split_at_mut(offset_size);
+                let payload_size = ceil_mul(T::from_bytes(payload)?.size(), Self::ALIGN);
+                let last_offset = offset_size + payload_size;
+                pos += last_offset;
+                L::from_usize(last_offset)
+                    .and_then(|o| if o < L::max_value() { Some(o) } else { None })
+                    .ok_or(Error {
+                        kind: ErrorKind::InsufficientSize,
+                        pos,
+                    })?
+                    .emplace(offset_slot)?;
+                (_, data) = payload.split_at_mut(payload_size);
+                break;
+            }
+            let offset = offset.to_usize().unwrap();
+            pos += offset;
+            (_, data) = data.split_at_mut(offset);
+        }
+
+        if data.len() < offset_size {
             return Err(Error {
                 kind: ErrorKind::InsufficientSize,
-                pos: iter.pos,
+                pos,
             });
         }
-        let (next_offset, payload_with_end) = iter.data.split_at_mut(offset_size);
-        let payload_len = ceil_mul(payload_with_end.len(), Self::ALIGN) - offset_size;
-        let (payload, _) = payload_with_end.split_at_mut(payload_len);
-        let item_size = ceil_mul(emplacer.emplace(payload)?.size(), Self::ALIGN);
 
-        L::from_usize(offset_size + item_size)
-            .ok_or(Error {
-                kind: ErrorKind::InsufficientSize,
-                pos: iter.pos,
-            })?
-            .emplace(next_offset)?;
-        let (_, end_offset) = payload_with_end.split_at_mut(item_size);
-        L::zero().emplace(end_offset)?;
-
-        let payload = iter.next().unwrap().unwrap();
-        T::from_mut_bytes(payload)
+        let (offset_slot, payload) = data.split_at_mut(offset_size);
+        L::max_value().emplace(offset_slot)?;
+        emplacer.emplace(payload)
     }
     pub fn push_default(&mut self) -> Result<&mut T, Error>
     where
@@ -338,11 +370,13 @@ where
         for x in self.iter_mut().skip(len) {
             unsafe { ptr::drop_in_place(x as *mut T) };
         }
-        let mut iter = self.bytes_mut_iter();
-        if len > 0 {
+        if len == 0 {
+            L::zero().emplace(&mut self.data).unwrap();
+        } else {
+            let mut iter = self.bytes_mut_iter();
             let _ = iter.nth(len - 1);
+            L::max_value().emplace(iter.data.unwrap()).unwrap();
         }
-        L::zero().emplace(iter.data).unwrap();
     }
 }
 
@@ -377,7 +411,7 @@ mod tests {
 
     #[test]
     fn push() {
-        let mut bytes = AlignedBytes::new((4 + 4) * 3 + 4 * 3 + 4, 4);
+        let mut bytes = AlignedBytes::new((4 + 4) * 3 + 4 * 3, 4);
         let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
         assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::OFFSET_SIZE, flex_vec.size());
 
@@ -394,7 +428,7 @@ mod tests {
 
     #[test]
     fn push_modify() {
-        let mut bytes = AlignedBytes::new((4 + 4) * 3 + 4 * 3 + 4, 4);
+        let mut bytes = AlignedBytes::new((4 + 4) * 3 + 4 * 3, 4);
         let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
         assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::OFFSET_SIZE, flex_vec.size());
 
