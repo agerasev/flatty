@@ -23,6 +23,13 @@ pub trait NativeCast: Portable + Copy {
     fn to_native(&self) -> Self::Native;
 }
 
+unsafe impl Portable for () {}
+impl NativeCast for () {
+    type Native = ();
+    fn from_native(_: Self::Native) -> Self {}
+    fn to_native(&self) -> Self::Native {}
+}
+
 pub use bool_::Bool;
 pub use float::Float;
 pub use int::Int;
