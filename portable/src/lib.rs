@@ -16,19 +16,7 @@ use flatty_base::traits::Flat;
 /// Implementing this trait must guarantee that `Self` has the same binary representation on any target platform this crate could be built for.
 pub unsafe trait Portable: Flat {}
 
-/// Trait for casting portable type to/from native counterparts.
-pub trait NativeCast: Portable + Copy {
-    type Native: Copy;
-    fn from_native(n: Self::Native) -> Self;
-    fn to_native(&self) -> Self::Native;
-}
-
 unsafe impl Portable for () {}
-impl NativeCast for () {
-    type Native = ();
-    fn from_native(_: Self::Native) -> Self {}
-    fn to_native(&self) -> Self::Native {}
-}
 
 pub use bool_::Bool;
 pub use float::Float;
@@ -49,7 +37,7 @@ pub mod be {
 }
 
 pub mod traits {
-    pub use super::{NativeCast, Portable};
+    pub use super::Portable;
 }
 
 macro_rules! impl_traits_for_native {
