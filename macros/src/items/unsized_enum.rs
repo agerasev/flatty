@@ -89,7 +89,7 @@ fn gen_ref_impl(
     let self_ident = &input.ident;
     let tag_type = ctx.idents.tag.as_ref().unwrap();
 
-    let generic_params = &input.generics.params;
+    let generic_params = generic::without_defaults(&input.generics).params;
     let generic_args = generic::args(&input.generics);
     let where_clause = &input.generics.where_clause;
 

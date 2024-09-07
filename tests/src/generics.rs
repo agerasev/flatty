@@ -21,7 +21,7 @@ impl<T> Default for Unused<T> {
 
 #[flat]
 #[derive(Default)]
-struct GenericSizedStruct<'a, S: Flat, T: Flat, U, const N: usize>
+struct GenericSizedStruct<'a, S: Flat, T: Flat, U = (), const N: usize = 0>
 where
     U: 'a,
     [T; N]: Default,
@@ -33,7 +33,7 @@ where
 
 #[flat]
 #[derive(Default)]
-enum GenericSizedEnum<'a, S: Flat, T: Flat, U, const N: usize>
+enum GenericSizedEnum<'a, S: Flat, T: Flat, U = (), const N: usize = 0>
 where
     U: 'a,
     [T; N]: Default,
@@ -52,7 +52,7 @@ where
 }
 
 #[flat(sized = false, default = true)]
-struct GenericUnsizedStruct<'a, T: Flat, U, const N: usize>
+struct GenericUnsizedStruct<'a, T: Flat, U = (), const N: usize = 0>
 where
     U: 'a,
     [T; N]: Default,
@@ -63,7 +63,7 @@ where
 }
 
 #[flat(sized = false, default = true)]
-enum GenericUnsizedEnum<'a, S: Flat, T: Flat, U, const N: usize>
+enum GenericUnsizedEnum<'a, S: Flat, T: Flat, U = (), const N: usize = 0>
 where
     U: 'a,
     [T; N]: Default,

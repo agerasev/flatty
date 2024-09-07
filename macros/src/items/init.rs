@@ -229,7 +229,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let self_ident = &input.ident;
     let init_ident = ctx.idents.init.as_ref().unwrap();
 
-    let self_params = &input.generics.params;
+    let self_params = &generic::without_defaults(&input.generics).params;
     let self_args = generic::args(&input.generics);
     let where_clause = &input.generics.where_clause;
 
@@ -384,7 +384,7 @@ pub fn impl_default(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let self_ident = &input.ident;
     let init_ident = ctx.idents.init.as_ref().unwrap();
 
-    let self_params = &input.generics.params;
+    let self_params = generic::without_defaults(&input.generics).params;
     let self_args = generic::args(&input.generics);
     let where_clause = &input.generics.where_clause;
 
