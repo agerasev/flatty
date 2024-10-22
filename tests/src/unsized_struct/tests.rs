@@ -3,7 +3,7 @@ macro_rules! generate_tests {
         mod tests {
             use super::{UnsizedStruct, UnsizedStructInit};
             use core::mem::{align_of_val, size_of_val};
-            use flatty::{flat_vec, prelude::*, utils::alloc::AlignedBytes};
+            use flatty::{flat_vec, prelude::*, AlignedBytes};
 
             #[test]
             fn init() {

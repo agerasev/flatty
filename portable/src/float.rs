@@ -1,4 +1,4 @@
-use crate::{derive_display, NativeCast, Portable};
+use crate::{impl_traits_for_native, Portable};
 use core::{
     cmp::{Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
@@ -47,12 +47,11 @@ unsafe impl<const BE: bool, const N: usize> Portable for Float<BE, N> {}
 
 macro_rules! derive_float {
     ($self:ty, $native:ty, $from_bytes:ident, $to_bytes:ident$(,)?) => {
-        impl NativeCast for $self {
-            type Native = $native;
+        impl $self {
             fn from_native(n: $native) -> Self {
                 Float::from_bytes(n.$to_bytes())
             }
-            fn to_native(&self) -> Self::Native {
+            fn to_native(self) -> $native {
                 <$native>::$from_bytes(self.to_bytes())
             }
         }
@@ -83,10 +82,10 @@ macro_rules! derive_float {
         }
         impl FromPrimitive for $self {
             fn from_u64(n: u64) -> Option<Self> {
-                Some(Float::from_native(<$native>::from_u64(n)?))
+                Some(Self::from_native(<$native>::from_u64(n)?))
             }
             fn from_i64(n: i64) -> Option<Self> {
-                Some(Float::from_native(<$native>::from_i64(n)?))
+                Some(Self::from_native(<$native>::from_i64(n)?))
             }
         }
 
@@ -189,7 +188,7 @@ macro_rules! derive_float {
             }
         }
 
-        derive_display!($self, $native);
+        impl_traits_for_native!($self, $native);
     };
 }
 

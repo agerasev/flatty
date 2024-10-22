@@ -89,7 +89,7 @@ fn gen_ref_impl(
     let self_ident = &input.ident;
     let tag_type = ctx.idents.tag.as_ref().unwrap();
 
-    let generic_params = &input.generics.params;
+    let generic_params = generic::without_defaults(&input.generics).params;
     let generic_args = generic::args(&input.generics);
     let where_clause = &input.generics.where_clause;
 
@@ -188,7 +188,7 @@ pub fn ref_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
         false,
         ctx.idents.ref_.as_ref().unwrap(),
         quote! { as_ref },
-        quote! { RefData },
+        quote! { UncheckedRefData },
     )
 }
 
@@ -203,6 +203,6 @@ pub fn mut_impl(ctx: &Context, input: &DeriveInput) -> TokenStream {
         true,
         ctx.idents.mut_.as_ref().unwrap(),
         quote! { as_mut },
-        quote! { MutData },
+        quote! { UncheckedMutData },
     )
 }

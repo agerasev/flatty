@@ -64,7 +64,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     if let Data::Enum(..) = &input.data {
         let self_ident = &input.ident;
 
-        let generic_params = &input.generics.params;
+        let generic_params = generic::without_defaults(&input.generics).params;
         let generic_args = generic::args(&input.generics);
         let where_clause = &input.generics.where_clause;
 

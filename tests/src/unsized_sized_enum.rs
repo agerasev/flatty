@@ -1,4 +1,4 @@
-use flatty::{error::ErrorKind, flat, prelude::*, utils::alloc::AlignedBytes};
+use flatty::{error::ErrorKind, flat, prelude::*, AlignedBytes};
 
 #[flat(sized = false, default = true)]
 #[derive(Default, Debug, PartialEq, Eq)]

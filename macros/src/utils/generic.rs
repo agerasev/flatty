@@ -4,6 +4,24 @@ use quote::quote;
 use std::iter::Iterator;
 use syn::{self, Data, DeriveInput, GenericParam, Generics};
 
+pub fn without_defaults(generics: &Generics) -> Generics {
+    let mut generics = generics.clone();
+    for param in generics.params.iter_mut() {
+        match param {
+            GenericParam::Type(p) => {
+                p.eq_token = None;
+                p.default = None;
+            }
+            GenericParam::Const(p) => {
+                p.eq_token = None;
+                p.default = None;
+            }
+            GenericParam::Lifetime(_) => (),
+        }
+    }
+    generics
+}
+
 pub fn args(generics: &Generics) -> TokenStream {
     generics.params.iter().fold(quote! {}, |accum, param| {
         let param = match param {

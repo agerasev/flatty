@@ -7,7 +7,7 @@ macro_rules! generate_tests {
                 error::{Error, ErrorKind},
                 flat_vec,
                 prelude::*,
-                utils::alloc::AlignedBytes,
+                AlignedBytes,
             };
 
             #[test]

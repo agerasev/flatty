@@ -83,6 +83,12 @@ pub use flatty_base::{
     error::{self, Error},
     traits::{Flat, FlatDefault, FlatSized},
     utils,
+};
+#[cfg(feature = "alloc")]
+pub use flatty_containers::bytes::AlignedBytes;
+pub use flatty_containers::{
+    flex::{self, flex_vec, FlexVec},
+    string::{self, FlatString},
     vec::{self, flat_vec, FlatVec},
     wrap::{FlatWrap, TrustedRef},
 };

@@ -1,10 +1,14 @@
-use crate::{
+use core::{
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+    ptr,
+};
+use flatty_base::{
     emplacer::Emplacer,
     error::{Error, ErrorKind},
     traits::{Flat, FlatBase, FlatDefault, FlatSized, FlatUnsized, FlatValidate},
     utils::{floor_mul, max, mem::slice_ptr_len},
 };
-use core::{mem::MaybeUninit, ptr};
 use stavec::GenericVec;
 
 pub use stavec::traits::{Length, Slot};
@@ -35,7 +39,33 @@ unsafe impl<T: FlatSized> Slot for MaybeInvalid<T> {
 /// It doesn't allocate memory on the heap but instead stores its contents in the same memory behind itself.
 ///
 /// Obviously, this type is DST.
-pub type FlatVec<T, L = usize> = GenericVec<[MaybeInvalid<T>], L>;
+#[repr(transparent)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct FlatVec<T, L = usize>(GenericVec<[MaybeInvalid<T>], L>)
+where
+    T: Flat + Sized,
+    L: Flat + Length;
+
+impl<T, L> Deref for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Length,
+{
+    type Target = GenericVec<[MaybeInvalid<T>], L>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T, L> DerefMut for FlatVec<T, L>
+where
+    T: Flat + Sized,
+    L: Flat + Length,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 trait DataOffset<T, L>
 where
@@ -98,10 +128,10 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlatVec<T, L>, Error> {
         unsafe { (bytes.as_mut_ptr() as *mut L).write(L::zero()) };
         // Now it's safe to assume that `Self` is initialized, because vector data is `[MaybeInvalid<T>]`.
-        Ok(())
+        Ok(unsafe { FlatVec::from_mut_bytes_unchecked(bytes) })
     }
 }
 
@@ -110,7 +140,7 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlatVec<T, L>, Error> {
         unsafe { <Empty as Emplacer<FlatVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
         let vec = unsafe { FlatVec::<T, L>::from_mut_bytes_unchecked(bytes) };
         if vec.capacity() < N {
@@ -119,8 +149,8 @@ where
                 pos: 0,
             });
         }
-        assert_eq!(vec.extend_from_iter(self.0.into_iter()), N);
-        Ok(())
+        vec.extend_from_iter(self.0.into_iter());
+        Ok(vec)
     }
 }
 
@@ -129,7 +159,7 @@ where
     T: Flat + Sized,
     L: Flat + Length,
 {
-    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, bytes: &mut [u8]) -> Result<&mut FlatVec<T, L>, Error> {
         unsafe { <Empty as Emplacer<FlatVec<T, L>>>::emplace_unchecked(Empty, bytes) }?;
         let vec = unsafe { FlatVec::<T, L>::from_mut_bytes_unchecked(bytes) };
         for x in self.0 {
@@ -140,7 +170,7 @@ where
                 });
             }
         }
-        Ok(())
+        Ok(vec)
     }
 }
 
@@ -203,7 +233,7 @@ pub use flat_vec;
 #[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
-    use crate::utils::alloc::AlignedBytes;
+    use crate::bytes::AlignedBytes;
     use std::mem::{align_of_val, size_of_val};
 
     #[test]
@@ -255,12 +285,20 @@ mod tests {
         assert_eq!(vec.len(), 0);
         assert_eq!(vec.remaining(), 5);
 
-        assert_eq!(vec.extend_from_slice(&[1, 2, 3]), 3);
-        assert_eq!(vec.len(), 3);
-        assert_eq!(vec.remaining(), 2);
-        assert_eq!(vec.as_slice(), &[1, 2, 3][..]);
+        vec.extend_from_slice(&[1, 2]).unwrap();
+        assert_eq!(vec.len(), 2);
+        assert_eq!(vec.remaining(), 3);
+        assert_eq!(vec.as_slice(), &[1, 2][..]);
 
-        assert_eq!(vec.extend_from_slice(&[4, 5, 6]), 2);
+        vec.extend_from_slice(&[3, 4]).unwrap();
+        assert_eq!(vec.len(), 4);
+        assert_eq!(vec.remaining(), 1);
+        assert_eq!(vec.as_slice(), &[1, 2, 3, 4][..]);
+
+        assert!(vec.extend_from_slice(&[5, 6]).is_err());
+        assert_eq!(vec.len(), 4);
+
+        vec.extend_from_slice(&[5]).unwrap();
         assert_eq!(vec.len(), 5);
         assert_eq!(vec.remaining(), 0);
         assert_eq!(vec.as_slice(), &[1, 2, 3, 4, 5][..]);

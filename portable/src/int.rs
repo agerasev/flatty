@@ -1,4 +1,4 @@
-use crate::{derive_display, NativeCast, Portable};
+use crate::{impl_traits_for_native, Portable};
 use core::{
     cmp::{Ord, Ordering, PartialOrd},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
@@ -48,12 +48,11 @@ unsafe impl<const BE: bool, const N: usize, const S: bool> Portable for Int<BE, 
 
 macro_rules! derive_int {
     ($self:ty, $native:ty, $from_bytes:ident, $to_bytes:ident$(,)?) => {
-        impl NativeCast for $self {
-            type Native = $native;
+        impl $self {
             fn from_native(n: $native) -> Self {
                 Int::from_bytes(n.$to_bytes())
             }
-            fn to_native(&self) -> Self::Native {
+            fn to_native(self) -> $native {
                 <$native>::$from_bytes(self.to_bytes())
             }
         }
@@ -189,7 +188,7 @@ macro_rules! derive_int {
             }
         }
 
-        derive_display!($self, $native);
+        impl_traits_for_native!($self, $native);
     };
 }
 
@@ -272,25 +271,6 @@ derive_be_int_signed!(Int<true, 8, true>, i64);
 
 unsafe impl Portable for u8 {}
 unsafe impl Portable for i8 {}
-
-impl NativeCast for u8 {
-    type Native = u8;
-    fn from_native(n: u8) -> Self {
-        n
-    }
-    fn to_native(&self) -> u8 {
-        *self
-    }
-}
-impl NativeCast for i8 {
-    type Native = i8;
-    fn from_native(n: i8) -> Self {
-        n
-    }
-    fn to_native(&self) -> i8 {
-        *self
-    }
-}
 
 pub mod le {
     use super::Int;

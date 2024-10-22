@@ -107,7 +107,7 @@ impl<CA, CB> From<UnsizedEnumInitC<CA, CB>> for UnsizedEnumInit<NeverEmplacer, N
 }
 
 unsafe impl Emplacer<UnsizedEnum> for UnsizedEnumInitA {
-    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<&mut UnsizedEnum, Error> {
         UnsizedEnumInit::from(self).emplace_unchecked(__bytes)
     }
 }
@@ -117,7 +117,7 @@ where
     B0: Emplacer<u8>,
     B1: Emplacer<u16>,
 {
-    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<&mut UnsizedEnum, Error> {
         UnsizedEnumInit::from(self).emplace_unchecked(__bytes)
     }
 }
@@ -127,7 +127,7 @@ where
     CA: Emplacer<u32>,
     CB: Emplacer<FlatVec<u8, u16>>,
 {
-    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<&mut UnsizedEnum, Error> {
         UnsizedEnumInit::from(self).emplace_unchecked(__bytes)
     }
 }
@@ -149,7 +149,7 @@ where
     CA: Emplacer<u32>,
     CB: Emplacer<FlatVec<u8, u16>>,
 {
-    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<(), Error> {
+    unsafe fn emplace_unchecked(self, __bytes: &mut [u8]) -> Result<&mut UnsizedEnum, Error> {
         self.tag().emplace_unchecked(__bytes)?;
         match self {
             Self::A => (),
@@ -176,7 +176,7 @@ where
                 bytes.emplace_unchecked(__u_bytes)?;
             }
         }
-        Ok(())
+        Ok(unsafe { UnsizedEnum::from_mut_bytes_unchecked(__bytes) })
     }
 }
 
@@ -201,14 +201,19 @@ impl UnsizedEnum {
         match self.tag {
             UnsizedEnumTag::A => UnsizedEnumRef::A,
             UnsizedEnumTag::B => {
-                let iter = unsafe { iter::RefIter::new_unchecked(iter::RefData::new(&self.data), iter::type_list!(u8, u16)) };
+                let iter = unsafe {
+                    iter::RefIter::new_unchecked(iter::UncheckedRefData::new(&self.data), iter::type_list!(u8, u16))
+                };
                 let (iter, b0) = iter.next();
                 let b1 = iter.finalize();
                 UnsizedEnumRef::B(b0, b1)
             }
             UnsizedEnumTag::C => {
                 let iter = unsafe {
-                    iter::RefIter::new_unchecked(iter::RefData::new(&self.data), iter::type_list!(u32, FlatVec<u8, u16>))
+                    iter::RefIter::new_unchecked(
+                        iter::UncheckedRefData::new(&self.data),
+                        iter::type_list!(u32, FlatVec<u8, u16>),
+                    )
                 };
                 let (iter, offset) = iter.next();
                 let bytes = iter.finalize();
@@ -220,15 +225,19 @@ impl UnsizedEnum {
         match self.tag {
             UnsizedEnumTag::A => UnsizedEnumMut::A,
             UnsizedEnumTag::B => {
-                let iter =
-                    unsafe { iter::MutIter::new_unchecked(iter::MutData::new(&mut self.data), iter::type_list!(u8, u16)) };
+                let iter = unsafe {
+                    iter::MutIter::new_unchecked(iter::UncheckedMutData::new(&mut self.data), iter::type_list!(u8, u16))
+                };
                 let (iter, b0) = iter.next();
                 let b1 = iter.finalize();
                 UnsizedEnumMut::B(b0, b1)
             }
             UnsizedEnumTag::C => {
                 let iter = unsafe {
-                    iter::MutIter::new_unchecked(iter::MutData::new(&mut self.data), iter::type_list!(u32, FlatVec<u8, u16>))
+                    iter::MutIter::new_unchecked(
+                        iter::UncheckedMutData::new(&mut self.data),
+                        iter::type_list!(u32, FlatVec<u8, u16>),
+                    )
                 };
                 let (iter, offset) = iter.next();
                 let bytes = iter.finalize();

@@ -1,4 +1,4 @@
-use crate::{NativeCast, Portable};
+use crate::Portable;
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 use flatty_base::{
     error::{Error, ErrorKind},
@@ -47,17 +47,6 @@ unsafe impl FlatValidate for Bool {
 unsafe impl Flat for Bool {}
 
 unsafe impl Portable for Bool {}
-
-impl NativeCast for Bool {
-    type Native = bool;
-
-    fn from_native(n: bool) -> Self {
-        n.into()
-    }
-    fn to_native(&self) -> bool {
-        (*self).into()
-    }
-}
 
 impl Not for Bool {
     type Output = Self;
