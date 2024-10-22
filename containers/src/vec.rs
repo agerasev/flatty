@@ -149,7 +149,7 @@ where
                 pos: 0,
             });
         }
-        vec.extend_from_iter(self.0.into_iter());
+        vec.extend_until_full(self.0);
         Ok(vec)
     }
 }
@@ -278,27 +278,27 @@ mod tests {
     }
 
     #[test]
-    fn extend_from_slice() {
+    fn push_slice() {
         let mut bytes = AlignedBytes::new(4 * 6, 4);
         let vec = FlatVec::<i32, u32>::default_in_place(&mut bytes).unwrap();
         assert_eq!(vec.capacity(), 5);
         assert_eq!(vec.len(), 0);
         assert_eq!(vec.remaining(), 5);
 
-        vec.extend_from_slice(&[1, 2]).unwrap();
+        vec.push_slice(&[1, 2]).unwrap();
         assert_eq!(vec.len(), 2);
         assert_eq!(vec.remaining(), 3);
         assert_eq!(vec.as_slice(), &[1, 2][..]);
 
-        vec.extend_from_slice(&[3, 4]).unwrap();
+        vec.push_slice(&[3, 4]).unwrap();
         assert_eq!(vec.len(), 4);
         assert_eq!(vec.remaining(), 1);
         assert_eq!(vec.as_slice(), &[1, 2, 3, 4][..]);
 
-        assert!(vec.extend_from_slice(&[5, 6]).is_err());
+        assert!(vec.push_slice(&[5, 6]).is_err());
         assert_eq!(vec.len(), 4);
 
-        vec.extend_from_slice(&[5]).unwrap();
+        vec.push_slice(&[5]).unwrap();
         assert_eq!(vec.len(), 5);
         assert_eq!(vec.remaining(), 0);
         assert_eq!(vec.as_slice(), &[1, 2, 3, 4, 5][..]);

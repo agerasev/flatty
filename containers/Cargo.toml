@@ -15,4 +15,4 @@ alloc = []
 
 [dependencies]
 flatty-base.workspace = true
-stavec = { version = "0.4.0", default-features = false, features = ["repr-c"] }
+stavec = { version = "0.4.2", default-features = false, features = ["repr-c"] }

@@ -415,9 +415,9 @@ mod tests {
         let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
         assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::OFFSET_SIZE, flex_vec.size());
 
-        flex_vec.push_default().unwrap().extend_from_slice(&[0, 1]).unwrap();
+        flex_vec.push_default().unwrap().push_slice(&[0, 1]).unwrap();
         flex_vec.push_default().unwrap();
-        flex_vec.push_default().unwrap().extend_from_slice(&[2]).unwrap();
+        flex_vec.push_default().unwrap().push_slice(&[2]).unwrap();
 
         assert_eq!(flex_vec.len(), 3);
         assert_eq!(flex_vec.iter().next().unwrap().as_slice(), [0, 1].as_slice());
@@ -432,8 +432,8 @@ mod tests {
         let flex_vec = FlexVec::<FlatVec<i32, u16>, u16>::default_in_place(&mut bytes).unwrap();
         assert_eq!(FlexVec::<FlatVec<i32, u16>, u16>::OFFSET_SIZE, flex_vec.size());
 
-        flex_vec.push_default().unwrap().extend_from_slice(&[0, 1]).unwrap();
-        flex_vec.push_default().unwrap().extend_from_slice(&[2]).unwrap();
+        flex_vec.push_default().unwrap().push_slice(&[0, 1]).unwrap();
+        flex_vec.push_default().unwrap().push_slice(&[2]).unwrap();
 
         assert_eq!(flex_vec.iter_mut().next().unwrap().pop(), Some(1));
 

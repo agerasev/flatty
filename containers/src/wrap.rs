@@ -117,12 +117,12 @@ mod tests {
         assert_eq!(wrap.len(), 0);
         assert_eq!(wrap.remaining(), 4);
 
-        wrap.extend_from_slice(&[1, 2]).unwrap();
+        wrap.push_slice(&[1, 2]).unwrap();
         assert_eq!(wrap.len(), 2);
         assert_eq!(wrap.remaining(), 2);
         assert_eq!(wrap.as_slice(), [1, 2].as_slice());
 
-        wrap.extend_from_slice(&[3, 4]).unwrap();
+        wrap.push_slice(&[3, 4]).unwrap();
         assert_eq!(wrap.len(), 4);
         assert_eq!(wrap.remaining(), 0);
         assert_eq!(wrap.as_slice(), [1, 2, 3, 4].as_slice());
