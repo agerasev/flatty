@@ -79,13 +79,13 @@ impl<F: Flat + ?Sized, P: AsRef<[u8]> + AsMut<[u8]> + TrustedRef> DerefMut for F
     }
 }
 
-unsafe impl<'a, T: ?Sized> TrustedRef for &'a T {}
-unsafe impl<'a, T: ?Sized> TrustedRef for &'a mut T {}
+unsafe impl<T: ?Sized> TrustedRef for &T {}
+unsafe impl<T: ?Sized> TrustedRef for &mut T {}
 
 unsafe impl<P: Deref> TrustedRef for Pin<P> {}
 unsafe impl<T: ?Sized> TrustedRef for ManuallyDrop<T> {}
-unsafe impl<'a, T: ?Sized> TrustedRef for Ref<'a, T> {}
-unsafe impl<'a, T: ?Sized> TrustedRef for RefMut<'a, T> {}
+unsafe impl<T: ?Sized> TrustedRef for Ref<'_, T> {}
+unsafe impl<T: ?Sized> TrustedRef for RefMut<'_, T> {}
 #[cfg(feature = "alloc")]
 unsafe impl<T: ?Sized> TrustedRef for Box<T> {}
 #[cfg(feature = "alloc")]

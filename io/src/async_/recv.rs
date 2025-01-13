@@ -30,7 +30,7 @@ pub trait AsyncReadBuffer: Deref<Target = [u8]> + Unpin {
 
 pub struct Read<'a, B: AsyncReadBuffer + ?Sized>(&'a mut B);
 
-impl<'a, B: AsyncReadBuffer + ?Sized> Future for Read<'a, B> {
+impl<B: AsyncReadBuffer + ?Sized> Future for Read<'_, B> {
     type Output = Result<usize, B::Error>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut *self.0).poll_read(cx)

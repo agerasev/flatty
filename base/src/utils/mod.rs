@@ -21,7 +21,7 @@ pub const fn min(a: usize, b: usize) -> usize {
 
 /// Smallest number that is both greater or equal to `x` and a multiple of `m`.
 pub const fn ceil_mul(x: usize, m: usize) -> usize {
-    ((x + m - 1) / m) * m
+    x.div_ceil(m) * m
 }
 
 /// Biggest number that is both lower or equal to `x` and a multiple of `m`.

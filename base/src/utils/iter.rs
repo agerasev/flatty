@@ -301,7 +301,7 @@ where
     }
 }
 
-impl<'a, T: Flat + ?Sized> ValidateIter for BytesIter<'a, SingleType<T>> {
+impl<T: Flat + ?Sized> ValidateIter for BytesIter<'_, SingleType<T>> {
     fn validate_all(self) -> Result<(), Error> {
         self.assert_last();
         unsafe { T::validate_unchecked(self.clone().value()) }.map_err(|e| e.offset(self.pos()))?;
@@ -324,7 +324,7 @@ where
         self.next().0.fold_size(ceil_mul(size, T::ALIGN) + T::SIZE)
     }
 }
-impl<'a, T: Flat + ?Sized> FoldSizeIter for BytesIter<'a, SingleType<T>> {
+impl<T: Flat + ?Sized> FoldSizeIter for BytesIter<'_, SingleType<T>> {
     unsafe fn fold_size(self, size: usize) -> usize {
         ceil_mul(size, T::ALIGN) + (*T::ptr_from_bytes(self.finalize() as *const _ as *mut _)).size()
     }

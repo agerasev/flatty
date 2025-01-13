@@ -51,7 +51,7 @@ impl<M: Flat + ?Sized, B: WriteBuffer> Sender<M, B> {
     }
 }
 
-impl<'a, M: Flat + ?Sized, B: WriteBuffer> SendGuard<'a, M, B> {
+impl<M: Flat + ?Sized, B: WriteBuffer> SendGuard<'_, M, B> {
     pub fn send(self) -> Result<(), SendError<B::Error>> {
         let size = self.size();
         self.buffer.write_all(size)

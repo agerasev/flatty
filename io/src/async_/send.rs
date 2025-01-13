@@ -34,7 +34,7 @@ pub trait AsyncWriteBuffer: DerefMut<Target = [u8]> + Unpin {
 
 pub struct Alloc<'a, B: AsyncWriteBuffer + ?Sized>(&'a mut B);
 
-impl<'a, B: AsyncWriteBuffer + ?Sized> Future for Alloc<'a, B> {
+impl<B: AsyncWriteBuffer + ?Sized> Future for Alloc<'_, B> {
     type Output = Result<(), B::Error>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut *self.0).poll_alloc(cx)
@@ -79,7 +79,7 @@ impl<'a, M: Flat + ?Sized, B: AsyncWriteBuffer> SendGuard<'a, M, B> {
     }
 }
 
-impl<'a, M: Flat + ?Sized, B: AsyncWriteBuffer, const INIT: bool> Unpin for SendGuard<'a, M, B, INIT> {}
+impl<M: Flat + ?Sized, B: AsyncWriteBuffer, const INIT: bool> Unpin for SendGuard<'_, M, B, INIT> {}
 
 pub struct SendGuard<'a, M: Flat + ?Sized, B: AsyncWriteBuffer + 'a, const INIT: bool = true> {
     pub(crate) buffer: &'a mut B,
