@@ -1,3 +1,5 @@
+use core::fmt::{self, Display};
+
 /// Flat type operation error.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Error {
@@ -28,3 +30,22 @@ impl Error {
         self
     }
 }
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} at byte {}",
+            match self.kind {
+                ErrorKind::InsufficientSize => "insufficient size",
+                ErrorKind::BadAlign => "bad align",
+                ErrorKind::InvalidEnumTag => "invalid enum tag",
+                ErrorKind::InvalidData => "invalid data",
+                ErrorKind::Other => "other error",
+            },
+            self.pos
+        )
+    }
+}
+
+impl core::error::Error for Error {}
