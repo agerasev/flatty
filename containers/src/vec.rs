@@ -110,7 +110,11 @@ where
     type AlignAs = FlatVecAlignAs<T, L>;
 
     unsafe fn ptr_from_bytes(bytes: *mut [u8]) -> *mut Self {
-        let meta = floor_mul(slice_ptr_len(bytes) - Self::DATA_OFFSET, Self::ALIGN) / T::SIZE;
+        let meta = if T::SIZE != 0 {
+            floor_mul(slice_ptr_len(bytes) - Self::DATA_OFFSET, Self::ALIGN) / T::SIZE
+        } else {
+            0
+        };
         ptr::slice_from_raw_parts_mut(bytes as *mut u8, meta) as *mut Self
     }
     unsafe fn ptr_to_bytes(this: *mut Self) -> *mut [u8] {
