@@ -35,6 +35,7 @@ default = ["std"]
 std = ["alloc", "flatty-containers/std"]
 alloc = ["flatty-containers/alloc"]
 serde = ["flatty-portable/serde"]
+ufmt = ["flatty-portable/ufmt"]
 
 [dependencies]
 flatty-macros = { workspace = true }
