@@ -189,6 +189,19 @@ macro_rules! derive_int {
         }
 
         impl_traits_for_native!($self, $native);
+
+        #[cfg(feature = "ufmt")]
+        impl ufmt::uDebug for $self {
+            fn fmt<W: ufmt::uWrite + ?Sized>(&self, f: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error> {
+                <$native as ufmt::uDebug>::fmt(&self.to_native(), f)
+            }
+        }
+        #[cfg(feature = "ufmt")]
+        impl ufmt::uDisplay for $self {
+            fn fmt<W: ufmt::uWrite + ?Sized>(&self, f: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error> {
+                <$native as ufmt::uDisplay>::fmt(&self.to_native(), f)
+            }
+        }
     };
 }
 
