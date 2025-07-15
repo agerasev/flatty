@@ -99,7 +99,7 @@ impl<const BE: bool, const N: usize, const S: bool> Int<BE, N, S> {
     }
     /// Trucate to narrower integer type.
     /// All extra bits including sign are ignored.
-    pub fn truncate<const M: usize>(self) -> Int<BE, M, S> {
+    pub fn truncate_unchecked<const M: usize>(self) -> Int<BE, M, S> {
         const {
             assert!(M <= N);
         }
@@ -142,6 +142,28 @@ impl<const BE: bool, const N: usize, const S: bool> Ord for Int<BE, N, S> {
 impl<const BE: bool, const N: usize, const S: bool> PartialOrd for Int<BE, N, S> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl<const BE: bool, const N: usize, const S: bool> Int<BE, N, S> {
+    pub fn truncate_saturating<const M: usize>(&self) -> Int<BE, M, S> {
+        self.clamp(&Int::<BE, M, S>::MIN.extend::<N>(), &Int::<BE, M, S>::MAX.extend::<N>())
+            .truncate_unchecked::<M>()
+    }
+}
+
+impl<const N: usize, const S: bool> From<Int<true, N, S>> for Int<false, N, S> {
+    fn from(value: Int<true, N, S>) -> Self {
+        let mut bytes = value.bytes;
+        bytes.reverse();
+        Self { bytes }
+    }
+}
+impl<const N: usize, const S: bool> From<Int<false, N, S>> for Int<true, N, S> {
+    fn from(value: Int<false, N, S>) -> Self {
+        let mut bytes = value.bytes;
+        bytes.reverse();
+        Self { bytes }
     }
 }
 
@@ -532,12 +554,30 @@ mod tests {
 
     #[test]
     fn truncate() {
-        assert_eq!(le::U32::from_native(12345).truncate::<2>(), le::U16::from_native(12345));
-        assert_eq!(le::I32::from_native(12345).truncate::<2>(), le::I16::from_native(12345));
-        assert_eq!(le::I32::from_native(-12345).truncate::<2>(), le::I16::from_native(-12345));
-        assert_eq!(be::U32::from_native(12345).truncate::<2>(), be::U16::from_native(12345));
-        assert_eq!(be::I32::from_native(12345).truncate::<2>(), be::I16::from_native(12345));
-        assert_eq!(be::I32::from_native(-12345).truncate::<2>(), be::I16::from_native(-12345));
+        assert_eq!(
+            le::U32::from_native(12345).truncate_unchecked::<2>(),
+            le::U16::from_native(12345)
+        );
+        assert_eq!(
+            le::I32::from_native(12345).truncate_unchecked::<2>(),
+            le::I16::from_native(12345)
+        );
+        assert_eq!(
+            le::I32::from_native(-12345).truncate_unchecked::<2>(),
+            le::I16::from_native(-12345)
+        );
+        assert_eq!(
+            be::U32::from_native(12345).truncate_unchecked::<2>(),
+            be::U16::from_native(12345)
+        );
+        assert_eq!(
+            be::I32::from_native(12345).truncate_unchecked::<2>(),
+            be::I16::from_native(12345)
+        );
+        assert_eq!(
+            be::I32::from_native(-12345).truncate_unchecked::<2>(),
+            be::I16::from_native(-12345)
+        );
     }
 
     #[test]
@@ -567,5 +607,21 @@ mod tests {
             assert!(T::MIN < T::ZERO);
             assert!(T::ZERO < T::MAX);
         });
+    }
+
+    #[test]
+    fn truncate_saturating() {
+        assert_eq!(
+            le::U32::from_native(0xffff0000).truncate_saturating::<2>(),
+            le::U16::from_native(0xffff)
+        );
+        assert_eq!(
+            le::I32::from_native(0x7fff0000).truncate_saturating::<2>(),
+            le::I16::from_native(0x7fff)
+        );
+        assert_eq!(
+            le::I32::from_native(-0x80000000).truncate_saturating::<2>(),
+            le::I16::from_native(-0x8000)
+        );
     }
 }
