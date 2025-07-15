@@ -273,23 +273,23 @@ unsafe impl Portable for u8 {}
 unsafe impl Portable for i8 {}
 
 pub mod le {
-    use super::Int;
+    pub type Int<const N: usize, const S: bool> = super::Int<false, N, S>;
 
-    pub type U16 = Int<false, 2, false>;
-    pub type U32 = Int<false, 4, false>;
-    pub type U64 = Int<false, 8, false>;
-    pub type I16 = Int<false, 2, true>;
-    pub type I32 = Int<false, 4, true>;
-    pub type I64 = Int<false, 8, true>;
+    pub type U16 = Int<2, false>;
+    pub type U32 = Int<4, false>;
+    pub type U64 = Int<8, false>;
+    pub type I16 = Int<2, true>;
+    pub type I32 = Int<4, true>;
+    pub type I64 = Int<8, true>;
 }
 
 pub mod be {
-    use super::Int;
+    pub type Int<const N: usize, const S: bool> = super::Int<true, N, S>;
 
-    pub type U16 = Int<true, 2, false>;
-    pub type U32 = Int<true, 4, false>;
-    pub type U64 = Int<true, 8, false>;
-    pub type I16 = Int<true, 2, true>;
-    pub type I32 = Int<true, 4, true>;
-    pub type I64 = Int<true, 8, true>;
+    pub type U16 = Int<2, false>;
+    pub type U32 = Int<4, false>;
+    pub type U64 = Int<8, false>;
+    pub type I16 = Int<2, true>;
+    pub type I32 = Int<4, true>;
+    pub type I64 = Int<8, true>;
 }

@@ -24,16 +24,14 @@ pub use int::Int;
 
 /// Little-endian types.
 pub mod le {
-    use super::*;
-    pub use float::le::*;
-    pub use int::le::*;
+    pub use super::float::le::*;
+    pub use super::int::le::*;
 }
 
 /// Big-endian types.
 pub mod be {
-    use super::*;
-    pub use float::be::*;
-    pub use int::be::*;
+    pub use super::float::be::*;
+    pub use super::int::be::*;
 }
 
 pub mod traits {

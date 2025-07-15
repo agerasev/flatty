@@ -211,15 +211,15 @@ derive_be_float!(Float<true, 4>, f32);
 derive_be_float!(Float<true, 8>, f64);
 
 pub mod le {
-    use super::Float;
+    pub type Float<const N: usize> = super::Float<false, N>;
 
-    pub type F32 = Float<false, 4>;
-    pub type F64 = Float<false, 8>;
+    pub type F32 = Float<4>;
+    pub type F64 = Float<8>;
 }
 
 pub mod be {
-    use super::Float;
+    pub type Float<const N: usize> = super::Float<true, N>;
 
-    pub type F32 = Float<true, 4>;
-    pub type F64 = Float<true, 8>;
+    pub type F32 = Float<4>;
+    pub type F64 = Float<8>;
 }
