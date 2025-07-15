@@ -30,7 +30,7 @@ impl<'a> Param<'a> {
 fn field_param<'a: 'b, 'b>(i: usize, f: &'a Field, prefix: &'b str) -> Param<'a> {
     let name = match &f.ident {
         Some(ident) => format!("{}__{}", prefix, ident.to_string().to_uppercase()),
-        None => format!("{}__{}", prefix, i),
+        None => format!("{prefix}__{i}"),
     };
     Param::new(Ident::new(&name, f.span()), f)
 }
@@ -79,7 +79,7 @@ fn extend_params<'a, 'b: 'a, I: Iterator<Item = &'a Param<'b>>>(
 }
 
 fn variant_ident(init_ident: &Ident, var_ident: &Ident) -> Ident {
-    Ident::new(&format!("{}{}", init_ident, var_ident), var_ident.span())
+    Ident::new(&format!("{init_ident}{var_ident}"), var_ident.span())
 }
 
 pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
@@ -135,7 +135,7 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
             let mut namespace_items = quote! {};
             for var in data.variants.iter() {
                 let var_ident = &var.ident;
-                let prefix = format!("{}__{}", prefix, var_ident);
+                let prefix = format!("{prefix}__{var_ident}");
                 let (var_body, _) = collect_fields(&var.fields, &prefix, false);
                 variants = quote! {
                     #variants
@@ -210,7 +210,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
         for (i, f) in fields.iter().enumerate() {
             let item = get_item(i, f);
 
-            let uninit_ident = Ident::new(&format!("__b_{}", i), Span::call_site());
+            let uninit_ident = Ident::new(&format!("__b_{i}"), Span::call_site());
             let step = if i + 1 < len {
                 quote! { let (iter, #uninit_ident) = iter.next(); }
             } else {
@@ -255,7 +255,7 @@ pub fn impl_(ctx: &Context, input: &DeriveInput) -> TokenStream {
                     if f.ident.is_some() {
                         item
                     } else {
-                        let ident = Ident::new(&format!("b{}", item), Span::call_site());
+                        let ident = Ident::new(&format!("b{item}"), Span::call_site());
                         quote! { #ident }
                     }
                 };

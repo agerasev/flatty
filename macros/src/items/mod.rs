@@ -1,3 +1,5 @@
+#![allow(clippy::len_zero)]
+
 pub mod align_as;
 pub mod base;
 pub mod cast;

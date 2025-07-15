@@ -97,7 +97,7 @@ fn gen_ref_impl(
         let bind = |i: usize, f: &Field| -> Ident {
             match &f.ident {
                 Some(ident) => ident.clone(),
-                None => Ident::new(&format!("b{}", i), f.span()),
+                None => Ident::new(&format!("b{i}"), f.span()),
             }
         };
         data.variants.iter().fold(quote! {}, |accum, var| {
