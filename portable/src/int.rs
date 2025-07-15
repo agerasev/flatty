@@ -35,31 +35,50 @@ impl<const BE: bool, const N: usize, const S: bool> Int<BE, N, S> {
         self.bytes
     }
 
+    const MSB: usize = const {
+        if BE {
+            0
+        } else {
+            N - 1
+        }
+    };
+    const LSB: usize = const {
+        if BE {
+            N - 1
+        } else {
+            0
+        }
+    };
+
     pub const ZERO: Self = Self { bytes: [0; N] };
     pub const ONE: Self = const {
         let mut this = Self::ZERO;
-        if BE {
-            this.bytes[N - 1] = 1;
-        } else {
-            this.bytes[0] = 1;
-        }
+        this.bytes[Self::LSB] = 1;
         this
     };
 
     pub const MIN: Self = const {
         let mut this = Self::ZERO;
         if S {
-            this.bytes[if BE { 0 } else { N - 1 }] = 0x80;
+            this.bytes[Self::MSB] = 0x80;
         }
         this
     };
     pub const MAX: Self = const {
         let mut this = Self { bytes: [0xff; N] };
         if S {
-            this.bytes[if BE { 0 } else { N - 1 }] = 0x7f;
+            this.bytes[Self::MSB] = 0x7f;
         }
         this
     };
+
+    const fn sign_bit(&self) -> bool {
+        if S {
+            (self.bytes[Self::MSB] & 0x80) != 0
+        } else {
+            false
+        }
+    }
 
     /// Extend to wider integer type.
     /// For signed integers sign is extended.
@@ -68,13 +87,12 @@ impl<const BE: bool, const N: usize, const S: bool> Int<BE, N, S> {
             assert!(M >= N);
         }
         let mut new = Int::<BE, M, S>::default();
+        let ext = if S && self.sign_bit() { 0xff } else { 0x00 };
         if BE {
             new.bytes[(M - N)..].copy_from_slice(&self.bytes);
-            let ext = if S && self.bytes[0] & 0x80 != 0 { 0xff } else { 0x00 };
             new.bytes[..(M - N)].fill(ext);
         } else {
             new.bytes[..N].copy_from_slice(&self.bytes);
-            let ext = if S && self.bytes[N - 1] & 0x80 != 0 { 0xff } else { 0x00 };
             new.bytes[N..].fill(ext);
         }
         new
@@ -92,6 +110,38 @@ impl<const BE: bool, const N: usize, const S: bool> Int<BE, N, S> {
             new.bytes.copy_from_slice(&self.bytes[..M]);
         }
         new
+    }
+}
+
+impl<const BE: bool, const N: usize, const S: bool> Ord for Int<BE, N, S> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if S {
+            match other.sign_bit().cmp(&self.sign_bit()) {
+                Ordering::Equal => (),
+                other => return other,
+            }
+        }
+        if BE {
+            for (a, b) in self.bytes.iter().zip(&other.bytes) {
+                match a.cmp(b) {
+                    Ordering::Equal => (),
+                    other => return other,
+                }
+            }
+        } else {
+            for (a, b) in self.bytes.iter().zip(&other.bytes).rev() {
+                match a.cmp(b) {
+                    Ordering::Equal => (),
+                    other => return other,
+                }
+            }
+        }
+        Ordering::Equal
+    }
+}
+impl<const BE: bool, const N: usize, const S: bool> PartialOrd for Int<BE, N, S> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -207,17 +257,6 @@ macro_rules! derive_int {
             type Output = Self;
             fn rem(self, rhs: Self) -> Self {
                 Self::from_native(self.to_native() % rhs.to_native())
-            }
-        }
-
-        impl Ord for $self {
-            fn cmp(&self, other: &Self) -> Ordering {
-                self.to_native().cmp(&other.to_native())
-            }
-        }
-        impl PartialOrd for $self {
-            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                Some(self.to_native().cmp(&other.to_native()))
             }
         }
 
@@ -348,9 +387,11 @@ pub mod le {
     pub type Int<const N: usize, const S: bool> = super::Int<false, N, S>;
 
     pub type U16 = Int<2, false>;
+    pub type U24 = Int<3, false>;
     pub type U32 = Int<4, false>;
     pub type U64 = Int<8, false>;
     pub type I16 = Int<2, true>;
+    pub type I24 = Int<3, true>;
     pub type I32 = Int<4, true>;
     pub type I64 = Int<8, true>;
 }
@@ -359,9 +400,11 @@ pub mod be {
     pub type Int<const N: usize, const S: bool> = super::Int<true, N, S>;
 
     pub type U16 = Int<2, false>;
+    pub type U24 = Int<3, false>;
     pub type U32 = Int<4, false>;
     pub type U64 = Int<8, false>;
     pub type I16 = Int<2, true>;
+    pub type I24 = Int<3, true>;
     pub type I32 = Int<4, true>;
     pub type I64 = Int<8, true>;
 }
@@ -370,123 +413,159 @@ pub mod be {
 mod tests {
     use super::*;
 
-    #[test]
-    fn zero() {
-        assert_eq!(0, <u16 as From<_>>::from(le::U16::ZERO));
-        assert_eq!(0, <u32 as From<_>>::from(le::U32::ZERO));
-        assert_eq!(0, <u64 as From<_>>::from(le::U64::ZERO));
-        assert_eq!(0, <i16 as From<_>>::from(le::I16::ZERO));
-        assert_eq!(0, <i32 as From<_>>::from(le::I32::ZERO));
-        assert_eq!(0, <i64 as From<_>>::from(le::I64::ZERO));
-        assert_eq!(0, <u16 as From<_>>::from(be::U16::ZERO));
-        assert_eq!(0, <u32 as From<_>>::from(be::U32::ZERO));
-        assert_eq!(0, <u64 as From<_>>::from(be::U64::ZERO));
-        assert_eq!(0, <i16 as From<_>>::from(be::I16::ZERO));
-        assert_eq!(0, <i32 as From<_>>::from(be::I32::ZERO));
-        assert_eq!(0, <i64 as From<_>>::from(be::I64::ZERO));
+    macro_rules! for_each_type {
+        (($( $type:ty ),+), $block:block) => {{
+            $(
+                {
+                    type T = $type;
+                    $block
+                }
+            )+
+        }};
+    }
+
+    macro_rules! for_each_native {
+        ($block:block) => {
+            #[allow(dead_code)]
+            {
+                {
+                    type P = le::U16;
+                    type N = u16;
+                    $block
+                }
+                {
+                    type P = le::U32;
+                    type N = u32;
+                    $block
+                }
+                {
+                    type P = le::U64;
+                    type N = u64;
+                    $block
+                }
+                {
+                    type P = le::I16;
+                    type N = i16;
+                    $block
+                }
+                {
+                    type P = le::I32;
+                    type N = i32;
+                    $block
+                }
+                {
+                    type P = le::I64;
+                    type N = i64;
+                    $block
+                }
+                {
+                    type P = be::U16;
+                    type N = u16;
+                    $block
+                }
+                {
+                    type P = be::U32;
+                    type N = u32;
+                    $block
+                }
+                {
+                    type P = be::U64;
+                    type N = u64;
+                    $block
+                }
+                {
+                    type P = be::I16;
+                    type N = i16;
+                    $block
+                }
+                {
+                    type P = be::I32;
+                    type N = i32;
+                    $block
+                }
+                {
+                    type P = be::I64;
+                    type N = i64;
+                    $block
+                }
+            }
+        };
     }
 
     #[test]
-    fn one() {
-        assert_eq!(1, <u16 as From<_>>::from(le::U16::ONE));
-        assert_eq!(1, <u32 as From<_>>::from(le::U32::ONE));
-        assert_eq!(1, <u64 as From<_>>::from(le::U64::ONE));
-        assert_eq!(1, <i16 as From<_>>::from(le::I16::ONE));
-        assert_eq!(1, <i32 as From<_>>::from(le::I32::ONE));
-        assert_eq!(1, <i64 as From<_>>::from(le::I64::ONE));
-        assert_eq!(1, <u16 as From<_>>::from(be::U16::ONE));
-        assert_eq!(1, <u32 as From<_>>::from(be::U32::ONE));
-        assert_eq!(1, <u64 as From<_>>::from(be::U64::ONE));
-        assert_eq!(1, <i16 as From<_>>::from(be::I16::ONE));
-        assert_eq!(1, <i32 as From<_>>::from(be::I32::ONE));
-        assert_eq!(1, <i64 as From<_>>::from(be::I64::ONE));
+    fn zero_const() {
+        for_each_native!({
+            assert_eq!(0, P::ZERO.to_native());
+        });
     }
 
     #[test]
-    fn min() {
-        assert_eq!(u16::MIN, <u16 as From<_>>::from(le::U16::MIN));
-        assert_eq!(u32::MIN, <u32 as From<_>>::from(le::U32::MIN));
-        assert_eq!(u64::MIN, <u64 as From<_>>::from(le::U64::MIN));
-        assert_eq!(i16::MIN, <i16 as From<_>>::from(le::I16::MIN));
-        assert_eq!(i32::MIN, <i32 as From<_>>::from(le::I32::MIN));
-        assert_eq!(i64::MIN, <i64 as From<_>>::from(le::I64::MIN));
-        assert_eq!(u16::MIN, <u16 as From<_>>::from(be::U16::MIN));
-        assert_eq!(u32::MIN, <u32 as From<_>>::from(be::U32::MIN));
-        assert_eq!(u64::MIN, <u64 as From<_>>::from(be::U64::MIN));
-        assert_eq!(i16::MIN, <i16 as From<_>>::from(be::I16::MIN));
-        assert_eq!(i32::MIN, <i32 as From<_>>::from(be::I32::MIN));
-        assert_eq!(i64::MIN, <i64 as From<_>>::from(be::I64::MIN));
+    fn one_const() {
+        for_each_native!({
+            assert_eq!(1, P::ONE.to_native());
+        });
     }
 
     #[test]
-    fn max() {
-        assert_eq!(u16::MAX, <u16 as From<_>>::from(le::U16::MAX));
-        assert_eq!(u32::MAX, <u32 as From<_>>::from(le::U32::MAX));
-        assert_eq!(u64::MAX, <u64 as From<_>>::from(le::U64::MAX));
-        assert_eq!(i16::MAX, <i16 as From<_>>::from(le::I16::MAX));
-        assert_eq!(i32::MAX, <i32 as From<_>>::from(le::I32::MAX));
-        assert_eq!(i64::MAX, <i64 as From<_>>::from(le::I64::MAX));
-        assert_eq!(u16::MAX, <u16 as From<_>>::from(be::U16::MAX));
-        assert_eq!(u32::MAX, <u32 as From<_>>::from(be::U32::MAX));
-        assert_eq!(u64::MAX, <u64 as From<_>>::from(be::U64::MAX));
-        assert_eq!(i16::MAX, <i16 as From<_>>::from(be::I16::MAX));
-        assert_eq!(i32::MAX, <i32 as From<_>>::from(be::I32::MAX));
-        assert_eq!(i64::MAX, <i64 as From<_>>::from(be::I64::MAX));
+    fn min_const() {
+        for_each_native!({
+            assert_eq!(N::MIN, P::MIN.to_native());
+        });
+    }
+
+    #[test]
+    fn max_const() {
+        for_each_native!({
+            assert_eq!(N::MAX, P::MAX.to_native());
+        });
     }
 
     #[test]
     fn extend() {
-        assert_eq!(
-            <le::U16 as From<_>>::from(12345).extend::<4>(),
-            <le::U32 as From<_>>::from(12345)
-        );
-        assert_eq!(
-            <le::I16 as From<_>>::from(12345).extend::<4>(),
-            <le::I32 as From<_>>::from(12345)
-        );
-        assert_eq!(
-            <le::I16 as From<_>>::from(-12345).extend::<4>(),
-            <le::I32 as From<_>>::from(-12345)
-        );
-        assert_eq!(
-            <be::U16 as From<_>>::from(12345).extend::<4>(),
-            <be::U32 as From<_>>::from(12345)
-        );
-        assert_eq!(
-            <be::I16 as From<_>>::from(12345).extend::<4>(),
-            <be::I32 as From<_>>::from(12345)
-        );
-        assert_eq!(
-            <be::I16 as From<_>>::from(-12345).extend::<4>(),
-            <be::I32 as From<_>>::from(-12345)
-        );
+        assert_eq!(le::U16::from_native(12345).extend::<4>(), le::U32::from_native(12345));
+        assert_eq!(le::I16::from_native(12345).extend::<4>(), le::I32::from_native(12345));
+        assert_eq!(le::I16::from_native(-12345).extend::<4>(), le::I32::from_native(-12345));
+        assert_eq!(be::U16::from_native(12345).extend::<4>(), be::U32::from_native(12345));
+        assert_eq!(be::I16::from_native(12345).extend::<4>(), be::I32::from_native(12345));
+        assert_eq!(be::I16::from_native(-12345).extend::<4>(), be::I32::from_native(-12345));
     }
 
     #[test]
     fn truncate() {
-        assert_eq!(
-            <le::U32 as From<_>>::from(12345).truncate::<2>(),
-            <le::U16 as From<_>>::from(12345)
-        );
-        assert_eq!(
-            <le::I32 as From<_>>::from(12345).truncate::<2>(),
-            <le::I16 as From<_>>::from(12345)
-        );
-        assert_eq!(
-            <le::I32 as From<_>>::from(-12345).truncate::<2>(),
-            <le::I16 as From<_>>::from(-12345)
-        );
-        assert_eq!(
-            <be::U32 as From<_>>::from(12345).truncate::<2>(),
-            <be::U16 as From<_>>::from(12345)
-        );
-        assert_eq!(
-            <be::I32 as From<_>>::from(12345).truncate::<2>(),
-            <be::I16 as From<_>>::from(12345)
-        );
-        assert_eq!(
-            <be::I32 as From<_>>::from(-12345).truncate::<2>(),
-            <be::I16 as From<_>>::from(-12345)
-        );
+        assert_eq!(le::U32::from_native(12345).truncate::<2>(), le::U16::from_native(12345));
+        assert_eq!(le::I32::from_native(12345).truncate::<2>(), le::I16::from_native(12345));
+        assert_eq!(le::I32::from_native(-12345).truncate::<2>(), le::I16::from_native(-12345));
+        assert_eq!(be::U32::from_native(12345).truncate::<2>(), be::U16::from_native(12345));
+        assert_eq!(be::I32::from_native(12345).truncate::<2>(), be::I16::from_native(12345));
+        assert_eq!(be::I32::from_native(-12345).truncate::<2>(), be::I16::from_native(-12345));
+    }
+
+    #[test]
+    fn cmp_eq() {
+        for_each_type!((le::U16, le::I16, be::U16, be::I16), {
+            assert_eq!(T::ZERO, T::ZERO);
+            assert_eq!(T::ONE, T::ONE);
+            assert_eq!(T::MAX, T::MAX);
+            assert_eq!(T::MIN, T::MIN);
+        });
+    }
+
+    #[test]
+    fn cmp() {
+        for_each_type!((le::U16, be::U16), {
+            assert!(T::from_native(0x0000) < T::from_native(0x0001));
+            assert!(T::from_native(0x0001) < T::from_native(0x0100));
+            assert!(T::from_native(0xfffe) < T::from_native(0xffff));
+        });
+        for_each_type!((le::I16, be::I16), {
+            assert!(T::from_native(0x0000) < T::from_native(0x0001));
+            assert!(T::from_native(0x0001) < T::from_native(0x0100));
+            assert!(T::from_native(0x7ffe) < T::from_native(0x7fff));
+            assert!(T::from_native(-1) < T::from_native(0));
+            assert!(T::from_native(-2) < T::from_native(-1));
+            assert!(T::MIN < T::MAX);
+            assert!(T::MIN < T::ZERO);
+            assert!(T::ZERO < T::MAX);
+        });
     }
 }
