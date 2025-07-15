@@ -23,7 +23,7 @@ pub struct Int<const BE: bool, const N: usize, const S: bool> {
 
 impl<const BE: bool, const N: usize, const S: bool> Default for Int<BE, N, S> {
     fn default() -> Self {
-        Self { bytes: [0; N] }
+        Self::ZERO
     }
 }
 
@@ -33,6 +33,65 @@ impl<const BE: bool, const N: usize, const S: bool> Int<BE, N, S> {
     }
     pub fn to_bytes(self) -> [u8; N] {
         self.bytes
+    }
+
+    pub const ZERO: Self = Self { bytes: [0; N] };
+    pub const ONE: Self = const {
+        let mut this = Self::ZERO;
+        if BE {
+            this.bytes[N - 1] = 1;
+        } else {
+            this.bytes[0] = 1;
+        }
+        this
+    };
+
+    pub const MIN: Self = const {
+        let mut this = Self::ZERO;
+        if S {
+            this.bytes[if BE { 0 } else { N - 1 }] = 0x80;
+        }
+        this
+    };
+    pub const MAX: Self = const {
+        let mut this = Self { bytes: [0xff; N] };
+        if S {
+            this.bytes[if BE { 0 } else { N - 1 }] = 0x7f;
+        }
+        this
+    };
+
+    /// Extend to wider integer type.
+    /// For signed integers sign is extended.
+    pub fn extend<const M: usize>(self) -> Int<BE, M, S> {
+        const {
+            assert!(M >= N);
+        }
+        let mut new = Int::<BE, M, S>::default();
+        if BE {
+            new.bytes[(M - N)..].copy_from_slice(&self.bytes);
+            let ext = if S && self.bytes[0] & 0x80 != 0 { 0xff } else { 0x00 };
+            new.bytes[..(M - N)].fill(ext);
+        } else {
+            new.bytes[..N].copy_from_slice(&self.bytes);
+            let ext = if S && self.bytes[N - 1] & 0x80 != 0 { 0xff } else { 0x00 };
+            new.bytes[N..].fill(ext);
+        }
+        new
+    }
+    /// Trucate to narrower integer type.
+    /// All extra bits including sign are ignored.
+    pub fn truncate<const M: usize>(self) -> Int<BE, M, S> {
+        const {
+            assert!(M <= N);
+        }
+        let mut new = Int::<BE, M, S>::default();
+        if BE {
+            new.bytes.copy_from_slice(&self.bytes[(N - M)..]);
+        } else {
+            new.bytes.copy_from_slice(&self.bytes[..M]);
+        }
+        new
     }
 }
 
@@ -99,24 +158,24 @@ macro_rules! derive_int {
 
         impl Bounded for $self {
             fn min_value() -> Self {
-                Self::from_native(<$native>::MIN)
+                Self::MIN
             }
             fn max_value() -> Self {
-                Self::from_native(<$native>::MAX)
+                Self::MAX
             }
         }
 
         impl One for $self {
             fn one() -> Self {
-                Self::from_native(<$native>::one())
+                Self::ONE
             }
         }
         impl Zero for $self {
             fn zero() -> Self {
-                Self::from_native(<$native>::zero())
+                Self::ZERO
             }
             fn is_zero(&self) -> bool {
-                self.to_native().is_zero()
+                *self == Self::ZERO
             }
         }
 
@@ -305,4 +364,129 @@ pub mod be {
     pub type I16 = Int<2, true>;
     pub type I32 = Int<4, true>;
     pub type I64 = Int<8, true>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn zero() {
+        assert_eq!(0, <u16 as From<_>>::from(le::U16::ZERO));
+        assert_eq!(0, <u32 as From<_>>::from(le::U32::ZERO));
+        assert_eq!(0, <u64 as From<_>>::from(le::U64::ZERO));
+        assert_eq!(0, <i16 as From<_>>::from(le::I16::ZERO));
+        assert_eq!(0, <i32 as From<_>>::from(le::I32::ZERO));
+        assert_eq!(0, <i64 as From<_>>::from(le::I64::ZERO));
+        assert_eq!(0, <u16 as From<_>>::from(be::U16::ZERO));
+        assert_eq!(0, <u32 as From<_>>::from(be::U32::ZERO));
+        assert_eq!(0, <u64 as From<_>>::from(be::U64::ZERO));
+        assert_eq!(0, <i16 as From<_>>::from(be::I16::ZERO));
+        assert_eq!(0, <i32 as From<_>>::from(be::I32::ZERO));
+        assert_eq!(0, <i64 as From<_>>::from(be::I64::ZERO));
+    }
+
+    #[test]
+    fn one() {
+        assert_eq!(1, <u16 as From<_>>::from(le::U16::ONE));
+        assert_eq!(1, <u32 as From<_>>::from(le::U32::ONE));
+        assert_eq!(1, <u64 as From<_>>::from(le::U64::ONE));
+        assert_eq!(1, <i16 as From<_>>::from(le::I16::ONE));
+        assert_eq!(1, <i32 as From<_>>::from(le::I32::ONE));
+        assert_eq!(1, <i64 as From<_>>::from(le::I64::ONE));
+        assert_eq!(1, <u16 as From<_>>::from(be::U16::ONE));
+        assert_eq!(1, <u32 as From<_>>::from(be::U32::ONE));
+        assert_eq!(1, <u64 as From<_>>::from(be::U64::ONE));
+        assert_eq!(1, <i16 as From<_>>::from(be::I16::ONE));
+        assert_eq!(1, <i32 as From<_>>::from(be::I32::ONE));
+        assert_eq!(1, <i64 as From<_>>::from(be::I64::ONE));
+    }
+
+    #[test]
+    fn min() {
+        assert_eq!(u16::MIN, <u16 as From<_>>::from(le::U16::MIN));
+        assert_eq!(u32::MIN, <u32 as From<_>>::from(le::U32::MIN));
+        assert_eq!(u64::MIN, <u64 as From<_>>::from(le::U64::MIN));
+        assert_eq!(i16::MIN, <i16 as From<_>>::from(le::I16::MIN));
+        assert_eq!(i32::MIN, <i32 as From<_>>::from(le::I32::MIN));
+        assert_eq!(i64::MIN, <i64 as From<_>>::from(le::I64::MIN));
+        assert_eq!(u16::MIN, <u16 as From<_>>::from(be::U16::MIN));
+        assert_eq!(u32::MIN, <u32 as From<_>>::from(be::U32::MIN));
+        assert_eq!(u64::MIN, <u64 as From<_>>::from(be::U64::MIN));
+        assert_eq!(i16::MIN, <i16 as From<_>>::from(be::I16::MIN));
+        assert_eq!(i32::MIN, <i32 as From<_>>::from(be::I32::MIN));
+        assert_eq!(i64::MIN, <i64 as From<_>>::from(be::I64::MIN));
+    }
+
+    #[test]
+    fn max() {
+        assert_eq!(u16::MAX, <u16 as From<_>>::from(le::U16::MAX));
+        assert_eq!(u32::MAX, <u32 as From<_>>::from(le::U32::MAX));
+        assert_eq!(u64::MAX, <u64 as From<_>>::from(le::U64::MAX));
+        assert_eq!(i16::MAX, <i16 as From<_>>::from(le::I16::MAX));
+        assert_eq!(i32::MAX, <i32 as From<_>>::from(le::I32::MAX));
+        assert_eq!(i64::MAX, <i64 as From<_>>::from(le::I64::MAX));
+        assert_eq!(u16::MAX, <u16 as From<_>>::from(be::U16::MAX));
+        assert_eq!(u32::MAX, <u32 as From<_>>::from(be::U32::MAX));
+        assert_eq!(u64::MAX, <u64 as From<_>>::from(be::U64::MAX));
+        assert_eq!(i16::MAX, <i16 as From<_>>::from(be::I16::MAX));
+        assert_eq!(i32::MAX, <i32 as From<_>>::from(be::I32::MAX));
+        assert_eq!(i64::MAX, <i64 as From<_>>::from(be::I64::MAX));
+    }
+
+    #[test]
+    fn extend() {
+        assert_eq!(
+            <le::U16 as From<_>>::from(12345).extend::<4>(),
+            <le::U32 as From<_>>::from(12345)
+        );
+        assert_eq!(
+            <le::I16 as From<_>>::from(12345).extend::<4>(),
+            <le::I32 as From<_>>::from(12345)
+        );
+        assert_eq!(
+            <le::I16 as From<_>>::from(-12345).extend::<4>(),
+            <le::I32 as From<_>>::from(-12345)
+        );
+        assert_eq!(
+            <be::U16 as From<_>>::from(12345).extend::<4>(),
+            <be::U32 as From<_>>::from(12345)
+        );
+        assert_eq!(
+            <be::I16 as From<_>>::from(12345).extend::<4>(),
+            <be::I32 as From<_>>::from(12345)
+        );
+        assert_eq!(
+            <be::I16 as From<_>>::from(-12345).extend::<4>(),
+            <be::I32 as From<_>>::from(-12345)
+        );
+    }
+
+    #[test]
+    fn truncate() {
+        assert_eq!(
+            <le::U32 as From<_>>::from(12345).truncate::<2>(),
+            <le::U16 as From<_>>::from(12345)
+        );
+        assert_eq!(
+            <le::I32 as From<_>>::from(12345).truncate::<2>(),
+            <le::I16 as From<_>>::from(12345)
+        );
+        assert_eq!(
+            <le::I32 as From<_>>::from(-12345).truncate::<2>(),
+            <le::I16 as From<_>>::from(-12345)
+        );
+        assert_eq!(
+            <be::U32 as From<_>>::from(12345).truncate::<2>(),
+            <be::U16 as From<_>>::from(12345)
+        );
+        assert_eq!(
+            <be::I32 as From<_>>::from(12345).truncate::<2>(),
+            <be::I16 as From<_>>::from(12345)
+        );
+        assert_eq!(
+            <be::I32 as From<_>>::from(-12345).truncate::<2>(),
+            <be::I16 as From<_>>::from(-12345)
+        );
+    }
 }
