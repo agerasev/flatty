@@ -1,4 +1,5 @@
 use core::{
+    fmt::{self, Display, Formatter, Write},
     ops::{Deref, DerefMut},
     ptr,
     str::from_utf8,
@@ -114,6 +115,21 @@ unsafe impl<L: Flat + Length> FlatValidate for FlatString<L> {
 }
 
 unsafe impl<L: Flat + Length> Flat for FlatString<L> {}
+
+impl<L: Flat + Length> Write for FlatString<L> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.push_str(s).map_err(|_| Default::default())
+    }
+    fn write_char(&mut self, c: char) -> core::fmt::Result {
+        self.push(c).map_err(|_| Default::default())
+    }
+}
+
+impl<L: Flat + Length> Display for FlatString<L> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.as_str().fmt(f)
+    }
+}
 
 /// Creates [`FlatString`] emplacer from given array.
 #[macro_export]
