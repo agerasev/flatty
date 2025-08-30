@@ -66,6 +66,9 @@ enum UnsizedEnumMut<'a> {
 #[repr(C)]
 struct UnsizedEnumAlignAs(u8, u8, u16, u32, <FlatVec<u8, u16> as FlatUnsized>::AlignAs);
 
+unsafe impl Send for UnsizedEnum {}
+unsafe impl Sync for UnsizedEnum {}
+
 #[allow(dead_code)]
 enum UnsizedEnumInit<B0, B1, CA, CB> {
     A,

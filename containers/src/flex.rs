@@ -44,6 +44,19 @@ where
     data: [u8],
 }
 
+unsafe impl<T, L> Send for FlexVec<T, L>
+where
+    T: Flat + ?Sized + Send,
+    L: Flat + Length + Send,
+{
+}
+unsafe impl<T, L> Sync for FlexVec<T, L>
+where
+    T: Flat + ?Sized + Sync,
+    L: Flat + Length + Sync,
+{
+}
+
 impl<T, L> FlexVec<T, L>
 where
     T: Flat + ?Sized,

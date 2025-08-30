@@ -2,9 +2,9 @@ use crate::{
     utils::{generic, type_list},
     Context,
 };
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{spanned::Spanned, Data, DeriveInput, Field, Fields, Ident};
+use syn::{spanned::Spanned, Data, DeriveInput, Field, Fields, Ident, WhereClause};
 
 pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let vis = &input.vis;
@@ -18,6 +18,9 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
     let align_as_ident = ctx.idents.align_as.as_ref().unwrap();
     let align_as_type = quote! { #align_as_ident<#generic_args> };
 
+    let send_impl = gen_unsafe_trait(input, &Ident::new("Send", Span::call_site()));
+    let sync_impl = gen_unsafe_trait(input, &Ident::new("Sync", Span::call_site()));
+
     quote! {
         #[repr(C)]
         #vis struct #self_ident<#generic_params>
@@ -27,6 +30,48 @@ pub fn struct_(ctx: &Context, input: &DeriveInput) -> TokenStream {
             _align: [#align_as_type; 0],
             data: [u8],
         }
+
+        #send_impl
+        #sync_impl
+    }
+}
+
+fn gen_unsafe_trait(input: &DeriveInput, trait_: &Ident) -> TokenStream {
+    let self_ident = &input.ident;
+
+    let generic_params = generic::without_defaults(&input.generics).params;
+    let generic_args = generic::args(&input.generics);
+    let where_clause = &input.generics.where_clause;
+
+    let bounds = if let Data::Enum(data) = &input.data {
+        data.variants
+            .iter()
+            .flat_map(|var| var.fields.iter())
+            .fold(quote! {}, |accum, field| {
+                let ty = &field.ty;
+                quote! {
+                    #accum
+                    #ty: #trait_,
+                }
+            })
+    } else {
+        unreachable!();
+    };
+    let where_clause = match where_clause {
+        None => quote! { where #bounds },
+        Some(WhereClause { predicates, .. }) => {
+            let mut accum = quote! { where #predicates };
+            if !predicates.empty_or_trailing() {
+                accum = quote! { #accum, };
+            }
+            quote! { #accum #bounds }
+        }
+    };
+
+    quote! {
+        unsafe impl<#generic_params> #trait_ for #self_ident<#generic_args>
+        #where_clause
+        {}
     }
 }
 
