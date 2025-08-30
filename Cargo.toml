@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.1.0-rc.6"
+version = "0.1.0-rc.7"
 edition = "2021"
 rust-version = "1.69"
 
@@ -10,11 +10,11 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [workspace.dependencies]
-flatty-macros = { path = "macros", version = "0.1.0-rc.6" }
-flatty-base = { path = "base", version = "0.1.0-rc.6", default-features = false }
-flatty-portable = { path = "portable", version = "0.1.0-rc.6", default-features = false }
-flatty-containers = { path = "containers", version = "0.1.0-rc.6", default-features = false }
-flatty = { path = ".", version = "0.1.0-rc.6", default-features = false }
+flatty-macros = { path = "macros", version = "0.1.0-rc.7" }
+flatty-base = { path = "base", version = "0.1.0-rc.7", default-features = false }
+flatty-portable = { path = "portable", version = "0.1.0-rc.7", default-features = false }
+flatty-containers = { path = "containers", version = "0.1.0-rc.7", default-features = false }
+flatty = { path = ".", version = "0.1.0-rc.7", default-features = false }
 
 [package]
 name = "flatty"
