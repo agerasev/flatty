@@ -62,7 +62,7 @@ unsafe impl<T: Flat, const N: usize> Flat for [T; N] {}
 macro_rules! impl_flat_tuple {
     ($( $param:ident ),* $(,)?) => {
         unsafe impl<$( $param ),*> FlatValidate for ( $( $param, )* )
-            where $( $param: Flat + FlatSized ),*
+            where $( $param: Flat ),*
         {
             #[allow(unused_assignments)]
             unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
@@ -78,7 +78,7 @@ macro_rules! impl_flat_tuple {
             }
         }
         unsafe impl<$( $param ),*> Flat for ( $( $param, )* )
-            where $( $param: Flat + FlatSized ),*
+            where $( $param: Flat ),*
         {}
     };
 }
