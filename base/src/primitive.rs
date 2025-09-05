@@ -1,6 +1,7 @@
 use crate::{
     error::Error,
     traits::{Flat, FlatSized, FlatValidate},
+    utils::ceil_mul,
 };
 use core::marker::PhantomData;
 
@@ -57,3 +58,44 @@ unsafe impl<T: Flat, const N: usize> FlatValidate for [T; N] {
     }
 }
 unsafe impl<T: Flat, const N: usize> Flat for [T; N] {}
+
+macro_rules! impl_flat_tuple {
+    ($( $param:ident ),* $(,)?) => {
+        unsafe impl<$( $param ),*> FlatValidate for ( $( $param, )* )
+            where $( $param: Flat + FlatSized ),*
+        {
+            #[allow(unused_assignments)]
+            unsafe fn validate_unchecked(bytes: &[u8]) -> Result<(), Error> {
+                let mut offset = 0;
+                $(
+                    offset = ceil_mul(offset, $param::ALIGN);
+                    <$param as FlatValidate>::validate_unchecked(
+                        bytes.get_unchecked(offset..).get_unchecked(..$param::SIZE)
+                    )?;
+                    offset += $param::SIZE;
+                )*
+                Ok(())
+            }
+        }
+        unsafe impl<$( $param ),*> Flat for ( $( $param, )* )
+            where $( $param: Flat + FlatSized ),*
+        {}
+    };
+}
+
+impl_flat_tuple!(A);
+impl_flat_tuple!(A, B);
+impl_flat_tuple!(A, B, C);
+impl_flat_tuple!(A, B, C, D);
+impl_flat_tuple!(A, B, C, D, E);
+impl_flat_tuple!(A, B, C, D, E, F);
+impl_flat_tuple!(A, B, C, D, E, F, G);
+impl_flat_tuple!(A, B, C, D, E, F, G, H);
+impl_flat_tuple!(A, B, C, D, E, F, G, H, I);
+impl_flat_tuple!(A, B, C, D, E, F, G, H, I, J);
+impl_flat_tuple!(A, B, C, D, E, F, G, H, I, J, K);
+impl_flat_tuple!(A, B, C, D, E, F, G, H, I, J, K, L);
+impl_flat_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+impl_flat_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+impl_flat_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+impl_flat_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
