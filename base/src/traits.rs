@@ -87,11 +87,13 @@ pub unsafe trait FlatValidate: FlatUnsized {
 ///
 /// By implementing this trait by yourself you guarantee:
 ///
-/// + `Self` has stable binary representation that will not change in future.
+/// + `Self` has stable binary representation at the same platform.
 ///   (But the representation could be differ across different platforms. If you need stronger guarantees consider using `Portable` types.)
-/// + `Self` don't own any resources outside of it.
+/// + `Self` doesn't own or refer any resources outside of it.
 /// + `Self` could be trivially copied as bytes. (We cannot require `Self: `[`Copy`] because it `?Sized`.)
-/// + All methods of dependent traits have proper implementation and will not cause an UB.
+/// + `Self` doesn't contain any padding. It must be safe to be casted to bytes.
+/// + `Self` doesn't have niches. Some bit pattern may be invalid, but not UB.
+/// + All methods of depending traits have proper implementation and will not cause UB.
 pub unsafe trait Flat: FlatBase + FlatUnsized + FlatValidate {}
 
 /// Statically-sized flat type.
