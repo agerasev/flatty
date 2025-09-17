@@ -1,4 +1,4 @@
-use crate::Info;
+use super::Info;
 use proc_macro2::Ident;
 
 #[derive(Clone, Default, Debug)]

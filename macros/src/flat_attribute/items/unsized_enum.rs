@@ -1,4 +1,4 @@
-use crate::{
+use crate::flat_attribute::{
     utils::{generic, type_list},
     Context,
 };

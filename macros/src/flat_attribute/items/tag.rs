@@ -1,4 +1,4 @@
-use crate::{utils::generic, Context};
+use crate::flat_attribute::{utils::generic, Context};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Index};
