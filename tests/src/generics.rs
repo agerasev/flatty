@@ -77,6 +77,7 @@ where
         _p: Unused<&'a U>,
     },
     D(GenericUnsizedStruct<'a, T, U, N>),
-    #[default]
     E,
+    #[default]
+    F(FlatVec<T>),
 }

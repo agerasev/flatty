@@ -425,7 +425,29 @@ pub fn impl_default(ctx: &Context, input: &DeriveInput) -> TokenStream {
                 })
                 .unwrap();
             let ty = variant_ident(init_ident, &default_variant.ident);
-            (quote! { #ty }, quote! { #ty })
+            let ty_args = default_variant.fields.iter().fold(quote! {}, |a, f| {
+                let ty = &f.ty;
+                quote! { #a <#ty as ::flatty::FlatDefault>::DefaultEmplacer, }
+            });
+            let body = match &default_variant.fields {
+                Fields::Unit => quote! { #ty },
+                Fields::Unnamed(..) => {
+                    let items = default_variant.fields.iter().fold(quote! {}, |a, f| {
+                        let ty = &f.ty;
+                        quote! { #a <#ty as ::flatty::FlatDefault>::default_emplacer(), }
+                    });
+                    quote! { #ty(#items) }
+                }
+                Fields::Named(..) => {
+                    let items = default_variant.fields.iter().fold(quote! {}, |a, f| {
+                        let ident = f.ident.as_ref().unwrap();
+                        let ty = &f.ty;
+                        quote! { #a #ident: <#ty as ::flatty::FlatDefault>::default_emplacer(), }
+                    });
+                    quote! { #ty { #items } }
+                }
+            };
+            (quote! { #ty<#ty_args> }, body)
         }
         _ => unimplemented!(),
     };
